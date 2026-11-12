@@ -26,9 +26,17 @@ SANDBOX_INTEGRATION=1 pnpm --filter @mya/agents test   # real npm install + tsc 
 | `SANDBOX_DOCKER_IMAGE`, `SANDBOX_DOCKER_INSTALL_NETWORK` | api | Image, plus an egress-filtered network that can reach package registries only |
 | `CREDITS_PER_USD`, `MAX_CREDITS_PER_RUN`, `FREE_PLAN_CREDITS` | api | Credit pricing, per-run cap, starter grant |
 | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` | mobile | |
+| `ENCRYPTION_KEY` | api | **Required for payments**: `openssl rand -base64 32`. Losing it makes stored gateway credentials unreadable |
+| `PUBLIC_API_URL` | api | Public base URL, used to show merchants their webhook URL |
+| `CHECKOUT_RESERVATION_MINUTES`, `CHECKOUT_RATE_LIMIT_PER_MINUTE`, `GENERATION_RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_PER_MINUTE` | api | Commerce and abuse controls |
 | `R2_*` | api | phase 3+ |
 
 ## Production (initial)
 - Render: `api` web service, `web` web service (or Vercel), managed Redis. Supabase for Postgres and Auth. Inngest Cloud.
 - `render.yaml` blueprint lives in `infra/` (added in Phase 1 completion).
 - A deploy counts as succeeded only after `GET /health` returns `{db:"ok"}` from the deployed URL.
+
+## Payment provider setup (per merchant, done in the Stores → Settings screen)
+- **Razorpay:** Dashboard → API Keys (key id and secret). Dashboard → Webhooks: add the URL shown in Settings, set a secret, and enable `payment.captured`, `order.paid` and `payment.failed`.
+- **Stripe:** Developers → API keys (publishable and secret). Webhooks: add the URL shown in Settings with `payment_intent.succeeded` and `payment_intent.payment_failed`, then copy the signing secret (`whsec_…`).
+- Rate limiting uses in-memory storage. When running more than one API instance, switch the throttler to Redis storage.

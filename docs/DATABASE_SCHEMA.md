@@ -5,6 +5,7 @@ Source of truth: `packages/db/prisma/schema.prisma`. Migrations: `packages/db/pr
 | Migration | Contents |
 |---|---|
 | `20261112000000_init` | All core tables, enums, indexes, FKs |
+| `20261112100000_commerce` | Store, Product, Collection, ProductCollection, ProductVariant, Inventory, Customer, Order, OrderItem, Payment, Refund, Discount, ShippingConfiguration, PaymentWebhookEvent, plus RLS and CHECK constraints (stock never negative, reserved ≤ on-hand, refunded ≤ total) |
 | `20261112000100_rls` | RLS enabled on all 25 tables, read policies, helper functions `mya_uid()`, `mya_is_member()`, `mya_can_see_project()` |
 
 ## Domains
@@ -14,6 +15,7 @@ Source of truth: `packages/db/prisma/schema.prisma`. Migrations: `packages/db/pr
 - **AI engine:** `GenerationRun`, `AgentTask`, `AgentEvent`, `AiProviderConfig`, `AiUsage` (cost in USD micros, kept separate from credits charged)
 - **Builds & release:** `BuildJob`, `BuildArtifact`, `HostingDeployment` (status `live` only after a passing health check), `Domain`, `PublishingRecord`, `DeveloperAccount`
 - **Integrations:** `Integration` (encrypted credentials, never plaintext)
+- **Commerce:** multi-tenant by `storeId` → `organizationId`. Money is integer minor units. `Inventory.available = onHand − reserved`. `Order.checkoutToken` (idempotency) and `Order.accessToken` (buyer access) are unique. `PaymentWebhookEvent(provider, eventId)` is unique, which gives exactly-once webhook processing
 - **Safety & ops:** `ApprovalRequest` (publish / domain / payment / destructive / paid upgrade), `AuditLog`, `Notification`, `SupportRequest`
 
 ## Tenancy rules

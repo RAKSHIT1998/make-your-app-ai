@@ -1,6 +1,9 @@
 # API Specification
 
-Base URL: `API_URL` (dev `http://localhost:4000`). JSON only. Every route except those marked *public* requires `Authorization: Bearer <Supabase access token>`.
+Base URL: `API_URL/api/v1` (dev `http://localhost:4000/api/v1`). Every path below is relative to `/api/v1`. JSON only. Every route except those marked *public* requires `Authorization: Bearer <Supabase access token>`.
+
+**Errors** are always `{ statusCode, error, message, details?, requestId }`. Send `x-request-id` to correlate requests; it is echoed back.
+**Rate limits:** `RATE_LIMIT_PER_MINUTE` per client per route (default 300), checkout `CHECKOUT_RATE_LIMIT_PER_MINUTE` (15), generation start `GENERATION_RATE_LIMIT_PER_MINUTE` (20). Exceeding a limit returns 429.
 
 Request bodies and queries are validated with the zod schemas in `@mya/shared`. A failed validation returns
 `400 { message: "Validation failed", details: [{ path, message }] }`.
@@ -36,6 +39,40 @@ Request bodies and queries are validated with the zod schemas in `@mya/shared`. 
 | GET | `/credits` | viewer+ | Org credit balance (sum of ledger entries) |
 
 Run statuses: `queued → running → succeeded | failed | awaiting_approval`.
+
+### Commerce: merchant (authenticated; viewer reads, member edits catalog, admin for store, payments and refunds)
+| Method | Path | Description |
+|---|---|---|
+| POST / GET | `/stores` | Create (admin of org) / list stores |
+| GET / PATCH | `/stores/:id` | Store, payment status and webhook URL (never secrets) / update status, tax, theme |
+| PUT | `/stores/:id/payments` | Connect Razorpay `{keyId,keySecret,webhookSecret}` or Stripe `{secretKey,publishableKey,webhookSecret}`. **Live connection test**, then encrypted at rest (AES-256-GCM). 503 `setupRequired` without `ENCRYPTION_KEY` |
+| POST / GET | `/stores/:id/products` | Create with variants and inventory / list |
+| PATCH / DELETE | `/stores/:id/products/:pid` | Update / archive (soft delete) |
+| PATCH | `/stores/:id/variants/:vid` | Price, SKU, options |
+| POST | `/stores/:id/variants/:vid/inventory` | `{set}` or `{adjust}`, row-locked. Cannot go below reserved stock |
+| POST / GET / PATCH | `/stores/:id/discounts[/:did]` | Percentage (basis points), fixed amount or free shipping. Optional window, minimum and usage limit |
+| POST / GET | `/stores/:id/shipping` | Flat rate with optional free-over threshold |
+| GET | `/stores/:id/orders[?status=&cursor=]`, `/stores/:id/orders/:oid` | Orders with items, payments and refunds |
+| POST | `/stores/:id/orders/:oid/fulfill` | Paid → fulfilled, with tracking number |
+| POST | `/stores/:id/orders/:oid/refunds` | `{amountMinor, reason, restock, idempotencyKey}`. Over-refund safe, idempotent. Restock only on a full remaining refund |
+| GET | `/stores/:id/analytics?days=` | Gross, refunds, net, orders, AOV, pending, top products, daily series, low stock (real orders only) |
+
+### Commerce: storefront (public; used by generated stores)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/storefront/:slug` | Store info, theme, shipping options (active stores only) |
+| GET | `/storefront/:slug/products[?q=&collection=]`, `/products/:handle` | Active catalog. Shows availability, never stock counts |
+| POST | `/storefront/:slug/quote` | Server-side pricing (discount → shipping → tax) |
+| POST | `/storefront/:slug/checkout` | `{checkoutToken, email, items, discountCode?, shippingId?, shippingAddress?}`. Locks stock, reserves it (`CHECKOUT_RESERVATION_MINUTES`) and opens a provider payment. Returns `accessToken` and public payment params. **Idempotent per checkoutToken.** 409 when out of stock |
+| GET | `/storefront/:slug/orders/:oid?token=` | Buyer order view (requires the order's access token) |
+| POST | `/storefront/:slug/orders/:oid/razorpay/confirm` | Razorpay Checkout callback. Verified with HMAC(order_id\|payment_id, key secret) |
+
+### Payment webhooks (public, signature-verified over the raw body)
+| POST | `/webhooks/payments/razorpay/:storeId` | `X-Razorpay-Signature`. Handles `payment.captured`, `order.paid` and `payment.failed` |
+|---|---|---|
+| POST | `/webhooks/payments/stripe/:storeId` | `Stripe-Signature` (SDK `constructEvent`). Handles `payment_intent.succeeded` and `payment_intent.payment_failed` |
+
+Each event id is processed once. A payment marks its order paid only if the amount and currency match the order exactly.
 
 ## Planned (Phase 3–6). Not yet implemented.
 | Method | Path | Notes |

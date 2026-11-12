@@ -57,3 +57,39 @@ export const api = {
   approvals: (projectId: string) => apiFetch<Approval[]>(`/projects/${projectId}/approvals`),
   decide: (approvalId: string, approve: boolean) => apiFetch<{ status: string; error?: string }>(`/approvals/${approvalId}/${approve ? 'approve' : 'reject'}`, { method: 'POST' }),
 };
+
+// ───────── Commerce ─────────
+export interface Store { id: string; name: string; slug: string; currency: string; status: 'draft' | 'active' | 'paused'; taxRateBps: number; pricesIncludeTax: boolean; paymentProvider: 'razorpay' | 'stripe' | null; createdAt: string; payments?: { provider: string | null; status: string; webhookUrl: string | null; lastTestedAt: string | null } }
+export interface Variant { id: string; title: string; sku: string | null; priceMinor: number; inventory: { onHand: number; reserved: number; tracked: boolean; lowStockThreshold: number } | null }
+export interface Product { id: string; title: string; handle: string; status: 'draft' | 'active' | 'archived'; digital: boolean; variants: Variant[] }
+export interface OrderItem { id: string; productTitle: string; variantTitle: string; quantity: number; unitPriceMinor: number; totalMinor: number }
+export interface Order { id: string; number: number; email: string; status: string; fulfillmentStatus: string; currency: string; subtotalMinor: number; discountMinor: number; shippingMinor: number; taxMinor: number; totalMinor: number; refundedMinor: number; trackingNumber: string | null; createdAt: string; items: OrderItem[]; refunds?: { id: string; amountMinor: number; status: string; reason: string; createdAt: string }[] }
+export interface Analytics { currency: string; days: number; grossSalesMinor: number; refundsMinor: number; netSalesMinor: number; orders: number; averageOrderValueMinor: number; pendingPaymentOrders: number; topProducts: { productTitle: string; units: number; revenueMinor: number }[]; lowStock: { variantId: string; productTitle: string; variantTitle: string; available: number }[] }
+export interface Shipping { id: string; name: string; rateMinor: number; freeOverMinor: number | null; active: boolean }
+export interface Discount { id: string; code: string; type: string; value: number; usageCount: number; usageLimit: number | null; active: boolean }
+
+const j = (b: unknown) => ({ body: JSON.stringify(b) });
+export const commerce = {
+  stores: () => apiFetch<Store[]>('/stores'),
+  createStore: (b: { name: string; currency: string; taxRateBps: number; pricesIncludeTax: boolean }) => apiFetch<Store>('/stores', { method: 'POST', ...j(b) }),
+  store: (id: string) => apiFetch<Store>(`/stores/${id}`),
+  updateStore: (id: string, b: Partial<Pick<Store, 'status' | 'name' | 'taxRateBps' | 'pricesIncludeTax'>>) => apiFetch<Store>(`/stores/${id}`, { method: 'PATCH', ...j(b) }),
+  connectPayments: (id: string, b: Record<string, string>) => apiFetch<Store['payments']>(`/stores/${id}/payments`, { method: 'PUT', ...j(b) }),
+  analytics: (id: string, days = 30) => apiFetch<Analytics>(`/stores/${id}/analytics?days=${days}`),
+  products: (id: string) => apiFetch<Product[]>(`/stores/${id}/products`),
+  createProduct: (id: string, b: unknown) => apiFetch<Product>(`/stores/${id}/products`, { method: 'POST', ...j(b) }),
+  updateProduct: (id: string, pid: string, b: unknown) => apiFetch<Product>(`/stores/${id}/products/${pid}`, { method: 'PATCH', ...j(b) }),
+  setStock: (id: string, vid: string, set: number) => apiFetch<unknown>(`/stores/${id}/variants/${vid}/inventory`, { method: 'POST', ...j({ set }) }),
+  orders: (id: string) => apiFetch<{ items: Order[] }>(`/stores/${id}/orders?limit=50`),
+  order: (id: string, oid: string) => apiFetch<Order>(`/stores/${id}/orders/${oid}`),
+  fulfill: (id: string, oid: string, trackingNumber?: string) => apiFetch<Order>(`/stores/${id}/orders/${oid}/fulfill`, { method: 'POST', ...j({ trackingNumber }) }),
+  refund: (id: string, oid: string, b: { amountMinor: number; reason: string; restock: boolean; idempotencyKey: string }) => apiFetch<unknown>(`/stores/${id}/orders/${oid}/refunds`, { method: 'POST', ...j(b) }),
+  shipping: (id: string) => apiFetch<Shipping[]>(`/stores/${id}/shipping`),
+  createShipping: (id: string, b: unknown) => apiFetch<Shipping>(`/stores/${id}/shipping`, { method: 'POST', ...j(b) }),
+  discounts: (id: string) => apiFetch<Discount[]>(`/stores/${id}/discounts`),
+  createDiscount: (id: string, b: unknown) => apiFetch<Discount>(`/stores/${id}/discounts`, { method: 'POST', ...j(b) }),
+};
+
+export function money(minor: number, currency: string) {
+  return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', { style: 'currency', currency }).format(minor / 100);
+}

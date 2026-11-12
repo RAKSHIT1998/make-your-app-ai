@@ -1,7 +1,7 @@
 'use client';
 
 import { clsx } from 'clsx';
-import { CreditCard, FolderKanban, Home, LayoutTemplate, PlusCircle, Rocket, Server, Settings } from 'lucide-react';
+import { CreditCard, FolderKanban, Home, LayoutTemplate, PlusCircle, Rocket, Server, Settings, Store } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -15,13 +15,14 @@ const NAV = [
   { href: '/home', label: 'Home', icon: Home, live: true },
   { href: '/create', label: 'Create', icon: PlusCircle, live: true },
   { href: '/projects', label: 'Projects', icon: FolderKanban, live: true },
+  { href: '/stores', label: 'Stores', icon: Store, live: true },
   { href: '/templates', label: 'Templates', icon: LayoutTemplate, live: false },
   { href: '/hosting', label: 'Hosting', icon: Server, live: false },
   { href: '/publish', label: 'Publish', icon: Rocket, live: false },
   { href: '/billing', label: 'Billing', icon: CreditCard, live: false },
   { href: '/settings', label: 'Settings', icon: Settings, live: true },
 ];
-const MOBILE_NAV = NAV.filter((n) => ['/home', '/create', '/projects', '/settings'].includes(n.href));
+const MOBILE_NAV = NAV.filter((n) => ['/home', '/create', '/projects', '/stores', '/settings'].includes(n.href));
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -73,7 +74,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Main">
+      <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Main">
         {MOBILE_NAV.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} className={clsx('flex flex-col items-center gap-1 py-2.5 text-xs font-medium', pathname.startsWith(href) ? 'text-brand' : 'text-muted')}>
             <Icon className="size-5" aria-hidden />

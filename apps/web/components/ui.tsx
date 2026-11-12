@@ -8,7 +8,7 @@ export function Button({ variant = 'primary', size = 'md', loading, className, c
       {...rest}
       disabled={disabled || loading}
       className={clsx(
-        'inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' && 'h-8 px-3 text-sm',
         size === 'md' && 'h-10 px-4 text-sm',
         size === 'lg' && 'h-12 px-5 text-base',
@@ -48,13 +48,21 @@ const STATUS_STYLES: Record<string, string> = {
   error: 'bg-danger/10 text-danger',
   failed: 'bg-danger/10 text-danger',
   archived: 'bg-surface-muted text-subtle',
+  active: 'bg-success/10 text-success',
+  paused: 'bg-warning/10 text-warning',
+  paid: 'bg-success/10 text-success',
+  pending_payment: 'bg-surface-muted text-muted',
+  partially_refunded: 'bg-warning/10 text-warning',
+  refunded: 'bg-surface-muted text-muted',
+  cancelled: 'bg-surface-muted text-subtle',
+  expired: 'bg-surface-muted text-subtle',
 };
 
 export function StatusBadge({ status }: { status: string }) {
   return (
     <span className={clsx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', STATUS_STYLES[status] ?? 'bg-surface-muted text-muted')}>
       {(status === 'generating' || status === 'running') && <span className="size-1.5 animate-pulse rounded-full bg-current" />}
-      {status.replace('_', ' ')}
+      {status.replaceAll('_', ' ')}
     </span>
   );
 }

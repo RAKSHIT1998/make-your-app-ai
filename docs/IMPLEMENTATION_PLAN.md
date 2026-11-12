@@ -32,9 +32,9 @@ Every phase ends with the app running, the relevant tests executed, errors fixed
 - [x] Workspace UI: chat, file explorer, versions, run log (live preview pending)
 
 ## Phase 4 — Commerce
-- [ ] Commerce engine modules (catalog, variants, inventory, cart, checkout, orders, discounts, tax, shipping)
-- [ ] Store template + store admin template
-- [ ] Razorpay + Stripe adapters with verified webhooks
+- [x] Commerce engine modules (catalog, variants, inventory, cart, checkout, orders, discounts, tax, shipping)
+- [~] Merchant admin (web) done; AI-generated storefront template on top of the storefront API is still to do
+- [x] Razorpay + Stripe adapters with verified webhooks
 - [ ] Business website builder sections
 
 ## Phase 5 — Hosting & mobile release
