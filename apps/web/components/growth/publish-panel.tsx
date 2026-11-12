@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Button, ErrorNotice, Field, Input, Notice, Select, Skeleton, Textarea, toast } from '../ui';
 import { ShareButtons } from './share';
-import { CATEGORIES, CATEGORY_LABELS, showcase, type Category, type Publishing } from '@/lib/api';
+import { CATEGORIES, CATEGORY_LABELS, showcase, templatesApi, type Category, type Publishing } from '@/lib/api';
 
 function Toggle({ checked, onChange, label, hint, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string; disabled?: boolean }) {
   return (
@@ -68,6 +68,8 @@ export function PublishPanel({ projectId }: { projectId: string }) {
         {live && <Button variant="secondary" loading={save.isPending && save.variables === 'private'} onClick={() => save.mutate('private')}>Unpublish</Button>}
       </div>
 
+      {live && <TemplateOffer projectId={projectId} />}
+
       {live && url && (
         <div className="space-y-3 border-t border-border pt-5">
           <h3 className="text-sm font-semibold">Share your project</h3>
@@ -75,6 +77,27 @@ export function PublishPanel({ projectId }: { projectId: string }) {
           {d.creatorHandle && <p className="text-[13px] text-muted">Your creator profile: <Link className="font-medium text-fg hover:underline" href={`/c/${d.creatorHandle}`}>@{d.creatorHandle}</Link></p>}
         </div>
       )}
+    </div>
+  );
+}
+
+function TemplateOffer({ projectId }: { projectId: string }) {
+  const qc = useQueryClient();
+  const t = useQuery({ queryKey: ['my-template', projectId], queryFn: () => templatesApi.mine(projectId) });
+  const submit = useMutation({ mutationFn: () => templatesApi.submit(projectId, {}), onSuccess: (d) => { qc.setQueryData(['my-template', projectId], d); toast.success('Submitted for review'); }, onError: (e) => toast.error((e as Error).message) });
+  const withdraw = useMutation({ mutationFn: () => templatesApi.withdraw(projectId), onSuccess: (d) => { qc.setQueryData(['my-template', projectId], d); toast.success('Template withdrawn'); }, onError: (e) => toast.error((e as Error).message) });
+  if (t.isLoading) return null;
+  const d = t.data;
+  const label = { pending: 'Waiting for review', approved: 'Listed in Templates', rejected: 'Not approved', withdrawn: 'Withdrawn' } as const;
+  return (
+    <div className="space-y-2 border-t border-border pt-5">
+      <h3 className="text-sm font-semibold">Offer as a template</h3>
+      <p className="text-[13px] text-muted">Let others start new projects from the published version. Templates are reviewed before they’re listed, and they’re free for everyone.</p>
+      {d && d.status !== 'withdrawn' && <p className="text-[13px]"><span className="font-medium">{label[d.status]}</span>{d.status === 'approved' ? ` · used ${d.uses} time${d.uses === 1 ? '' : 's'}` : ''}{d.reviewNote ? <span className="text-muted"> — {d.reviewNote}</span> : null}</p>}
+      <div className="flex gap-2">
+        {(!d || d.status === 'withdrawn' || d.status === 'rejected' || d.status === 'approved') && <Button size="sm" variant="secondary" loading={submit.isPending} onClick={() => submit.mutate()}>{d && d.status !== 'withdrawn' ? 'Resubmit published version' : 'Submit as template'}</Button>}
+        {d && (d.status === 'pending' || d.status === 'approved') && <Button size="sm" variant="ghost" loading={withdraw.isPending} onClick={() => withdraw.mutate()}>Withdraw</Button>}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Composer } from '@/components/composer';
 
 export default function CreatePage() {
@@ -15,6 +16,7 @@ export default function CreatePage() {
         <p className="text-sm text-muted">Describe it in your own words. Mention real details — your services, location, audience and the feel you want.</p>
       </div>
       <Composer key={initial} autoFocus initialIdea={initial} />
+      <p className="text-center text-[13px] text-muted">Prefer a head start? <Link href="/templates" className="font-medium text-fg underline-offset-4 hover:underline">Start from a template</Link> or <Link href="/explore" className="font-medium text-fg underline-offset-4 hover:underline">remix a public project</Link>.</p>
       <ul className="grid grid-cols-1 gap-3 text-[13px] text-muted sm:grid-cols-3">
         <li className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 shadow-sm"><div className="mb-1 font-semibold text-fg">1 · Plan & design</div>AI turns your idea into pages, sections and a visual system.</li>
         <li className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 shadow-sm"><div className="mb-1 font-semibold text-fg">2 · Build & check</div>It writes the code and checks its own work before saving.</li>

@@ -38,7 +38,7 @@ export const ReportSchema = z.object({
 });
 
 /** Files never copied into a remix, even if a generator ever wrote them. */
-const SECRET_FILE = /(^|\/)(\.env(\..*)?|\.npmrc|id_rsa.*|.*\.pem|.*\.key|secrets?\.(json|ya?ml))$/i;
+export const SECRET_FILE = /(^|\/)(\.env(\..*)?|\.npmrc|id_rsa.*|.*\.pem|.*\.key|secrets?\.(json|ya?ml))$/i;
 const AUTO_HIDE_REPORTS = 3;
 const RESERVED_HANDLES = new Set(['admin', 'api', 'app', 'explore', 'login', 'pricing', 'settings', 'billing', 'support', 'help', 'about', 'legal', 'mya', 'makeyourapp', 'official', 'staff', 'team']);
 

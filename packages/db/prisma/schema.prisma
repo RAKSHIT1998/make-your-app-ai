@@ -383,6 +383,8 @@ model Project {
   moderatedAt        DateTime?
   moderationNote     String?
   remixedFromId      String?           @db.Uuid
+  /// Set when the project was started from an approved template.
+  fromTemplateId     String?           @db.Uuid
   likeCount          Int               @default(0)
   viewCount          Int               @default(0)
   remixCount         Int               @default(0)
@@ -393,6 +395,7 @@ model Project {
   remixes        Project[]           @relation("Remixes")
   likes          ProjectLike[]
   hostingSite    HostingSite?
+  template       Template?           @relation("TemplateSource")
   envVars        ProjectEnvVar[]
   viewDays       ProjectViewDay[]
   reports        ProjectReport[]
@@ -1194,4 +1197,39 @@ model PlatformFlag {
   description String   @default("")
   updatedAt   DateTime @updatedAt
   updatedBy   String?  @db.Uuid
+}
+
+enum TemplateStatus {
+  pending
+  approved
+  rejected
+  withdrawn
+}
+
+/// A published project offered as a starting point. Only approved templates are listed;
+/// the files are frozen at submission (versionId) so later edits never leak into the template.
+model Template {
+  id          String         @id @default(uuid()) @db.Uuid
+  projectId   String         @unique @db.Uuid
+  versionId   String         @db.Uuid
+  creatorId   String         @db.Uuid
+  slug        String         @unique
+  title       String
+  description String         @default("")
+  category    String?
+  type        ProjectType
+  status      TemplateStatus @default(pending)
+  reviewNote  String?
+  reviewedBy  String?        @db.Uuid
+  reviewedAt  DateTime?
+  /// Paid templates need creator payouts (not built yet); every template is free today.
+  priceMinor  Int            @default(0)
+  usesCount   Int            @default(0)
+  featuredAt  DateTime?
+  snapshot    Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  project     Project        @relation("TemplateSource", fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([status, usesCount])
 }

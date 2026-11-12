@@ -129,7 +129,7 @@ const STATUS: Record<string, [Tone, string]> = {
   paid: ['success', 'Paid'], pending_payment: ['neutral', 'Awaiting payment'], partially_refunded: ['warning', 'Part refunded'],
   refunded: ['neutral', 'Refunded'], cancelled: ['neutral', 'Cancelled'], expired: ['neutral', 'Expired'], fulfilled: ['success', 'Fulfilled'],
   unfulfilled: ['neutral', 'Unfulfilled'], past_due: ['warning', 'Past due'], halted: ['danger', 'Halted'], suspended: ['danger', 'Suspended'],
-  building: ['accent', 'Building'], live: ['success', 'Live'], deployed_unverified: ['warning', 'Deployed · not reachable'], rolled_back: ['neutral', 'Replaced'],
+  building: ['accent', 'Building'], live: ['success', 'Live'], deployed_unverified: ['warning', 'Deployed · not reachable'], rolled_back: ['neutral', 'Previous'],
   pending_verification: ['warning', 'Waiting for DNS'], verified: ['warning', 'Verified · DNS pending'],
 };
 

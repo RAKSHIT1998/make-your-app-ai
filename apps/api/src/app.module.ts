@@ -28,6 +28,8 @@ import { MerchantService } from './commerce/merchant.service.js';
 import { StorefrontService } from './commerce/storefront.service.js';
 import { HostingService, healthCheckProvider, hostingProviderFactory } from './hosting/hosting.service.js';
 import { HostingController } from './hosting/hosting.controller.js';
+import { TemplatesService } from './templates/templates.service.js';
+import { TemplatesController } from './templates/templates.controller.js';
 import { RetentionService } from './retention/retention.service.js';
 import { RetentionController } from './retention/retention.controller.js';
 import { FlagsService } from './flags/flags.service.js';
@@ -45,7 +47,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: config.RATE_LIMIT_PER_MINUTE }])],
-      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController],
+      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController, TemplatesController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         prismaProvider,
@@ -70,6 +72,7 @@ export class AppModule {
         hostingProviderFactory,
         healthCheckProvider,
         HostingService,
+        TemplatesService,
         ShowcaseService,
         ReferralsService,
         ModerationService,

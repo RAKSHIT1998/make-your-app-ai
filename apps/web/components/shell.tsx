@@ -27,7 +27,7 @@ const STUDIOS: NavItem[] = [
 ];
 const PLATFORM: NavItem[] = [
   { href: '/hosting', label: 'Hosting', icon: Server, live: true },
-  { href: '/templates', label: 'Templates', icon: LayoutTemplate, live: false },
+  { href: '/templates', label: 'Templates', icon: LayoutTemplate, live: true },
 ];
 const COMMUNITY: NavItem[] = [
   { href: '/explore', label: 'Explore', icon: Compass, live: true },

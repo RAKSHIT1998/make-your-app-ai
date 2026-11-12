@@ -6,9 +6,9 @@ import { useState } from 'react';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorNotice, Field, Input, Menu, MenuItem, PageHeader, Segmented, Skeleton, Stat, StatusBadge, Tabs, toast, useConfirm } from '@/components/ui';
 import { DataTable } from '@/components/ui/table';
 import Link from 'next/link';
-import { admin, api, flags as flagsApi, growthAdmin, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
+import { admin, api, flags as flagsApi, growthAdmin, templatesApi, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
 
-type Tab = 'overview' | 'plans' | 'customers' | 'growth' | 'flags' | 'audit';
+type Tab = 'overview' | 'plans' | 'customers' | 'growth' | 'templates' | 'flags' | 'audit';
 const intOk = (v: string, allowNeg = false) => (allowNeg ? /^-?\d+$/ : /^\d+$/).test(v.trim());
 
 export default function AdminPage() {
@@ -18,8 +18,8 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Owner" title="Owner console" description={<span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5" />Platform-wide business data. Every action is recorded in the audit log.</span>} />
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'growth', label: 'Growth' }, { value: 'flags', label: 'Feature flags' }, { value: 'audit', label: 'Audit log' }]} />
-      {tab === 'overview' ? <Overview /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : tab === 'growth' ? <Growth /> : tab === 'flags' ? <Flags /> : <Audit />}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'growth', label: 'Growth' }, { value: 'templates', label: 'Templates' }, { value: 'flags', label: 'Feature flags' }, { value: 'audit', label: 'Audit log' }]} />
+      {tab === 'overview' ? <Overview /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : tab === 'growth' ? <Growth /> : tab === 'flags' ? <Flags /> : tab === 'templates' ? <TemplateReviews /> : <Audit />}
     </div>
   );
 }
@@ -326,6 +326,44 @@ function Flags() {
           ))}
         </ul>
       </Card>
+    </div>
+  );
+}
+
+function TemplateReviews() {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const q = useQuery({ queryKey: ['admin-templates', status], queryFn: () => templatesApi.queue(status) });
+  const act = useMutation({
+    mutationFn: ({ id, decision, note }: { id: string; decision: 'approve' | 'reject' | 'feature' | 'unfeature'; note?: string }) => templatesApi.review(id, decision, note),
+    onSuccess: (_, v) => { toast.success({ approve: 'Template approved', reject: 'Template rejected', feature: 'Template featured', unfeature: 'Removed from featured' }[v.decision]); void qc.invalidateQueries({ queryKey: ['admin-templates'] }); },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  return (
+    <div className="space-y-3">
+      <Segmented label="Status" value={status} onChange={setStatus} options={[{ value: 'pending', label: 'Waiting' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }]} />
+      {q.error ? <ErrorNotice error={q.error} /> : !q.data ? <Skeleton className="h-40" /> : (
+        <DataTable
+          rows={q.data}
+          rowKey={(t) => t.id}
+          empty={<Card padded={false}><EmptyState compact title={status === 'pending' ? 'Nothing waiting for review' : 'None'} /></Card>}
+          columns={[
+            { key: 't', header: 'Template', cell: (t) => <div>{t.projectSlug ? <Link className="font-medium hover:underline" href={`/p/${t.projectSlug}`} target="_blank">{t.title}</Link> : <span className="font-medium">{t.title}</span>}<div className="max-w-[320px] truncate text-xs text-muted">{t.description}</div></div> },
+            { key: 'c', header: 'Creator', cell: (t) => <span className="text-muted">@{t.creator.handle}</span> },
+            { key: 'p', header: 'Pages', align: 'right', cell: (t) => <span className="tabular-nums">{t.pageCount}</span> },
+            { key: 'u', header: 'Uses', align: 'right', cell: (t) => <span className="tabular-nums">{t.uses}</span> },
+            { key: 'a', header: <span className="sr-only">Actions</span>, align: 'right', cell: (t) => (
+              <div className="flex justify-end gap-1.5">
+                {t.status !== 'approved' && <Button size="xs" onClick={() => act.mutate({ id: t.id, decision: 'approve' })}>Approve</Button>}
+                {t.status === 'approved' && <Button size="xs" variant="secondary" onClick={() => act.mutate({ id: t.id, decision: t.featured ? 'unfeature' : 'feature' })}>{t.featured ? 'Unfeature' : 'Feature'}</Button>}
+                {t.status !== 'rejected' && <Button size="xs" variant="danger" onClick={async () => { const r = await confirm({ title: `Reject “${t.title}”?`, confirmLabel: 'Reject', danger: true, input: { label: 'Reason (shown to the creator)', required: true } }); if (r.ok) act.mutate({ id: t.id, decision: 'reject', note: r.value.trim() }); }}>Reject</Button>}
+              </div>
+            ) },
+          ]}
+          mobile={{ primary: (t) => t.title, secondary: (t) => `@${t.creator.handle} · ${t.uses} uses`, trailing: (t) => t.status !== 'approved' ? <Button size="xs" onClick={() => act.mutate({ id: t.id, decision: 'approve' })}>Approve</Button> : null }}
+        />
+      )}
     </div>
   );
 }

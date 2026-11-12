@@ -232,7 +232,7 @@ export async function publicGet<T>(path: string): Promise<T | null> {
 
 // ───────── Platform flags, retention ─────────
 
-export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting';
+export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting' | 'templates';
 export const flags = {
   all: () => apiFetch<Record<FlagKey, boolean>>('/flags', {}, async () => null),
   admin: () => apiFetch<{ key: FlagKey; enabled: boolean; description: string; default: boolean; updatedAt: string | null }[]>('/admin/flags'),
@@ -272,4 +272,23 @@ export const hostingApi = {
   addDomain: (projectId: string, hostname: string) => apiFetch<HostedDomain>(`/projects/${projectId}/domains`, { method: 'POST', body: JSON.stringify({ hostname }) }),
   checkDomain: (projectId: string, hostname: string) => apiFetch<HostedDomain>(`/projects/${projectId}/domains/${hostname}/check`, { method: 'POST' }),
   removeDomain: (projectId: string, hostname: string) => apiFetch<void>(`/projects/${projectId}/domains/${hostname}`, { method: 'DELETE' }),
+};
+
+// ───────── Templates ─────────
+
+export interface TemplateCard {
+  slug: string; title: string; description: string; category: Category | null; type: ProjectType; uses: number; featured: boolean; free: boolean;
+  pageCount: number; palette: Record<string, string> | null; pages: { route: string; title: string; purpose: string }[]; fileCount: number; summary: string | null;
+  creator: { handle: string | null; name: string | null };
+}
+export interface MyTemplate { status: 'pending' | 'approved' | 'rejected' | 'withdrawn'; slug: string; title: string; reviewNote: string | null; uses: number; submittedAt: string }
+export interface TemplateReview extends TemplateCard { id: string; status: MyTemplate['status']; reviewNote: string | null; projectSlug: string | null; submittedAt: string }
+export const templatesApi = {
+  list: (q: { q?: string; type?: ProjectType; category?: Category; sort?: 'popular' | 'new' | 'featured' }) => apiFetch<TemplateCard[]>(`/templates${qs(q)}`),
+  use: (slug: string, name?: string) => apiFetch<ProjectDto>(`/templates/${slug}/use`, { method: 'POST', body: JSON.stringify(name ? { name } : {}) }),
+  mine: (projectId: string) => apiFetch<MyTemplate | null>(`/projects/${projectId}/template`),
+  submit: (projectId: string, b: { title?: string; description?: string }) => apiFetch<MyTemplate>(`/projects/${projectId}/template`, { method: 'PUT', body: JSON.stringify(b) }),
+  withdraw: (projectId: string) => apiFetch<MyTemplate>(`/projects/${projectId}/template`, { method: 'DELETE' }),
+  queue: (status?: 'pending' | 'approved' | 'rejected') => apiFetch<TemplateReview[]>(`/admin/templates${status ? `?status=${status}` : ''}`),
+  review: (id: string, decision: 'approve' | 'reject' | 'feature' | 'unfeature', note?: string) => apiFetch<unknown>(`/admin/templates/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, ...(note ? { note } : {}) }) }),
 };

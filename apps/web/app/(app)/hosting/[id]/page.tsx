@@ -11,6 +11,8 @@ import { DataTable } from '@/components/ui/table';
 import { api, hostingApi, type Deployment, type HostedDomain } from '@/lib/api';
 
 type Tab = 'deployments' | 'domains' | 'env';
+/** Earlier successful deployments are shown as "Previous" (still available for rollback). */
+const shown = (d: Deployment) => (!d.current && ['live', 'deployed_unverified'].includes(d.status) ? 'rolled_back' : d.status);
 
 export default function ProjectHostingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -38,7 +40,7 @@ export default function ProjectHostingPage({ params }: { params: Promise<{ id: s
           {project.data ? <h1 className="truncate text-xl font-semibold tracking-[-0.02em]">{project.data.name}</h1> : <Skeleton className="h-7 w-48" />}
           {s?.site?.productionUrl ? <a href={s.site.productionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1 truncate text-[13px] text-muted hover:text-fg">{s.site.productionUrl.replace('https://', '')}<ExternalLink className="size-3 shrink-0" /></a> : <div className="text-[13px] text-subtle">Not deployed yet</div>}
         </div>
-        <Link href={`/projects/${id}`}><Button variant="secondary" size="sm">Open workspace</Button></Link>
+        <Link href={`/projects/${id}`} className="hidden sm:block"><Button variant="secondary" size="sm">Open workspace</Button></Link>
         {s && (
           <Button size="sm" disabled={!s.configured || !s.entitlements.canDeploy || s.headVersion === null || busy} loading={deploy.isPending} onClick={async () => {
             const r = await confirm({ title: `Deploy version ${s.headVersion}?`, body: `This publishes the current code to ${s.site?.productionUrl ? s.site.productionUrl.replace('https://', '') : 'a new live URL'}. Visitors will see it once the build finishes. You can roll back afterwards.`, confirmLabel: 'Deploy' });
@@ -66,13 +68,13 @@ export default function ProjectHostingPage({ params }: { params: Promise<{ id: s
               rowKey={(d) => d.id}
               empty={<Card padded={false}><EmptyState compact icon={<Rocket className="size-5" />} title="No deployments yet" body="Deploy to get a live URL for this website." /></Card>}
               columns={[
-                { key: 's', header: 'Status', cell: (d) => <div className="flex items-center gap-2"><StatusBadge status={d.status} />{d.current && <Badge tone="success">Current</Badge>}{d.kind === 'rollback' && <Badge>Rollback</Badge>}</div> },
+                { key: 's', header: 'Status', cell: (d) => <div className="flex items-center gap-2"><StatusBadge status={shown(d)} />{d.current && <Badge tone="success">Current</Badge>}{d.kind === 'rollback' && <Badge>Rollback</Badge>}</div> },
                 { key: 'v', header: 'Version', cell: (d) => <span className="tabular-nums">v{d.versionNumber}</span> },
                 { key: 'u', header: 'URL', cell: (d) => d.url && ['live', 'deployed_unverified'].includes(d.status) ? <a className="inline-flex max-w-[240px] items-center gap-1 truncate text-muted hover:text-fg" href={d.url} target="_blank" rel="noopener noreferrer">{d.url.replace('https://', '')}<ExternalLink className="size-3 shrink-0" /></a> : d.error ? <span className="block max-w-[260px] truncate text-danger" title={d.error}>{d.error}</span> : <span className="text-subtle">—</span> },
                 { key: 't', header: 'When', cell: (d) => <span className="text-muted">{timeAgo(d.createdAt)}</span> },
                 { key: 'a', header: <span className="sr-only">Actions</span>, align: 'right', cell: (d) => <DeploymentActions d={d} /> },
               ]}
-              mobile={{ primary: (d) => <span className="flex items-center gap-2">v{d.versionNumber} {d.current && <Badge tone="success">Current</Badge>}</span>, secondary: (d) => d.error ?? timeAgo(d.createdAt), trailing: (d) => <div className="flex items-center gap-1"><StatusBadge status={d.status} /><DeploymentActions d={d} /></div> }}
+              mobile={{ primary: (d) => <span className="flex items-center gap-2">v{d.versionNumber} {d.current && <Badge tone="success">Current</Badge>}</span>, secondary: (d) => d.error ?? timeAgo(d.createdAt), trailing: (d) => <div className="flex items-center gap-1"><StatusBadge status={shown(d)} /><DeploymentActions d={d} /></div> }}
             />
           )}
           {tab === 'domains' && <Domains projectId={id} domains={s.domains} canUse={s.entitlements.canUseCustomDomains} deployed={!!s.site} configured={s.configured} onChange={refresh} />}

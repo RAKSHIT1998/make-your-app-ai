@@ -12,6 +12,7 @@ export const FLAGS = {
   publishing: { default: true, description: 'Publishing projects to public pages.' },
   explore: { default: true, description: 'The public Explore gallery.' },
   remix: { default: true, description: 'Remix with AI on public projects.' },
+  templates: { default: true, description: 'Template gallery, submissions and starting projects from templates.' },
   hosting: { default: true, description: 'Deployments, custom domains and environment variables (Cloud Studio).' },
   referrals: { default: true, description: 'Linking invite codes to new accounts. Reward amounts live in Growth settings.' },
 } as const;
