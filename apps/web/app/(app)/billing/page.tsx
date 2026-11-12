@@ -10,7 +10,7 @@ import { DataTable } from '@/components/ui/table';
 import { billing, money, type CheckoutParams, type UsageEntry } from '@/lib/api';
 import { openCheckout } from '@/lib/checkout';
 
-const REASONS: Record<string, string> = { plan_grant: 'Monthly allowance', purchase: 'Credit top-up', ai_usage: 'AI usage', infra_usage: 'Infrastructure', refund: 'Refund', adjustment: 'Adjustment', expiry: 'Allowance reset' };
+const REASONS: Record<string, string> = { plan_grant: 'Monthly allowance', purchase: 'Credit top-up', ai_usage: 'AI usage', infra_usage: 'Infrastructure', refund: 'Refund', adjustment: 'Adjustment', expiry: 'Allowance reset', referral: 'Referral bonus' };
 const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 function BillingInner() {

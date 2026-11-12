@@ -21,8 +21,16 @@ export default function LoginPage() {
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const [invited, setInvited] = useState(false);
   useEffect(() => {
-    if (session) router.replace('/home');
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('invited')) { setInvited(true); setMode('signup'); }
+  }, []);
+  useEffect(() => {
+    if (!session) return;
+    const next = new URLSearchParams(window.location.search).get('next');
+    // Only same-site paths: never redirect to another origin.
+    router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/home');
   }, [session, router]);
 
   async function submit(e: React.FormEvent) {
@@ -66,6 +74,7 @@ export default function LoginPage() {
               <div className="flex items-center gap-3 text-xs text-subtle"><span className="h-px flex-1 bg-border" />or with email<span className="h-px flex-1 bg-border" /></div>
               <Field label="Email"><Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></Field>
               <Field label="Password" hint={mode === 'signup' ? 'At least 8 characters.' : undefined}><Input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+              {invited && <Notice tone="success">You’ve been invited. Create your account — you’ll both get bonus credits after your first purchase.</Notice>}
               {error ? <ErrorNotice error={error} /> : null}
               {notice && <Notice tone="success">{notice}</Notice>}
               <Button type="submit" size="lg" className="w-full" loading={busy}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Button>

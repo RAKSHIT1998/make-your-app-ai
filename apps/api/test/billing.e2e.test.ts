@@ -151,6 +151,53 @@ describe('subscriptions (Razorpay)', () => {
     expect((await overview(a.auth)).credits).toMatchObject({ allowanceRemaining: 0, purchasedRemaining: 280 });
   });
 
+  it('referrals: linking rewards nothing; the first verified payment rewards both sides once, within limits', async () => {
+    const { pack } = await seedPlans();
+    const ref = await login('referrer');
+    const dash = (await http().get(`${V}/referrals`).set('Authorization', ref.auth).expect(200)).body;
+    expect(dash.code).toMatch(/^[A-Z2-9]{8}$/);
+    await http().post(`${V}/referrals/claim`).set('Authorization', ref.auth).send({ code: dash.code }).expect(400); // own code
+
+    const friend = await login('friend');
+    await http().post(`${V}/referrals/claim`).set('Authorization', friend.auth).send({ code: 'NOPE1234' }).expect(404);
+    await http().post(`${V}/referrals/claim`).set('Authorization', friend.auth).send({ code: dash.code.toLowerCase() }).expect(201);
+    await http().post(`${V}/referrals/claim`).set('Authorization', friend.auth).send({ code: dash.code }).expect(400); // only once
+    await http().post(`${V}/referrals/claim`).set('Authorization', ref.auth).send({ code: (await http().get(`${V}/referrals`).set('Authorization', friend.auth)).body.code }).expect(400); // no reverse link
+
+    // Signing up alone earns nothing.
+    expect((await overview(ref.auth)).credits.purchasedRemaining).toBe(0);
+    expect((await http().get(`${V}/referrals`).set('Authorization', ref.auth)).body.referrals[0]).toMatchObject({ status: 'pending', credits: 0 });
+
+    // A verified payment by the friend qualifies the referral, exactly once.
+    const top = (await http().post(`${V}/billing/checkout/topup`).set('Authorization', friend.auth).send({ creditPackId: pack }).expect(201)).body;
+    const paid = { order: { entity: { id: top.orderId } }, payment: { entity: { id: 'pay_ref', amount: 49_900, currency: 'INR', order_id: top.orderId } } };
+    expect((await sendRzp(rzpEvent('order.paid', paid))).outcome).toBe('topup_credited');
+    expect((await sendRzp(rzpEvent('order.paid', paid))).outcome).toBe('already_processed');
+    expect((await overview(ref.auth)).credits.purchasedRemaining).toBe(300);
+    expect((await overview(friend.auth)).credits.purchasedRemaining).toBe(300 + 150);
+    const after = (await http().get(`${V}/referrals`).set('Authorization', ref.auth)).body;
+    expect(after.stats).toMatchObject({ invited: 1, converted: 1, creditsEarned: 300 });
+    expect(after.referrals[0].who).not.toContain('friend-'); // masked
+
+    // Monthly cap: further conversions are recorded but not rewarded.
+    await prisma.growthSettings.update({ where: { id: 'default' }, data: { maxRewardsPerMonth: 1 } });
+    const second = await login('second');
+    await http().post(`${V}/referrals/claim`).set('Authorization', second.auth).send({ code: dash.code }).expect(201);
+    const top2 = (await http().post(`${V}/billing/checkout/topup`).set('Authorization', second.auth).send({ creditPackId: pack }).expect(201)).body;
+    await sendRzp(rzpEvent('order.paid', { order: { entity: { id: top2.orderId } }, payment: { entity: { id: 'pay_ref2', amount: 49_900, currency: 'INR', order_id: top2.orderId } } }));
+    expect((await overview(ref.auth)).credits.purchasedRemaining).toBe(300);
+    expect((await http().get(`${V}/referrals`).set('Authorization', ref.auth)).body.referrals[0]).toMatchObject({ status: 'rejected', rejectReason: 'monthly_cap' });
+
+    // Paying customers can't attach a code afterwards; old accounts can't either.
+    const late = await login('late');
+    await http().post(`${V}/referrals/claim`).set('Authorization', second.auth).send({ code: (await http().get(`${V}/referrals`).set('Authorization', late.auth)).body.code }).expect(400);
+    await prisma.user.update({ where: { id: late.id }, data: { createdAt: new Date(Date.now() - 30 * 864e5) } });
+    await http().post(`${V}/referrals/claim`).set('Authorization', late.auth).send({ code: dash.code }).expect(400);
+
+    // Owner configures rewards; customers cannot.
+    await http().patch(`${V}/admin/growth/settings`).set('Authorization', ref.auth).send({ referrerRewardCredits: 1 }).expect(404);
+  });
+
   it('credits a top-up exactly once, only for the paid amount', async () => {
     const { pack } = await seedPlans();
     const a = await login('topup');

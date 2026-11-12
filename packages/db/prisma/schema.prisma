@@ -43,8 +43,17 @@ model User {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   lastSeenAt   DateTime?
+  /// Public creator handle (/c/:handle). Null until the user publishes or picks one.
+  handle       String?       @unique
+  bio          String        @default("")
+  /// Shareable referral code (/r/:code). Generated lazily.
+  referralCode String?       @unique
 
   memberships     OrganizationMembership[]
+  likes           ProjectLike[]
+  reports         ProjectReport[]
+  referralsMade   Referral[]               @relation("Referrer")
+  referredBy      Referral?                @relation("Referred")
   projectsCreated Project[]                @relation("ProjectCreator")
   auditLogs       AuditLog[]
   notifications   Notification[]
@@ -291,6 +300,7 @@ enum LedgerReason {
   refund
   adjustment
   expiry
+  referral
 }
 
 enum CreditBucket {
@@ -353,8 +363,37 @@ model Project {
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
 
+  // ── Showcase (public pages, Explore, remix) ──
+  visibility         ProjectVisibility @default(private)
+  /// Public URL slug (/p/:slug), assigned on first publish and kept stable.
+  slug               String?           @unique
+  /// The version visitors and remixers get. Later private edits are never exposed until republished.
+  publishedVersionId String?           @db.Uuid
+  publishedAt        DateTime?
+  /// What the public page shows (pages, palette, file count), frozen at publish time.
+  publishedSnapshot  Json?
+  publicTitle        String?
+  publicDescription  String?
+  category           String?
+  allowRemix         Boolean           @default(true)
+  /// "Made with Make Your App AI". Only paid plans may turn it off (enforced server-side).
+  showAttribution    Boolean           @default(true)
+  featuredAt         DateTime?
+  /// Set when a moderator unpublishes the project; blocks republishing until cleared.
+  moderatedAt        DateTime?
+  moderationNote     String?
+  remixedFromId      String?           @db.Uuid
+  likeCount          Int               @default(0)
+  viewCount          Int               @default(0)
+  remixCount         Int               @default(0)
+
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy      User                @relation("ProjectCreator", fields: [createdById], references: [id])
+  remixedFrom    Project?            @relation("Remixes", fields: [remixedFromId], references: [id], onDelete: SetNull)
+  remixes        Project[]           @relation("Remixes")
+  likes          ProjectLike[]
+  viewDays       ProjectViewDay[]
+  reports        ProjectReport[]
   headVersion    ProjectVersion?     @relation("ProjectHead", fields: [headVersionId], references: [id])
   versions       ProjectVersion[]    @relation("ProjectVersions")
   files          ProjectFile[]
@@ -366,6 +405,9 @@ model Project {
   store          Store?
 
   @@index([organizationId, deletedAt])
+
+  @@index([visibility, publishedAt])
+  @@index([remixedFromId])
 }
 
 /// Index of files at head (content lives in git; small text files are cached here for fast reads).
@@ -1010,4 +1052,95 @@ model PaymentWebhookEvent {
   outcome     String?
 
   @@unique([provider, eventId])
+}
+
+
+// ───────────────────────── Growth: showcase, referrals ─────────────────────────
+
+enum ProjectVisibility {
+  private
+  public
+}
+
+model ProjectLike {
+  projectId String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([projectId, createdAt])
+}
+
+/// One row per (project, viewer, day): views are counted once per viewer per day.
+model ProjectViewDay {
+  projectId String   @db.Uuid
+  /// sha256 of user id, or of ip + user agent for anonymous visitors. Never stored raw.
+  viewerKey String
+  day       DateTime @db.Date
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, viewerKey, day])
+  @@index([projectId, day])
+}
+
+enum ReportStatus {
+  open
+  dismissed
+  actioned
+}
+
+model ProjectReport {
+  id         String       @id @default(uuid()) @db.Uuid
+  projectId  String       @db.Uuid
+  reporterId String       @db.Uuid
+  reason     String
+  details    String       @default("")
+  status     ReportStatus @default(open)
+  resolvedAt DateTime?
+  createdAt  DateTime     @default(now())
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter   User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, reporterId])
+  @@index([status, createdAt])
+}
+
+enum ReferralStatus {
+  pending
+  rewarded
+  rejected
+}
+
+/// A referred user is linked to exactly one referrer. Rewards are paid only after the
+/// referred user's first verified payment (server-side webhook), never on signup.
+model Referral {
+  id             String         @id @default(uuid()) @db.Uuid
+  referrerId     String         @db.Uuid
+  referredUserId String         @unique @db.Uuid
+  status         ReferralStatus @default(pending)
+  rejectReason   String?
+  invoiceId      String?        @db.Uuid
+  referrerCredits Int           @default(0)
+  referredCredits Int           @default(0)
+  qualifiedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  referrer       User           @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred       User           @relation("Referred", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId, createdAt])
+}
+
+/// Platform-wide growth settings (single row, id = "default"), editable in the owner console.
+model GrowthSettings {
+  id                       String   @id @default("default")
+  referralsEnabled         Boolean  @default(true)
+  referrerRewardCredits    Int      @default(300)
+  referredRewardCredits    Int      @default(150)
+  /// Max rewarded referrals per referrer per calendar month (anti-abuse).
+  maxRewardsPerMonth       Int      @default(10)
+  /// A code can only be claimed within this many days of the referred user's signup.
+  claimWindowDays          Int      @default(7)
+  updatedAt                DateTime @updatedAt
 }

@@ -9,3 +9,6 @@ export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionConte
   if (!req.user) throw new Error('CurrentUser used on a public route');
   return req.user;
 });
+
+/** The signed-in caller on a public route, or null for anonymous visitors. */
+export const OptionalUser = createParamDecorator((_: unknown, ctx: ExecutionContext): AuthUser | null => ctx.switchToHttp().getRequest<{ user?: AuthUser }>().user ?? null);

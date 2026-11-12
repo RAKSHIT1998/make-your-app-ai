@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LogOut, Monitor, Moon, Sun } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Badge, Button, Card, ErrorNotice, Field, Input, Kbd, PageHeader, Segmented, Skeleton, toast } from '@/components/ui';
+import Link from 'next/link';
+import { Badge, Button, Card, ErrorNotice, Field, Input, Kbd, PageHeader, Segmented, Skeleton, Textarea, toast } from '@/components/ui';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -24,13 +25,16 @@ export default function SettingsPage() {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   const { theme, setTheme } = useTheme();
   const [name, setName] = useState('');
-  useEffect(() => { if (me.data) setName(me.data.displayName ?? ''); }, [me.data]);
+  const [handle, setHandle] = useState('');
+  const [bio, setBio] = useState('');
+  useEffect(() => { if (me.data) { setName(me.data.displayName ?? ''); setHandle(me.data.handle ?? ''); setBio(me.data.bio ?? ''); } }, [me.data]);
+  const handleOk = handle === '' || /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/.test(handle);
   const save = useMutation({
-    mutationFn: () => api.updateMe({ displayName: name.trim() || null }),
+    mutationFn: () => api.updateMe({ displayName: name.trim() || null, bio: bio.trim(), ...(handle ? { handle } : {}) }),
     onSuccess: (m) => { qc.setQueryData(['me'], m); toast.success('Profile saved'); },
     onError: (e) => toast.error((e as Error).message),
   });
-  const dirty = !!me.data && name.trim() !== (me.data.displayName ?? '');
+  const dirty = !!me.data && handleOk && (name.trim() !== (me.data.displayName ?? '') || handle !== (me.data.handle ?? '') || bio.trim() !== (me.data.bio ?? ''));
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -42,7 +46,11 @@ export default function SettingsPage() {
           {!me.data ? <Skeleton className="h-24" /> : (
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (dirty) save.mutate(); }}>
               <Field label="Display name"><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your name" /></Field>
-              <Field label="Email" hint="Managed by your sign-in provider."><Input value={me.data.email} readOnly disabled /></Field>
+              <Field label="Creator handle" hint={me.data.handle ? <>Your public profile: <Link className="font-medium text-fg hover:underline" href={`/c/${me.data.handle}`}>/c/{me.data.handle}</Link></> : 'Used on your public profile and published projects.'} error={handleOk ? null : 'Use 3–30 lowercase letters, numbers or hyphens.'}>
+                <Input value={handle} onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/\s/g, ''))} maxLength={30} placeholder="your-name" autoCapitalize="none" spellCheck={false} />
+              </Field>
+              <Field label="Bio" hint="Shown on your public profile."><Textarea rows={2} maxLength={280} value={bio} onChange={(e) => setBio(e.target.value)} /></Field>
+              <Field label="Email" hint="Managed by your sign-in provider. Never shown publicly."><Input value={me.data.email} readOnly disabled /></Field>
               <Button type="submit" variant="secondary" disabled={!dirty} loading={save.isPending}>Save profile</Button>
             </form>
           )}

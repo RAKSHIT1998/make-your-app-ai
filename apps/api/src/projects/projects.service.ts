@@ -89,7 +89,8 @@ export class ProjectsService {
   async update(user: AuthUser, id: string, input: UpdateProjectInput, ip: string | null) {
     const p = await this.getAuthorized(user, id, 'member');
     const updated = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.project.update({ where: { id: p.id }, data: input });
+      // Archiving also takes the project off its public page.
+      const u = await tx.project.update({ where: { id: p.id }, data: { ...input, ...(input.status === 'archived' ? { visibility: 'private' as const } : {}) } });
       await this.audit.record(
         { action: 'project.updated', actorId: user.id, organizationId: p.organizationId, targetType: 'project', targetId: p.id, ip, metadata: { fields: Object.keys(input) } },
         tx,
@@ -103,7 +104,7 @@ export class ProjectsService {
   async remove(user: AuthUser, id: string, ip: string | null) {
     const p = await this.getAuthorized(user, id, 'admin');
     await this.prisma.$transaction(async (tx) => {
-      await tx.project.update({ where: { id: p.id }, data: { deletedAt: new Date(), status: 'archived' } });
+      await tx.project.update({ where: { id: p.id }, data: { deletedAt: new Date(), status: 'archived', visibility: 'private' } });
       await this.audit.record(
         { action: 'project.deleted', actorId: user.id, organizationId: p.organizationId, targetType: 'project', targetId: p.id, ip },
         tx,

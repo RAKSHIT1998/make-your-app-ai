@@ -92,7 +92,7 @@ export class CreditsService {
   }
 
   /** Idempotent ledger write (ON CONFLICT DO NOTHING on the idempotency key). */
-  async grant(organizationId: string, amount: number, reason: 'plan_grant' | 'purchase' | 'adjustment' | 'refund', idempotencyKey: string, bucket: CreditBucket = 'allowance', tx: Tx = this.prisma, ref?: { type: string; id: string }) {
+  async grant(organizationId: string, amount: number, reason: 'plan_grant' | 'purchase' | 'adjustment' | 'refund' | 'referral', idempotencyKey: string, bucket: CreditBucket = 'allowance', tx: Tx = this.prisma, ref?: { type: string; id: string }) {
     await tx.creditLedgerEntry.createMany({
       data: [{ organizationId, amount, reason, idempotencyKey, bucket, referenceType: ref?.type ?? null, referenceId: ref?.id ?? null }],
       skipDuplicates: true,

@@ -205,6 +205,17 @@ export class GenerationsService {
     });
   }
 
+  /** Commits a whole tree as a project's first version (used by Remix). No AI, no credits. */
+  async importTree(project: Project, tree: FileTree, message: string, projectData: Prisma.ProjectUncheckedUpdateInput = {}) {
+    const sha = await this.store.commit(project.id, tree, message);
+    await this.recordVersion(project, sha, tree, message, null, projectData);
+  }
+
+  /** Reads the files of a specific version straight from the project's repository. */
+  readVersionTree(projectId: string, commitSha: string) {
+    return this.store.readTree(projectId, commitSha);
+  }
+
   // ───────────────────────── Queries ─────────────────────────
 
   private async getAuthorizedRun(user: AuthUser, runId: string) {

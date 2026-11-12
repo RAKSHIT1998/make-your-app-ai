@@ -5,6 +5,7 @@ import { PRISMA } from '../prisma.service.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { CreditsService } from '../credits/credits.service.js';
 import { OrgsService } from '../orgs/orgs.service.js';
+import { ReferralsService } from '../growth/referrals.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 
@@ -35,6 +36,7 @@ export class BillingService {
     @Inject(CreditsService) private readonly credits: CreditsService,
     @Inject(OrgsService) private readonly orgs: OrgsService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(ReferralsService) private readonly referrals: ReferralsService,
   ) {}
 
   private provider(name: PaymentProvider): BillingProvider {
@@ -316,6 +318,7 @@ export class BillingService {
         this.log.error(`failed to cancel replaced subscription ${old.id}: ${e instanceof Error ? e.message : e}`);
       }
     }
+    if (evt.payment) await this.referrals.onPaidInvoice(organizationId);
     await this.audit.record({ action: 'billing.subscription_paid', organizationId, targetType: 'subscription', targetId: evt.providerSubscriptionId ?? undefined, metadata: { plan: price.plan.code, event: evt.kind } });
     return evt.kind === 'subscription.charged' ? 'subscription_charged' : 'subscription_activated';
   }
@@ -349,6 +352,7 @@ export class BillingService {
         skipDuplicates: true,
       });
     });
+    await this.referrals.onPaidInvoice(checkout.organizationId);
     await this.audit.record({ action: 'billing.topup_paid', organizationId: checkout.organizationId, targetType: 'billing_checkout', targetId: checkout.id, metadata: { credits: pack.credits } });
     return 'topup_credited';
   }

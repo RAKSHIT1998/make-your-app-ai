@@ -5,9 +5,10 @@ import { MoreHorizontal, Search, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorNotice, Field, Input, Menu, MenuItem, PageHeader, Segmented, Skeleton, Stat, StatusBadge, Tabs, toast, useConfirm } from '@/components/ui';
 import { DataTable } from '@/components/ui/table';
-import { admin, api, money, type AdminPlan, type AdminUser } from '@/lib/api';
+import Link from 'next/link';
+import { admin, api, growthAdmin, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
 
-type Tab = 'overview' | 'plans' | 'customers' | 'audit';
+type Tab = 'overview' | 'plans' | 'customers' | 'growth' | 'audit';
 const intOk = (v: string, allowNeg = false) => (allowNeg ? /^-?\d+$/ : /^\d+$/).test(v.trim());
 
 export default function AdminPage() {
@@ -17,8 +18,8 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Owner" title="Owner console" description={<span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5" />Platform-wide business data. Every action is recorded in the audit log.</span>} />
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'audit', label: 'Audit log' }]} />
-      {tab === 'overview' ? <Overview /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : <Audit />}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'growth', label: 'Growth' }, { value: 'audit', label: 'Audit log' }]} />
+      {tab === 'overview' ? <Overview /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : tab === 'growth' ? <Growth /> : <Audit />}
     </div>
   );
 }
@@ -190,5 +191,107 @@ function Audit() {
       ]}
       mobile={{ primary: (l) => <span className="font-mono text-xs">{l.action}</span>, secondary: (l) => `${new Date(l.createdAt).toLocaleString()} · ${l.actor ?? 'system'}` }}
     />
+  );
+}
+
+function Growth() {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const ref = useQuery({ queryKey: ['admin-referrals'], queryFn: growthAdmin.referrals });
+  const show = useQuery({ queryKey: ['admin-showcase'], queryFn: growthAdmin.showcase });
+  const [f, setF] = useState<Record<keyof GrowthSettings, string> | null>(null);
+  const s = ref.data?.settings;
+  const form = f ?? (s ? { referralsEnabled: String(s.referralsEnabled), referrerRewardCredits: String(s.referrerRewardCredits), referredRewardCredits: String(s.referredRewardCredits), maxRewardsPerMonth: String(s.maxRewardsPerMonth), claimWindowDays: String(s.claimWindowDays) } : null);
+  const valid = !!form && (['referrerRewardCredits', 'referredRewardCredits', 'maxRewardsPerMonth', 'claimWindowDays'] as const).every((k) => intOk(form[k])) && Number(form.claimWindowDays) >= 1;
+  const saveSettings = useMutation({
+    mutationFn: () => growthAdmin.updateSettings({ referralsEnabled: form!.referralsEnabled === 'true', referrerRewardCredits: Number(form!.referrerRewardCredits), referredRewardCredits: Number(form!.referredRewardCredits), maxRewardsPerMonth: Number(form!.maxRewardsPerMonth), claimWindowDays: Number(form!.claimWindowDays) }),
+    onSuccess: () => { setF(null); toast.success('Referral settings saved'); void qc.invalidateQueries({ queryKey: ['admin-referrals'] }); },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const act = useMutation({
+    mutationFn: ({ fn }: { fn: () => Promise<unknown>; msg: string }) => fn(),
+    onSuccess: (_, v) => { toast.success(v.msg); void qc.invalidateQueries({ queryKey: ['admin-showcase'] }); },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const hide = async (id: string, title: string) => {
+    const r = await confirm({ title: `Hide “${title}”?`, body: 'It disappears from Explore and its public page. The creator can’t republish it until you restore it.', confirmLabel: 'Hide project', danger: true, input: { label: 'Note (shown to the creator)', required: true } });
+    if (r.ok) act.mutate({ fn: () => growthAdmin.hide(id, r.value.trim()), msg: 'Project hidden' });
+  };
+  const field = (k: keyof GrowthSettings, label: string, hint?: string) => <Field label={label} hint={hint}><Input inputMode="numeric" value={form![k]} onChange={(e) => setF({ ...form!, [k]: e.target.value })} /></Field>;
+
+  return (
+    <div className="space-y-8">
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">Referral programme</h2>
+        {ref.error ? <ErrorNotice error={ref.error} /> : !form || !ref.data ? <Skeleton className="h-40" /> : (
+          <>
+            <Card className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <Segmented label="Programme" value={form.referralsEnabled} onChange={(v) => setF({ ...form, referralsEnabled: v })} options={[{ value: 'true', label: 'On' }, { value: 'false', label: 'Paused' }]} />
+                <span className="text-[13px] text-muted">{['pending', 'rewarded', 'rejected'].map((k) => `${ref.data.counts[k] ?? 0} ${k}`).join(' · ')}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {field('referrerRewardCredits', 'Referrer credits')}{field('referredRewardCredits', 'New user credits')}{field('maxRewardsPerMonth', 'Max rewards / month', 'Per referrer')}{field('claimWindowDays', 'Claim window (days)', 'After sign-up')}
+              </div>
+              <p className="text-[13px] text-muted">Rewards are paid only after the invited user’s first verified payment, as never-expiring credits.</p>
+              <Button size="sm" disabled={!valid || !f} loading={saveSettings.isPending} onClick={() => saveSettings.mutate()}>Save settings</Button>
+            </Card>
+            <DataTable
+              rows={ref.data.recent}
+              rowKey={(r) => r.id}
+              empty={<Card padded={false}><EmptyState compact title="No referrals yet" /></Card>}
+              columns={[
+                { key: 'f', header: 'Referrer', cell: (r) => <span className="block max-w-[220px] truncate">{r.referrer}</span> },
+                { key: 't', header: 'Invited', cell: (r) => <span className="block max-w-[220px] truncate">{r.referred}</span> },
+                { key: 's', header: 'Status', cell: (r) => <span className="capitalize">{r.status}{r.rejectReason ? <span className="text-muted"> · {r.rejectReason.replaceAll('_', ' ')}</span> : null}</span> },
+                { key: 'c', header: 'Credits paid', align: 'right', cell: (r) => <span className="tabular-nums">{r.credits || '—'}</span> },
+              ]}
+              mobile={{ primary: (r) => `${r.referrer} → ${r.referred}`, secondary: (r) => r.status, trailing: (r) => <span className="tabular-nums">{r.credits || '—'}</span> }}
+            />
+          </>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">Reports</h2>
+        {show.error ? <ErrorNotice error={show.error} /> : !show.data ? <Skeleton className="h-32" /> : (
+          <DataTable
+            rows={show.data.reports}
+            rowKey={(r) => r.id}
+            empty={<Card padded={false}><EmptyState compact title="No open reports" /></Card>}
+            columns={[
+              { key: 'p', header: 'Project', cell: (r) => <div>{r.project.slug ? <Link className="font-medium hover:underline" href={`/p/${r.project.slug}`} target="_blank">{r.project.title}</Link> : r.project.title}<div className="text-xs text-muted">@{r.project.creator}{r.project.hidden ? ' · hidden' : ''}</div></div> },
+              { key: 'r', header: 'Reason', cell: (r) => <div><span className="capitalize">{r.reason}</span>{r.details && <div className="max-w-[280px] truncate text-xs text-muted">{r.details}</div>}</div> },
+              { key: 'b', header: 'Reporter', cell: (r) => <span className="text-muted">{r.reporter}</span> },
+              { key: 'a', header: <span className="sr-only">Actions</span>, align: 'right', cell: (r) => <div className="flex justify-end gap-1.5">{!r.project.hidden && <Button size="xs" variant="danger" onClick={() => void hide(r.project.id, r.project.title)}>Hide</Button>}{r.project.hidden && <Button size="xs" variant="secondary" onClick={() => act.mutate({ fn: () => growthAdmin.restore(r.project.id), msg: 'Project restored' })}>Restore</Button>}<Button size="xs" variant="ghost" onClick={() => act.mutate({ fn: () => growthAdmin.dismiss(r.id), msg: 'Report dismissed' })}>Dismiss</Button></div> },
+            ]}
+            mobile={{ primary: (r) => r.project.title, secondary: (r) => `${r.reason} · ${r.reporter}`, trailing: (r) => <Button size="xs" variant="ghost" onClick={() => act.mutate({ fn: () => growthAdmin.dismiss(r.id), msg: 'Report dismissed' })}>Dismiss</Button> }}
+          />
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">Published projects</h2>
+        {show.data && (
+          <DataTable
+            rows={show.data.published}
+            rowKey={(p) => p.id}
+            empty={<Card padded={false}><EmptyState compact title="Nothing published yet" /></Card>}
+            columns={[
+              { key: 't', header: 'Project', cell: (p) => <div>{p.slug ? <Link className="font-medium hover:underline" href={`/p/${p.slug}`} target="_blank">{p.title}</Link> : p.title}<div className="text-xs text-muted">@{p.creator}</div></div> },
+              { key: 'e', header: 'Engagement', cell: (p) => <span className="text-muted tabular-nums">{p.likes} likes · {p.views} views · {p.remixes} remixes</span> },
+              { key: 's', header: 'Status', cell: (p) => p.hidden ? <Badge tone="danger">Hidden</Badge> : p.featured ? <Badge tone="accent">Featured</Badge> : <Badge>Public</Badge> },
+              { key: 'a', header: <span className="sr-only">Actions</span>, align: 'right', cell: (p) => (
+                <div className="flex justify-end gap-1.5">
+                  {!p.hidden && <Button size="xs" variant="secondary" onClick={() => act.mutate({ fn: () => growthAdmin.feature(p.id, !p.featured), msg: p.featured ? 'Removed from Featured' : 'Featured in Explore' })}>{p.featured ? 'Unfeature' : 'Feature'}</Button>}
+                  {p.hidden ? <Button size="xs" variant="secondary" onClick={() => act.mutate({ fn: () => growthAdmin.restore(p.id), msg: 'Project restored' })}>Restore</Button> : <Button size="xs" variant="danger" onClick={() => void hide(p.id, p.title)}>Hide</Button>}
+                </div>
+              ) },
+            ]}
+            mobile={{ primary: (p) => p.title, secondary: (p) => `@${p.creator} · ${p.likes} likes`, trailing: (p) => <Button size="xs" variant="secondary" onClick={() => act.mutate({ fn: () => growthAdmin.feature(p.id, !p.featured), msg: p.featured ? 'Removed from Featured' : 'Featured in Explore' })}>{p.featured ? 'Unfeature' : 'Feature'}</Button> }}
+          />
+        )}
+      </section>
+    </div>
   );
 }

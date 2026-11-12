@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Command } from 'cmdk';
-import { CreditCard, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Settings, Shield, ShoppingBag, Smartphone, Sun, type LucideIcon } from 'lucide-react';
+import { Compass, CreditCard, Gift, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Settings, Shield, ShoppingBag, Smartphone, Sun, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -28,6 +28,10 @@ const STUDIOS: NavItem[] = [
 const PLATFORM: NavItem[] = [
   { href: '/hosting', label: 'Hosting', icon: Server, live: false },
   { href: '/templates', label: 'Templates', icon: LayoutTemplate, live: false },
+];
+const COMMUNITY: NavItem[] = [
+  { href: '/explore', label: 'Explore', icon: Compass, live: true },
+  { href: '/invite', label: 'Invite & earn', icon: Gift, live: true },
 ];
 const ACCOUNT: NavItem[] = [
   { href: '/billing', label: 'Billing', icon: CreditCard, live: true },
@@ -128,7 +132,7 @@ function CommandPalette({ open, onOpenChange, owner }: { open: boolean; onOpenCh
   const { setTheme } = useTheme();
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.projects, enabled: open });
   const go = (href: string) => { onOpenChange(false); router.push(href); };
-  const pages = [...PRIMARY, ...STUDIOS, ...ACCOUNT, ...(owner ? [OWNER] : [])];
+  const pages = [...PRIMARY, ...STUDIOS, ...COMMUNITY, ...ACCOUNT, ...(owner ? [OWNER] : [])];
   const item = 'flex h-10 cursor-default items-center gap-2.5 rounded-[var(--radius-md)] px-3 text-sm text-fg data-[selected=true]:bg-surface-muted [&>svg]:size-4 [&>svg]:text-muted';
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
@@ -185,14 +189,14 @@ function MobileTabs({ path, owner, onCreate }: { path: string; owner: boolean; o
             <button onClick={onCreate} aria-label="Create project" className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-fg shadow-[var(--shadow-lg)] active:scale-95"><Plus className="size-6" /></button>
           </div>
           <button onClick={() => setSheet('studios')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', studiosActive ? 'text-fg' : 'text-subtle')}><LayoutGrid className="size-[22px]" strokeWidth={studiosActive ? 2.2 : 1.8} />Studios</button>
-          <button onClick={() => setSheet('more')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', ACCOUNT.some((a) => isActive(a, path)) || path.startsWith('/admin') ? 'text-fg' : 'text-subtle')}><Settings className="size-[22px]" strokeWidth={1.8} />More</button>
+          <button onClick={() => setSheet('more')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', [...COMMUNITY, ...ACCOUNT].some((a) => isActive(a, path)) || path.startsWith('/admin') ? 'text-fg' : 'text-subtle')}><Settings className="size-[22px]" strokeWidth={1.8} />More</button>
         </div>
       </nav>
       <Drawer open={sheet === 'studios'} onOpenChange={(o) => !o && setSheet(null)} title="Studios" side="bottom">
         <div className="space-y-1">{[...STUDIOS, ...PLATFORM].map(sheetLink)}</div>
       </Drawer>
       <Drawer open={sheet === 'more'} onOpenChange={(o) => !o && setSheet(null)} title="Account" side="bottom">
-        <div className="space-y-1">{[...ACCOUNT, ...(owner ? [OWNER] : [])].map(sheetLink)}</div>
+        <div className="space-y-1">{[...COMMUNITY, ...ACCOUNT, ...(owner ? [OWNER] : [])].map(sheetLink)}</div>
         <MobileThemeRow />
       </Drawer>
     </>
@@ -273,6 +277,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NavGroup items={PRIMARY} collapsed={isCollapsed} path={path} />
           <NavGroup title="Studios" items={STUDIOS} collapsed={isCollapsed} path={path} />
           <NavGroup title="Platform" items={PLATFORM} collapsed={isCollapsed} path={path} />
+          <NavGroup title="Community" items={COMMUNITY} collapsed={isCollapsed} path={path} />
           <NavGroup title="Account" items={[...ACCOUNT, ...(owner ? [OWNER] : [])]} collapsed={isCollapsed} path={path} />
         </nav>
         <div className="space-y-2 pt-2">

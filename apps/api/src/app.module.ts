@@ -26,6 +26,10 @@ import { PlatformAdminGuard } from './auth/platform-admin.guard.js';
 import { GatewayRegistry, gatewayFactoryProvider } from './commerce/gateways.js';
 import { MerchantService } from './commerce/merchant.service.js';
 import { StorefrontService } from './commerce/storefront.service.js';
+import { ShowcaseService } from './growth/showcase.service.js';
+import { ReferralsService } from './growth/referrals.service.js';
+import { ModerationService } from './growth/moderation.service.js';
+import { GrowthAdminController, ReferralsController, ShowcaseActionsController, ShowcaseController } from './growth/growth.controllers.js';
 import { MerchantController, PaymentWebhooksController, StorefrontController } from './commerce/commerce.controllers.js';
 
 @Module({})
@@ -35,7 +39,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: config.RATE_LIMIT_PER_MINUTE }])],
-      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController],
+      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, ReferralsController, GrowthAdminController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         prismaProvider,
@@ -55,6 +59,9 @@ export class AppModule {
         billingProvidersFactory,
         BillingService,
         AdminService,
+        ShowcaseService,
+        ReferralsService,
+        ModerationService,
         PlatformAdminGuard,
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: AuthGuard },

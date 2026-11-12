@@ -14,9 +14,19 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [ctx.getHandler(), ctx.getClass()])) return true;
     const req = ctx.switchToHttp().getRequest<Request & { user?: unknown }>();
     const header = req.headers.authorization;
+    if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [ctx.getHandler(), ctx.getClass()])) {
+      // Public routes still recognise a signed-in caller (e.g. "liked by me"); a bad token is ignored, never trusted.
+      if (header?.startsWith('Bearer ')) {
+        try {
+          req.user = await this.auth.resolveUser(await this.verifier.verify(header.slice(7)), req.ip ?? null);
+        } catch {
+          /* anonymous */
+        }
+      }
+      return true;
+    }
     if (!header?.startsWith('Bearer ')) throw new UnauthorizedException('Missing bearer token');
     let claims;
     try {

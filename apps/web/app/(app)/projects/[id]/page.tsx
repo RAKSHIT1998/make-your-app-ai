@@ -1,13 +1,14 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X } from 'lucide-react';
 import Link from 'next/link';
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { projectTypeOption } from '@/components/project-types';
 import { timeAgo } from '@/components/project-card';
-import { Badge, Button, cx, EmptyState, ErrorNotice, Kbd, Skeleton, SoonBadge, StatusBadge, Tabs, toast, Tooltip, useConfirm } from '@/components/ui';
+import { PublishPanel } from '@/components/growth/publish-panel';
+import { Badge, Button, cx, Drawer, EmptyState, ErrorNotice, Kbd, Skeleton, SoonBadge, StatusBadge, Tabs, toast, Tooltip, useConfirm } from '@/components/ui';
 import { api, ApiError, type Run, type RunEvent } from '@/lib/api';
 
 const ACTIVE = new Set(['queued', 'running']);
@@ -50,6 +51,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   const [file, setFile] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
   const desktop = useIsDesktop();
+  const [sharing, setSharing] = useState(false);
 
   // When a run finishes, refresh everything derived from the project's head version and tell the user.
   const wasActive = useRef(false);
@@ -79,8 +81,12 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
           {project.data ? <h1 className="truncate text-sm font-semibold">{project.data.name}</h1> : <Skeleton className="h-4 w-40" />}
           <div className="truncate text-xs text-subtle">{opt?.label}{runs.data?.[0] ? ` · last change ${timeAgo(runs.data[0].createdAt)}` : ''}</div>
         </div>
-        {activeRun ? <Badge tone="accent" dot pulse>AI working</Badge> : project.data && <StatusBadge status={project.data.status} />}
+        {activeRun ? <Badge tone="accent" dot pulse>AI working</Badge> : project.data && <span className="hidden sm:inline-flex"><StatusBadge status={project.data.status} /></span>}
+        <Button size="sm" variant="secondary" onClick={() => setSharing(true)}><Share2 className="size-3.5" />Share</Button>
       </header>
+      <Drawer open={sharing} onOpenChange={setSharing} title="Publish & share" side={desktop === false ? 'bottom' : 'right'}>
+        {sharing && <PublishPanel projectId={id} />}
+      </Drawer>
 
       {/* Desktop: files · center · chat (resizable). Only one layout is mounted so polling isn't duplicated. */}
       {desktop === true && <div className="flex min-h-0 flex-1">
@@ -107,7 +113,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
           </Panel>
           <Separator className="w-px bg-border outline-none transition-colors hover:bg-accent data-[separator=active]:bg-accent" />
           <Panel id="chat" defaultSize="32%" minSize="24%" maxSize="48%" className="min-h-0">
-            <Chat projectId={id} runs={runs.data} activeRun={activeRun} />
+            <Chat projectId={id} runs={runs.data} activeRun={activeRun} hasFiles={!!files.data?.length} />
           </Panel>
         </Group>
       </div>}
@@ -123,7 +129,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
           ]} />
         </div>
         <div className="min-h-0 flex-1">
-          {mobileTab === 'chat' ? <Chat projectId={id} runs={runs.data} activeRun={activeRun} />
+          {mobileTab === 'chat' ? <Chat projectId={id} runs={runs.data} activeRun={activeRun} hasFiles={!!files.data?.length} />
             : mobileTab === 'files' ? <div className="h-full overflow-y-auto p-2"><FileTree files={files.data} loading={files.isLoading} selected={current} onSelect={(p) => { setFile(p); setMobileTab('code'); }} /></div>
             : mobileTab === 'code' ? <CodeView projectId={id} path={current} />
             : <Versions projectId={id} busy={!!activeRun} />}
@@ -282,7 +288,7 @@ function RunLog({ run }: { run: Run }) {
 
 // ───────── Chat ─────────
 
-function Chat({ projectId, runs, activeRun }: { projectId: string; runs?: Run[]; activeRun?: Run }) {
+function Chat({ projectId, runs, activeRun, hasFiles }: { projectId: string; runs?: Run[]; activeRun?: Run; hasFiles: boolean }) {
   const qc = useQueryClient();
   const [prompt, setPrompt] = useState('');
   const scroller = useRef<HTMLDivElement>(null);
@@ -294,13 +300,15 @@ function Chat({ projectId, runs, activeRun }: { projectId: string; runs?: Run[];
   const ordered = useMemo(() => [...(runs ?? [])].reverse(), [runs]);
   useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }); }, [ordered.length]);
   const canSend = !activeRun && prompt.trim().length >= 3 && !send.isPending;
-  const hasVersion = runs?.some((r) => r.status === 'succeeded');
+  const hasVersion = hasFiles || runs?.some((r) => r.status === 'succeeded');
 
   return (
     <section className="flex h-full flex-col bg-bg" aria-label="AI chat">
       <div ref={scroller} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
         {!runs ? <Skeleton className="h-24" /> : !ordered.length ? (
-          <EmptyState icon={<MessageSquare className="size-5" />} title="Describe what to build" body="Your first message generates the project. After that, ask for changes in plain language." />
+          hasVersion
+            ? <EmptyState icon={<MessageSquare className="size-5" />} title="Your project is ready to edit" body="Ask for changes in plain language — “Change the hero to our own headline”, “Add a contact page”. Each change is saved as a new version." />
+            : <EmptyState icon={<MessageSquare className="size-5" />} title="Describe what to build" body="Your first message generates the project. After that, ask for changes in plain language." />
         ) : ordered.map((r) => <RunTurn key={r.id} run={r} live={r.id === activeRun?.id} />)}
         <Approvals projectId={projectId} />
       </div>

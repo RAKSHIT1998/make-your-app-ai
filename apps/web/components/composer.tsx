@@ -21,11 +21,11 @@ const EXAMPLES: Record<string, string[]> = {
 
 const STRUCTURE = `\n\nWho it's for: \nPages / sections: \nStyle: \nMust-haves: `;
 
-export function Composer({ autoFocus, compact, types, defaultType = 'website' }: { autoFocus?: boolean; compact?: boolean; types?: ProjectType[]; defaultType?: ProjectType }) {
+export function Composer({ autoFocus, compact, types, defaultType = 'website', initialIdea = '' }: { autoFocus?: boolean; compact?: boolean; types?: ProjectType[]; defaultType?: ProjectType; initialIdea?: string }) {
   const router = useRouter();
   const qc = useQueryClient();
   const [type, setType] = useState<ProjectType>(defaultType);
-  const [idea, setIdea] = useState('');
+  const [idea, setIdea] = useState(initialIdea);
   const [name, setName] = useState('');
   const [tone, setTone] = useState('');
   const [color, setColor] = useState('');

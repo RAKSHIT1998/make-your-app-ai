@@ -32,6 +32,8 @@ export interface Me {
   id: string;
   email: string;
   displayName: string | null;
+  handle: string | null;
+  bio: string;
   platformRole: 'user' | 'support' | 'admin' | 'superadmin';
   personalOrgId: string;
   organizations: { id: string; name: string; role: string; personal: boolean }[];
@@ -49,7 +51,7 @@ export interface UsageEntry { id: string; amount: number; reason: string; bucket
 export const api = {
   activity: (limit = 12) => apiFetch<ActivityItem[]>(`/activity?limit=${limit}`),
   estimate: () => apiFetch<Estimate>('/generations/estimate'),
-  updateMe: (b: { displayName?: string | null }) => apiFetch<Me>('/me', { method: 'PATCH', body: JSON.stringify(b) }),
+  updateMe: (b: { displayName?: string | null; handle?: string; bio?: string }) => apiFetch<Me>('/me', { method: 'PATCH', body: JSON.stringify(b) }),
   archiveProject: (id: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'archived' }) }),
   renameProject: (id: string, name: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   me: () => apiFetch<Me>('/me'),
@@ -148,3 +150,77 @@ export const admin = {
   credits: (orgId: string, amount: number, reason: string) => apiFetch<unknown>(`/admin/organizations/${orgId}/credits`, { method: 'POST', body: JSON.stringify({ amount, reason, bucket: 'purchased', idempotencyKey: crypto.randomUUID() }) }),
   audit: () => apiFetch<{ id: string; action: string; actor: string | null; targetType: string | null; createdAt: string }[]>('/admin/audit-log?limit=50'),
 };
+
+// ───────── Growth: showcase, remix, referrals ─────────
+
+export const CATEGORIES = ['business', 'portfolio', 'restaurant', 'ecommerce', 'education', 'health', 'events', 'nonprofit', 'saas', 'personal', 'other'] as const;
+export type Category = (typeof CATEGORIES)[number];
+export const CATEGORY_LABELS: Record<Category, string> = { business: 'Business', portfolio: 'Portfolio', restaurant: 'Food & drink', ecommerce: 'Shops', education: 'Education', health: 'Health', events: 'Events', nonprofit: 'Non-profit', saas: 'Software', personal: 'Personal', other: 'Other' };
+
+export interface ShowcaseCard {
+  slug: string; type: ProjectType; category: Category | null; title: string; description: string; publishedAt: string | null; featured: boolean;
+  likes: number; views: number; remixes: number; allowRemix: boolean; pageCount: number; palette: Record<string, string> | null;
+  creator: { handle: string | null; name: string | null };
+}
+export interface ShowcasePage extends ShowcaseCard {
+  showAttribution: boolean; summary: string | null; audience: string | null; pages: { route: string; title: string; purpose: string }[];
+  fileCount: number; versionNumber: number | null; likedByMe: boolean; isOwner: boolean; projectId: string | null;
+  remixedFrom: ShowcaseCard | { private: true } | null; remixList: ShowcaseCard[]; preview: null;
+}
+export interface Creator { handle: string; name: string; bio: string; joinedAt: string; isMe: boolean; totals: { projects: number; likes: number; remixes: number }; projects: ShowcaseCard[] }
+export interface Publishing {
+  visibility: 'private' | 'public'; slug: string | null; publishedAt: string | null; publicTitle: string; publicDescription: string; category: Category | null;
+  allowRemix: boolean; showAttribution: boolean; canHideAttribution: boolean; hasVersion: boolean; outdated: boolean; moderated: boolean; moderationNote: string | null; creatorHandle: string | null;
+}
+export interface ExploreQuery { q?: string; type?: ProjectType; category?: Category; sort?: 'trending' | 'recent' | 'popular' | 'featured'; page?: number; limit?: number }
+export interface ReferralDashboard {
+  code: string; enabled: boolean; rewards: { referrer: number; referred: number; maxPerMonth: number };
+  stats: { invited: number; converted: number; creditsEarned: number };
+  referrals: { id: string; who: string; name: string | null; status: 'pending' | 'rewarded' | 'rejected'; rejectReason: string | null; credits: number; joinedAt: string; qualifiedAt: string | null }[];
+  referredBy: { name: string; status: string; credits: number } | null;
+}
+const qs = (o: object) => { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v !== undefined && v !== '' && v !== null) p.set(k, String(v)); const s = p.toString(); return s ? `?${s}` : ''; };
+
+export const showcase = {
+  explore: (q: ExploreQuery) => apiFetch<{ items: ShowcaseCard[]; page: number; hasMore: boolean }>(`/explore${qs(q)}`),
+  page: (slug: string) => apiFetch<ShowcasePage>(`/showcase/${slug}`),
+  view: (slug: string) => apiFetch<{ counted: boolean }>(`/showcase/${slug}/view`, { method: 'POST' }),
+  like: (slug: string, on: boolean) => apiFetch<{ liked: boolean; likes: number }>(`/showcase/${slug}/like`, { method: on ? 'PUT' : 'DELETE' }),
+  remix: (slug: string) => apiFetch<ProjectDto>(`/showcase/${slug}/remix`, { method: 'POST', body: '{}' }),
+  report: (slug: string, reason: string, details: string) => apiFetch<{ reported: boolean; duplicate: boolean }>(`/showcase/${slug}/report`, { method: 'POST', body: JSON.stringify({ reason, details }) }),
+  creator: (handle: string) => apiFetch<Creator>(`/creators/${handle}`),
+  publishing: (projectId: string) => apiFetch<Publishing>(`/projects/${projectId}/publishing`),
+  publish: (projectId: string, b: Partial<Omit<Publishing, 'visibility'>> & { visibility: 'private' | 'public' }) =>
+    apiFetch<Publishing>(`/projects/${projectId}/publishing`, { method: 'PUT', body: JSON.stringify({ visibility: b.visibility, publicTitle: b.publicTitle, publicDescription: b.publicDescription, category: b.category, allowRemix: b.allowRemix, showAttribution: b.showAttribution }) }),
+};
+
+export const referrals = {
+  dashboard: () => apiFetch<ReferralDashboard>('/referrals'),
+  claim: (code: string) => apiFetch<{ linked: boolean }>('/referrals/claim', { method: 'POST', body: JSON.stringify({ code }) }),
+};
+
+export interface GrowthSettings { referralsEnabled: boolean; referrerRewardCredits: number; referredRewardCredits: number; maxRewardsPerMonth: number; claimWindowDays: number }
+export interface AdminShowcase {
+  reports: { id: string; reason: string; details: string; createdAt: string; reporter: string; project: { id: string; slug: string | null; title: string; hidden: boolean; creator: string } }[];
+  published: { id: string; slug: string | null; title: string; featured: boolean; hidden: boolean; note: string | null; likes: number; views: number; remixes: number; publishedAt: string | null; creator: string }[];
+}
+export const growthAdmin = {
+  referrals: () => apiFetch<{ settings: GrowthSettings; counts: Record<string, number>; recent: { id: string; referrer: string; referred: string; status: string; rejectReason: string | null; createdAt: string; qualifiedAt: string | null; credits: number }[] }>('/admin/growth/referrals'),
+  updateSettings: (b: Partial<GrowthSettings>) => apiFetch<GrowthSettings>('/admin/growth/settings', { method: 'PATCH', body: JSON.stringify(b) }),
+  showcase: () => apiFetch<AdminShowcase>('/admin/growth/showcase'),
+  feature: (id: string, featured: boolean) => apiFetch<unknown>(`/admin/growth/projects/${id}/feature`, { method: 'POST', body: JSON.stringify({ featured }) }),
+  hide: (id: string, note: string) => apiFetch<unknown>(`/admin/growth/projects/${id}/hide`, { method: 'POST', body: JSON.stringify({ note }) }),
+  restore: (id: string) => apiFetch<unknown>(`/admin/growth/projects/${id}/restore`, { method: 'POST' }),
+  dismiss: (id: string) => apiFetch<unknown>(`/admin/growth/reports/${id}/dismiss`, { method: 'POST' }),
+};
+
+/** Server-side fetch for public pages (metadata, OG images). No auth, short cache. */
+export async function publicGet<T>(path: string): Promise<T | null> {
+  const base = `${process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1`;
+  try {
+    const r = await fetch(`${base}${path}`, { next: { revalidate: 60 } });
+    return r.ok ? ((await r.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}

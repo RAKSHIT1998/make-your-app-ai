@@ -1,6 +1,6 @@
 # Development Status
 
-_Last updated: 2026-11-13, session 5 (spec v3 + UI/UX redesign spec)._
+_Last updated: 2026-11-13, session 6 (spec v3 + UI/UX redesign + growth engine spec, see GROWTH.md)._
 _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue from "Next tasks"._
 
 ## Current phase
@@ -15,10 +15,11 @@ _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue f
 | Owner console: MRR/ARR, revenue, fees, AI cost, INR margin, users with per-customer revenue vs AI cost, suspend/restore, credit adjustments, plan editing, audit log | e2e + browser |
 | Pricing page, billing page, top-ups, payment history, legal policy **drafts** (terms, privacy, AUP, refunds, subscriptions) | Chrome at 1440px and 390px: pricing → choose Creator → Razorpay modal opens with the platform key → plan unchanged until a signed `subscription.charged` → "Payment confirmed", 480 allowance → top-up via signed `order.paid` → +300 purchased → owner console shows MRR ₹999 → owner edits Creator credits to 600 (verified in DB). No console errors |
 | **UI/UX redesign (session 5)** — design system v2 (warm neutrals, ink primary, ember accent, Geist, light + dark), shared components (buttons, inputs, cards, dialogs/bottom sheets, drawers, menus, tabs, tooltips, toasts, confirm dialogs, skeletons, empty/error states, responsive DataTable), new shell (collapsible sidebar, ⌘K palette, ⌘B, icon rail on tablets, mobile bottom nav with central Create), and every screen rebuilt: Home, Create, Projects, AI workspace, App Studio, Website Studio, Business Studio (10 sections), Billing, Settings, Owner console, Login, Pricing, Legal. See DESIGN_SYSTEM.md | Playwright journeys at 1440 and 390 (login → create → confirm → generate → edit → files/code → versions → logs → store → product → inventory → discount → every store section → all pages → dark mode); overflow sweep of 14 pages at 360/375/430/768/1024/1440: **no horizontal overflow, no console errors** |
+| **Growth engine G1** — publishing with frozen public snapshots, Explore (search, filters, trending/new/liked/featured), public project pages with OG images, creator profiles + handles, likes, daily-unique views, share links, **Remix with AI** (published version only, lineage, secrets stripped), **referral programme** (rewards only after verified first payment, monthly caps, claim window, admin-configurable), reports with auto-hide and owner moderation (hide/restore/feature/dismiss). See GROWTH.md | 6 new API e2e tests (showcase flow, remix isolation, moderation, handles, referral anti-abuse incl. webhook idempotency); Playwright at 1440 and 390: publish → Explore (logged out) → project page → OG image + meta → creator page → invite link → sign-up → invite applied → like → remix → owner console feature; overflow sweep incl. new pages 360–1440: none; no console errors |
 | New read-only endpoints backing the redesign: `GET /activity`, `GET /generations/estimate`, `GET /billing/usage`, `GET /stores/:id/customers?q=` | 2 new API e2e tests (incl. tenant isolation) |
 | Earlier sessions: AI engine + website generation, commerce engine + merchant dashboard, web and mobile apps | see git history; all tests green |
 
-**Test totals (this run):** api 57, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 28/28. Mobile typecheck OK. `next build` OK. **0 failing.**
+**Test totals (this run):** api 63, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 28/28. Mobile typecheck OK. `next build` OK. **0 failing.**
 
 ## In progress
 None. The session ended at a clean commit.
@@ -45,6 +46,8 @@ None.
 - Mobile app has no billing or owner screens yet (web only). It compiles against the new tokens (brand aliases) but has not been visually redesigned.
 - Redesign items shown as **"soon"** because no backend exists yet (never faked): workspace Preview, Database, Integrations, Testing and Builds tabs; the Website Studio visual editor (canvas, component tree, properties, undo/redo, publish); Hosting and Templates; Marketing in Business Studio; app build credits and hosting usage in Billing; App Studio generation. File attachment on Create is omitted (no upload API).
 - Archiving a project can't be undone from the UI yet (API has no unarchive).
+- Growth: no live previews/screenshots on public pages (needs hosting); the "Made with" badge is shown on public pages but can't be injected into deployed sites until hosting exists; trending is computed per request (fine at current scale; cache it when Explore grows).
+- Growth spec received only up to §3F; community features (challenges, voting, comments, follows, collections, badges) are phase G2.
 
 ## Missing credentials (complete list)
 Supabase (URL, anon key, DB URLs, JWT secret if legacy) · `ANTHROPIC_API_KEY` · `ENCRYPTION_KEY` · `PLATFORM_OWNER_EMAILS` · platform Razorpay keys and webhook secret · platform Stripe keys and webhook secret · `REPORTING_USD_INR` (optional). Later: Upstash Redis, Inngest, Cloudflare R2, Render, Expo/EAS, Vercel or Cloudflare, Sentry.
@@ -54,5 +57,6 @@ Supabase (URL, anon key, DB URLs, JWT secret if legacy) · `ANTHROPIC_API_KEY` �
 2. Phase 3 completion: Inngest durable runs, OpenAI and Gemini adapters, backend agent, Docker sandbox verification.
 3. Phase 4 App Studio: Expo template + generator, Expo-web preview.
 4. Phase 5: live preview + visual editor (Website Studio). The workspace Preview tab and the Studio's editor UI slot in once a sandboxed preview exists.
-6. Unarchive API + UI; file attachments on Create (R2 upload); redesign the Expo app screens with the v2 tokens.
+6. Growth G2: challenges, voting, leaderboards, comments, follows, collections, badges (GROWTH.md). Then G3: plan-first builder and voice input.
+7. Unarchive API + UI; file attachments on Create (R2 upload); redesign the Expo app screens with the v2 tokens.
 5. Phase 6: storefront generator on the commerce API.
