@@ -1,15 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer } from 'lucide-react';
 import Link from 'next/link';
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { projectTypeOption } from '@/components/project-types';
 import { timeAgo } from '@/components/project-card';
 import { PublishPanel } from '@/components/growth/publish-panel';
-import { Badge, Button, cx, Drawer, EmptyState, ErrorNotice, Kbd, Skeleton, SoonBadge, StatusBadge, Tabs, toast, Tooltip, useConfirm } from '@/components/ui';
-import { api, ApiError, type Run, type RunEvent } from '@/lib/api';
+import { Badge, Button, cx, Drawer, EmptyState, ErrorNotice, Kbd, Skeleton, SoonBadge, StatusBadge, Tabs, Textarea, toast, Tooltip, useConfirm } from '@/components/ui';
+import { api, ApiError, type PlanDraft, type Run, type RunEvent } from '@/lib/api';
+import { VoiceButton } from '@/components/voice-button';
 
 const ACTIVE = new Set(['queued', 'running']);
 type Center = 'code' | 'versions' | 'logs' | 'preview';
@@ -58,9 +59,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     if (wasActive.current && !activeRun) {
       for (const k of ['project', 'files', 'versions', 'approvals', 'file']) void qc.invalidateQueries({ queryKey: [k, id] });
-      for (const k of ['credits', 'billing', 'activity', 'projects', 'estimate']) void qc.invalidateQueries({ queryKey: [k] });
+      for (const k of ['credits', 'billing', 'activity', 'projects', 'estimate', 'achievements', 'timeline']) void qc.invalidateQueries({ queryKey: [k] });
       const last = runs.data?.[0];
-      if (last?.status === 'succeeded') toast.success('Changes saved as a new version', { id: `run-${id}` });
+      if (last?.status === 'succeeded' && last.kind === 'plan') toast.success('Your plan is ready — review it in the chat', { id: `run-${id}` });
+      else if (last?.status === 'succeeded') toast.success('Changes saved as a new version', { id: `run-${id}` });
       else if (last?.status === 'failed') toast.error('The AI run failed — details are in the chat', { id: `run-${id}` });
       else if (last?.status === 'awaiting_approval') toast.warning('A change needs your approval', { id: `run-${id}` });
     }
@@ -292,15 +294,17 @@ function Chat({ projectId, runs, activeRun, hasFiles }: { projectId: string; run
   const qc = useQueryClient();
   const [prompt, setPrompt] = useState('');
   const scroller = useRef<HTMLDivElement>(null);
+  const latestPlan = !hasFiles ? runs?.find((r) => r.kind === 'plan' && r.status === 'succeeded' && r.plan) : undefined;
   const send = useMutation({
-    mutationFn: () => api.generate(projectId, prompt.trim()),
+    // Before any code exists, a message after a plan revises the plan; otherwise it builds or edits.
+    mutationFn: () => latestPlan ? api.generate(projectId, `${latestPlan.prompt}\n\nChanges to the plan: ${prompt.trim()}`.slice(0, 8000), { mode: 'plan' }) : api.generate(projectId, prompt.trim()),
     onSuccess: () => { setPrompt(''); void qc.invalidateQueries({ queryKey: ['runs', projectId] }); },
     onError: (e) => toast.error(e instanceof ApiError && e.status === 402 ? `${e.message} — see Billing to top up or upgrade.` : (e as Error).message),
   });
   const ordered = useMemo(() => [...(runs ?? [])].reverse(), [runs]);
   useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }); }, [ordered.length]);
   const canSend = !activeRun && prompt.trim().length >= 3 && !send.isPending;
-  const hasVersion = hasFiles || runs?.some((r) => r.status === 'succeeded');
+  const hasVersion = hasFiles || runs?.some((r) => r.status === 'succeeded' && r.kind !== 'plan');
 
   return (
     <section className="flex h-full flex-col bg-bg" aria-label="AI chat">
@@ -309,7 +313,7 @@ function Chat({ projectId, runs, activeRun, hasFiles }: { projectId: string; run
           hasVersion
             ? <EmptyState icon={<MessageSquare className="size-5" />} title="Your project is ready to edit" body="Ask for changes in plain language — “Change the hero to our own headline”, “Add a contact page”. Each change is saved as a new version." />
             : <EmptyState icon={<MessageSquare className="size-5" />} title="Describe what to build" body="Your first message generates the project. After that, ask for changes in plain language." />
-        ) : ordered.map((r) => <RunTurn key={r.id} run={r} live={r.id === activeRun?.id} />)}
+        ) : ordered.map((r) => <RunTurn key={r.id} run={r} live={r.id === activeRun?.id} actionable={r.id === latestPlan?.id && !activeRun} />)}
         <Approvals projectId={projectId} />
       </div>
       <form className="shrink-0 border-t border-border bg-bg p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onSubmit={(e) => { e.preventDefault(); if (canSend) send.mutate(); }}>
@@ -321,10 +325,11 @@ function Chat({ projectId, runs, activeRun, hasFiles }: { projectId: string; run
             rows={2}
             disabled={!!activeRun}
             aria-label="Message the AI"
-            placeholder={activeRun ? 'AI is working on your last request…' : hasVersion ? 'Ask for a change — "Make the hero more premium"' : 'Describe your project'}
+            placeholder={activeRun ? 'AI is working on your last request…' : hasVersion ? 'Ask for a change — "Make the hero more premium"' : latestPlan ? 'Suggest changes to the plan…' : 'Describe your project'}
             className="block w-full resize-none bg-transparent px-3.5 pt-3 text-sm outline-none placeholder:text-subtle disabled:opacity-60"
           />
           <div className="flex items-center gap-2 px-2.5 pb-2.5">
+            <VoiceButton size="xs" onText={(t) => setPrompt((v) => (v.trim() ? `${v.trimEnd()} ${t}` : t))} />
             <span className="hidden text-xs text-subtle sm:inline"><Kbd>↵</Kbd> send · <Kbd>⇧↵</Kbd> new line</span>
             <Button type="submit" size="sm" iconOnly className="ml-auto" disabled={!canSend} loading={send.isPending} aria-label="Send"><ArrowUp className="size-4" /></Button>
           </div>
@@ -362,8 +367,9 @@ function summarize(events: RunEvent[]) {
   };
 }
 
-function RunTurn({ run, live }: { run: Run; live: boolean }) {
+function RunTurn({ run, live, actionable = false }: { run: Run; live: boolean; actionable?: boolean }) {
   const events = useRunEvents(run.id, live);
+  if (run.kind === 'plan' && run.plan && !live) return <PlanTurn run={run} plan={run.plan} actionable={actionable} />;
   const s = summarize(events);
   const changed = s.changes.created.length + s.changes.updated.length + s.changes.deleted.length;
   const headline = live ? (s.steps.at(-1)?.message ?? 'Starting…') : run.status === 'succeeded' ? (s.summary ?? 'Done') : run.status === 'awaiting_approval' ? 'Waiting for your approval' : run.status === 'failed' ? 'This run failed' : 'Queued';
@@ -440,5 +446,65 @@ function Approvals({ projectId }: { projectId: string }) {
         </div>
       ))}
     </>
+  );
+}
+
+// ───────── Plan-first ─────────
+
+function PlanTurn({ run, plan, actionable }: { run: Run; plan: PlanDraft; actionable: boolean }) {
+  const qc = useQueryClient();
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const build = useMutation({
+    mutationFn: () => {
+      const text = plan.questions.filter((q) => answers[q.id]?.trim()).map((q) => `${q.question} ${answers[q.id]!.trim()}`).join('\n');
+      return api.generate(run.projectId, run.prompt.split('\n\nChanges to the plan:')[0]!.slice(0, 8000), { planRunId: run.id, answers: text });
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['runs', run.projectId] }); toast.success('Building your project from the plan'); },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const s = plan.spec;
+  const needsKeys = s.integrations.filter((i) => i.requiresCustomerConfig);
+  return (
+    <div className="animate-fade-in space-y-2.5">
+      <div className="ml-auto w-fit max-w-[88%] whitespace-pre-wrap break-words rounded-[var(--radius-lg)] rounded-br-[4px] bg-primary px-3.5 py-2.5 text-sm text-primary-fg shadow-sm">{run.prompt.includes('\n\nChanges to the plan: ') ? run.prompt.split('\n\nChanges to the plan: ')[1] : run.prompt}</div>
+      <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 shadow-sm">
+        <div className="flex items-start gap-2">
+          <ListChecks className="mt-0.5 size-4 shrink-0 text-accent" />
+          <div className="min-w-0 flex-1"><div className="text-sm font-semibold">Plan: {s.name}</div><p className="mt-1 text-[13px] text-muted">{s.summary}</p></div>
+          {run.creditsUsed > 0 && <span className="shrink-0 text-xs tabular-nums text-subtle">{run.creditsUsed} credits</span>}
+        </div>
+        <div className="mt-3 space-y-3 text-[13px]">
+          {s.audience && <p><span className="font-medium">For: </span><span className="text-muted">{s.audience}</span></p>}
+          <div>
+            <div className="font-medium">Pages ({s.pages.length})</div>
+            <ul className="mt-1.5 space-y-1">{s.pages.map((p) => <li key={p.route} className="flex gap-2"><span className="w-24 shrink-0 truncate font-mono text-xs text-subtle">{p.route}</span><span><span className="font-medium">{p.title}</span> <span className="text-muted">— {p.purpose}</span></span></li>)}</ul>
+          </div>
+          {s.entities.length > 0 && <p><span className="font-medium">Data: </span><span className="text-muted">{s.entities.map((e) => e.name).join(', ')}</span></p>}
+          {needsKeys.length > 0 && <p className="rounded-[var(--radius-md)] bg-warning-soft px-3 py-2 text-warning">Needs your own account later: {needsKeys.map((i) => i.name).join(', ')}</p>}
+          {plan.assumptions.length > 0 && <div><div className="font-medium">Assumptions</div><ul className="mt-1 list-disc space-y-0.5 pl-5 text-muted">{plan.assumptions.map((a) => <li key={a}>{a}</li>)}</ul></div>}
+        </div>
+        {actionable && (
+          <div className="mt-4 space-y-3 border-t border-border pt-4">
+            {plan.questions.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-[13px] font-medium">A few questions <span className="font-normal text-muted">(optional — skip any)</span></div>
+                {plan.questions.map((q) => (
+                  <label key={q.id} className="block">
+                    <span className="text-[13px]">{q.question}</span>
+                    <span className="block text-xs text-subtle">{q.why}</span>
+                    <Textarea rows={2} className="mt-1.5" value={answers[q.id] ?? ''} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })} />
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={() => build.mutate()} loading={build.isPending}><Hammer className="size-3.5" />Build this plan</Button>
+              <span className="text-xs text-subtle">Or describe changes below to revise the plan.</span>
+            </div>
+          </div>
+        )}
+        {!actionable && run.status === 'succeeded' && <p className="mt-3 text-xs text-subtle">Plan reviewed.</p>}
+      </div>
+    </div>
   );
 }

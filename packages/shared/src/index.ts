@@ -52,6 +52,11 @@ export type ProjectDto = z.infer<typeof ProjectDtoSchema>;
 
 export const StartGenerationSchema = z.object({
   prompt: z.string().trim().min(3).max(8000),
+  /** plan = draft a plan and questions only (no code). Only for projects without a version yet. */
+  mode: z.enum(['build', 'plan']).default('build'),
+  /** Build from this approved plan run (create only). `answers` refine it before code is written. */
+  planRunId: z.uuid().optional(),
+  answers: z.string().trim().max(4000).default(''),
 });
 export type StartGenerationInput = z.infer<typeof StartGenerationSchema>;
 

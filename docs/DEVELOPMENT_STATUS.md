@@ -1,6 +1,6 @@
 # Development Status
 
-_Last updated: 2026-11-13, session 6 (spec v3 + UI/UX redesign + growth engine spec, see GROWTH.md)._
+_Last updated: 2026-11-13, session 7. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
 _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue from "Next tasks"._
 
 ## Current phase
@@ -16,10 +16,11 @@ _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue f
 | Pricing page, billing page, top-ups, payment history, legal policy **drafts** (terms, privacy, AUP, refunds, subscriptions) | Chrome at 1440px and 390px: pricing → choose Creator → Razorpay modal opens with the platform key → plan unchanged until a signed `subscription.charged` → "Payment confirmed", 480 allowance → top-up via signed `order.paid` → +300 purchased → owner console shows MRR ₹999 → owner edits Creator credits to 600 (verified in DB). No console errors |
 | **UI/UX redesign (session 5)** — design system v2 (warm neutrals, ink primary, ember accent, Geist, light + dark), shared components (buttons, inputs, cards, dialogs/bottom sheets, drawers, menus, tabs, tooltips, toasts, confirm dialogs, skeletons, empty/error states, responsive DataTable), new shell (collapsible sidebar, ⌘K palette, ⌘B, icon rail on tablets, mobile bottom nav with central Create), and every screen rebuilt: Home, Create, Projects, AI workspace, App Studio, Website Studio, Business Studio (10 sections), Billing, Settings, Owner console, Login, Pricing, Legal. See DESIGN_SYSTEM.md | Playwright journeys at 1440 and 390 (login → create → confirm → generate → edit → files/code → versions → logs → store → product → inventory → discount → every store section → all pages → dark mode); overflow sweep of 14 pages at 360/375/430/768/1024/1440: **no horizontal overflow, no console errors** |
 | **Growth engine G1** — publishing with frozen public snapshots, Explore (search, filters, trending/new/liked/featured), public project pages with OG images, creator profiles + handles, likes, daily-unique views, share links, **Remix with AI** (published version only, lineage, secrets stripped), **referral programme** (rewards only after verified first payment, monthly caps, claim window, admin-configurable), reports with auto-hide and owner moderation (hide/restore/feature/dismiss). See GROWTH.md | 6 new API e2e tests (showcase flow, remix isolation, moderation, handles, referral anti-abuse incl. webhook idempotency); Playwright at 1440 and 390: publish → Explore (logged out) → project page → OG image + meta → creator page → invite link → sign-up → invite applied → like → remix → owner console feature; overflow sweep incl. new pages 360–1440: none; no console errors |
+| **Session 7** — platform feature flags (owner console, API-enforced), plan-first conversational builder (plan + clarifying questions + assumptions before code, revise by chat, build from approved plan), voice input (Create + chat), achievements (9 badges from real records), build streaks, activity timeline | 4 new API e2e tests (plan isolation across projects/tenants, metering, flags 503 + audit, badges only after real activity, timeline tenant isolation); Playwright desktop + mobile: plan → answer → build → streak/badges → flag off hides voice; overflow sweep clean |
 | New read-only endpoints backing the redesign: `GET /activity`, `GET /generations/estimate`, `GET /billing/usage`, `GET /stores/:id/customers?q=` | 2 new API e2e tests (incl. tenant isolation) |
 | Earlier sessions: AI engine + website generation, commerce engine + merchant dashboard, web and mobile apps | see git history; all tests green |
 
-**Test totals (this run):** api 63, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 28/28. Mobile typecheck OK. `next build` OK. **0 failing.**
+**Test totals (this run):** api 67, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 28/28. Mobile typecheck OK. `next build` OK. **0 failing.**
 
 ## In progress
 None. The session ended at a clean commit.

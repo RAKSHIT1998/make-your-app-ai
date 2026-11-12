@@ -454,6 +454,7 @@ enum RunKind {
   create
   edit
   repair
+  plan
 }
 
 model GenerationRun {
@@ -465,6 +466,9 @@ model GenerationRun {
   status      RunStatus       @default(queued)
   error       String?
   creditsUsed Int             @default(0)
+  /// kind=plan: the drafted plan (spec, questions, assumptions). kind=create from a plan: the plan run it built.
+  plan        Json?
+  fromPlanId  String?         @db.Uuid
   startedAt   DateTime?
   finishedAt  DateTime?
   createdAt   DateTime        @default(now())
@@ -1143,4 +1147,14 @@ model GrowthSettings {
   /// A code can only be claimed within this many days of the referred user's signup.
   claimWindowDays          Int      @default(7)
   updatedAt                DateTime @updatedAt
+}
+
+/// Platform-wide feature switches (kill switches and staged rollouts), managed in the owner console.
+/// Plan-level entitlements stay on Plan.featureFlags; these gate a feature for everyone.
+model PlatformFlag {
+  key         String   @id
+  enabled     Boolean  @default(true)
+  description String   @default("")
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?  @db.Uuid
 }

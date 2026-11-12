@@ -1,6 +1,6 @@
 import { applyPatches, getTemplate, templateForProjectType, templateKey, treeFromTemplate, validateTree, type FilePatch, type FileTree, type GitProjectStore, type PatchSummary, type ProjectTemplate } from '@mya/codegen';
 import type { SandboxProvider } from '@mya/sandbox';
-import { CodeChangeSchema, DesignSpecSchema, ProductSpecSchema, QaFixSchema, type DesignSpec, type ProductSpec } from './contracts.js';
+import { CodeChangeSchema, DesignSpecSchema, PlanDraftSchema, ProductSpecSchema, QaFixSchema, type DesignSpec, type PlanDraft, type ProductSpec } from './contracts.js';
 import { runAgent, wrap, type AgentCallContext } from './runner.js';
 
 export interface GenerationInput {
@@ -12,6 +12,8 @@ export interface GenerationInput {
   templateKey?: string | null;
   spec?: ProductSpec | null;
   design?: DesignSpec | null;
+  /** create only: build from this already-approved plan instead of drafting a new spec. */
+  approvedPlan?: { spec: ProductSpec; answers: string } | null;
 }
 
 export type GenerationOutcome =
@@ -65,6 +67,29 @@ function tail(s: string, n = 6000) {
 export class Orchestrator {
   constructor(private readonly deps: OrchestratorDeps) {}
 
+  /**
+   * Plan-first mode: drafts the product spec and asks the few questions that would change it most.
+   * Writes no code; the customer reviews the plan before anything is built.
+   */
+  async plan(input: Pick<GenerationInput, 'projectType' | 'projectName' | 'prompt' | 'templateKey'>, ctx: AgentCallContext): Promise<PlanDraft> {
+    const r = ctx.reporter;
+    const template: ProjectTemplate | undefined = input.templateKey ? getTemplate(input.templateKey) : templateForProjectType(input.projectType);
+    if (!template) throw new UnsupportedProjectTypeError(`Generation for "${input.projectType}" projects is not available yet.`);
+    await r.event('step.started', 'Understanding your idea', {}, 'architect');
+    const draft = await runAgent(ctx, {
+      agent: 'architect',
+      tier: 'balanced',
+      maxOutputTokens: 9000,
+      schema: PlanDraftSchema,
+      role: `You are the Product Architect for "Make Your App AI". Draft a product plan for a ${input.projectType.replace('_', ' ')} built from this template: ${template.description}
+Return the spec, the assumptions you made, and at most 5 short clarifying questions — only questions whose answers would materially change the product (audience, must-have features, content the customer must supply). Ask none if the request is already clear.
+Keep scope realistic for a first version: 1–8 pages. Mark integrations that need the customer's own account with requiresCustomerConfig=true. Never invent statistics, testimonials or facts about the business.`,
+      content: `Project name: ${input.projectName}\n${wrap('customer_request', input.prompt)}`,
+    });
+    await r.event('plan.ready', `Plan ready: ${draft.spec.pages.length} page(s)${draft.questions.length ? `, ${draft.questions.length} question(s)` : ''}`, { plan: draft }, 'architect');
+    return draft;
+  }
+
   async run(input: GenerationInput, ctx: AgentCallContext): Promise<GenerationOutcome> {
     const r = ctx.reporter;
     const template: ProjectTemplate | undefined = input.templateKey ? getTemplate(input.templateKey) : templateForProjectType(input.projectType);
@@ -76,6 +101,21 @@ export class Orchestrator {
     let base: FileTree;
 
     if (input.kind === 'create') {
+      if (input.approvedPlan && !input.approvedPlan.answers.trim()) {
+        spec = input.approvedPlan.spec;
+        await r.event('step.completed', `Using your approved plan: ${spec.pages.length} page(s)`, { pages: spec.pages.map((p) => p.route) }, 'architect');
+      } else if (input.approvedPlan) {
+        await r.event('step.started', 'Updating the plan with your answers', {}, 'architect');
+        spec = await runAgent(ctx, {
+          agent: 'architect',
+          tier: 'balanced',
+          maxOutputTokens: 8000,
+          schema: ProductSpecSchema,
+          role: 'You are the Product Architect. Revise the approved product spec using the customer\'s answers. Change only what the answers require. Never invent facts about the business.',
+          content: [wrap('approved_spec', JSON.stringify(input.approvedPlan.spec, null, 2)), wrap('customer_answers', input.approvedPlan.answers)].join('\n\n'),
+        });
+        await r.event('step.completed', `Plan updated: ${spec.pages.length} page(s)`, { pages: spec.pages.map((p) => p.route) }, 'architect');
+      } else {
       await r.event('step.started', 'Planning the product', {}, 'architect');
       spec = await runAgent(ctx, {
         agent: 'architect',
@@ -87,6 +127,7 @@ Keep scope realistic for a first version: 1–8 pages. Mark any third-party inte
         content: `Project name: ${input.projectName}\n${wrap('customer_request', input.prompt)}`,
       });
       await r.event('step.completed', `Spec ready: ${spec.pages.length} page(s)`, { pages: spec.pages.map((p) => p.route) }, 'architect');
+      }
 
       await r.event('step.started', 'Designing the visual system', {}, 'designer');
       design = await runAgent(ctx, {

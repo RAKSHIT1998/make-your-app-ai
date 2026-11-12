@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, FolderKanban } from 'lucide-react';
 import Link from 'next/link';
 import { Composer } from '@/components/composer';
-import { ProjectCard, timeAgo } from '@/components/project-card';
-import { Card, EmptyState, ErrorNotice, Meter, SectionTitle, Skeleton, StatusBadge } from '@/components/ui';
+import { ProjectCard } from '@/components/project-card';
+import { ProgressCard, Timeline } from '@/components/progress-card';
+import { Card, EmptyState, ErrorNotice, Meter, SectionTitle, Skeleton } from '@/components/ui';
 import { api, billing } from '@/lib/api';
 
 function greeting() {
@@ -16,7 +17,6 @@ function greeting() {
 export default function HomePage() {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.projects });
-  const activity = useQuery({ queryKey: ['activity'], queryFn: () => api.activity(8) });
   const plan = useQuery({ queryKey: ['billing'], queryFn: billing.overview });
   const name = me.data?.displayName ?? me.data?.email.split('@')[0];
   const active = projects.data?.items.filter((p) => p.status !== 'archived') ?? [];
@@ -41,6 +41,10 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{active.slice(0, 6).map((p) => <ProjectCard key={p.id} project={p} />)}</div>
           )}
+          <div className="mt-10">
+            <SectionTitle>Activity</SectionTitle>
+            <Timeline limit={10} />
+          </div>
         </section>
 
         <aside className="space-y-8">
@@ -57,19 +61,8 @@ export default function HomePage() {
             </Card>
           </section>
           <section>
-            <SectionTitle>Activity</SectionTitle>
-            {!activity.data ? <Skeleton className="h-32" /> : activity.data.length === 0 ? <p className="text-sm text-subtle">AI runs on your projects will appear here.</p> : (
-              <ol className="space-y-1">
-                {activity.data.map((a) => (
-                  <li key={a.id}>
-                    <Link href={`/projects/${a.project.id}`} className="flex items-start gap-3 rounded-[var(--radius-md)] px-2 py-2 transition-colors hover:bg-surface-muted">
-                      <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-medium">{a.project.name}</div><div className="truncate text-xs text-subtle">{a.kind === 'create' ? 'Generated' : 'Edited'} · {timeAgo(a.createdAt)}{a.creditsUsed ? ` · ${a.creditsUsed} credits` : ''}</div></div>
-                      <StatusBadge status={a.status} />
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            )}
+            <SectionTitle>Your progress</SectionTitle>
+            <ProgressCard />
           </section>
         </aside>
       </div>

@@ -6,6 +6,8 @@ import { ArrowUp, ChevronDown, Lock, Sparkles, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useFlag } from '@/lib/flags';
+import { VoiceButton } from './voice-button';
 import { api, ApiError, billing } from '@/lib/api';
 import { PROJECT_TYPE_OPTIONS } from './project-types';
 import { Button, cx, Dialog, ErrorNotice, Field, Input, Kbd, Select, toast } from './ui';
@@ -31,6 +33,9 @@ export function Composer({ autoFocus, compact, types, defaultType = 'website', i
   const [color, setColor] = useState('');
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const planAllowed = useFlag('plan_first_builder');
+  const [planFirst, setPlanFirst] = useState(true);
+  const usePlan = planAllowed && planFirst;
   const overview = useQuery({ queryKey: ['billing'], queryFn: billing.overview });
   const estimate = useQuery({ queryKey: ['estimate'], queryFn: api.estimate });
   const allowed = new Set(overview.data?.entitlements.projectTypes ?? ['website', 'business_website']);
@@ -45,7 +50,7 @@ export function Composer({ autoFocus, compact, types, defaultType = 'website', i
     mutationFn: async () => {
       const project = await api.createProject({ name: projectName(), type, description: idea.trim().slice(0, 4000) });
       try {
-        await api.generate(project.id, prompt());
+        await api.generate(project.id, prompt(), { mode: usePlan ? 'plan' : 'build' });
       } catch (e) {
         // Project exists even if generation could not start; open it so the user can retry.
         router.push(`/projects/${project.id}`);
@@ -91,6 +96,12 @@ export function Composer({ autoFocus, compact, types, defaultType = 'website', i
           <Button variant="ghost" size="sm" onClick={() => setPrefsOpen((o) => !o)} aria-expanded={prefsOpen}>
             Preferences<ChevronDown className={cx('size-3.5 transition-transform', prefsOpen && 'rotate-180')} />
           </Button>
+          <VoiceButton onText={(t) => setIdea((v) => (v.trim() ? `${v.trimEnd()} ${t}` : t))} />
+          {planAllowed && (
+            <label className="flex cursor-pointer items-center gap-2 rounded-[var(--radius-md)] px-2 py-1 text-[13px] text-muted hover:text-fg" title="The AI drafts a plan and asks a few questions before writing code">
+              <input type="checkbox" className="size-3.5 accent-[var(--color-primary)]" checked={planFirst} onChange={(e) => setPlanFirst(e.target.checked)} />Plan first
+            </label>
+          )}
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-xs text-subtle sm:inline">{idea.length > 0 && !valid ? 'A little more detail…' : <><Kbd>⌘</Kbd> <Kbd>↵</Kbd></>}</span>
             <Button size="md" onClick={openConfirm} disabled={!valid} aria-label="Generate"><ArrowUp className="size-4" /><span className="hidden sm:inline">Generate</span></Button>
@@ -142,14 +153,14 @@ export function Composer({ autoFocus, compact, types, defaultType = 'website', i
       <Dialog
         open={confirm}
         onOpenChange={setConfirm}
-        title="Start generating?"
-        description="AI will plan, design and write your project, then run its checks on the result. You can edit everything afterwards."
-        footer={<><Button variant="secondary" onClick={() => setConfirm(false)}>Back</Button><Button onClick={() => create.mutate()} loading={create.isPending} disabled={!allowed.has(type)}>Generate project</Button></>}
+        title={usePlan ? 'Draft a plan first?' : 'Start generating?'}
+        description={usePlan ? 'AI will draft a plan — pages, features, assumptions — and ask any questions that matter. No code is written until you approve the plan.' : 'AI will plan, design and write your project, then run its checks on the result. You can edit everything afterwards.'}
+        footer={<><Button variant="secondary" onClick={() => setConfirm(false)}>Back</Button><Button onClick={() => create.mutate()} loading={create.isPending} disabled={!allowed.has(type)}>{usePlan ? 'Draft plan' : 'Generate project'}</Button></>}
       >
         <dl className="divide-y divide-border rounded-[var(--radius-lg)] border border-border text-sm">
           <div className="flex justify-between gap-4 px-4 py-2.5"><dt className="text-muted">Type</dt><dd className="font-medium">{PROJECT_TYPE_OPTIONS.find((o) => o.type === type)?.label}</dd></div>
           <div className="flex justify-between gap-4 px-4 py-2.5"><dt className="text-muted">Name</dt><dd className="truncate font-medium">{projectName()}</dd></div>
-          <div className="flex justify-between gap-4 px-4 py-2.5"><dt className="text-muted">Estimated usage</dt><dd className="text-right font-medium">{typical ? `~${typical.median} credits (up to ${Math.min(typical.p90, est!.maxCreditsPerRun)})` : est ? `Up to ${est.maxCreditsPerRun} credits` : '…'}</dd></div>
+          <div className="flex justify-between gap-4 px-4 py-2.5"><dt className="text-muted">Estimated usage</dt><dd className="text-right font-medium">{usePlan ? 'A small part of a full build' : typical ? `~${typical.median} credits (up to ${Math.min(typical.p90, est!.maxCreditsPerRun)})` : est ? `Up to ${est.maxCreditsPerRun} credits` : '…'}</dd></div>
           <div className="flex justify-between gap-4 px-4 py-2.5"><dt className="text-muted">Available</dt><dd className="font-medium tabular-nums">{est?.balance.toLocaleString() ?? '…'} credits</dd></div>
         </dl>
         {!allowed.has(type) && <p className="mt-3 text-sm text-warning">Your plan doesn&apos;t include this project type. <Link href="/billing" className="font-medium underline">See plans</Link></p>}

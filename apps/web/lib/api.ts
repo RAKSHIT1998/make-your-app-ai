@@ -39,7 +39,12 @@ export interface Me {
   organizations: { id: string; name: string; role: string; personal: boolean }[];
 }
 export type RunStatus = 'queued' | 'running' | 'awaiting_approval' | 'succeeded' | 'failed' | 'canceled';
-export interface Run { id: string; projectId: string; kind: 'create' | 'edit' | 'repair'; status: RunStatus; prompt: string; error: string | null; creditsUsed: number; createdAt: string; finishedAt: string | null }
+export interface PlanDraft {
+  spec: { name: string; category: string; summary: string; audience: string; pages: { route: string; title: string; purpose: string; sections: string[] }[]; entities: { name: string; fields: string[] }[]; integrations: { name: string; purpose: string; requiresCustomerConfig: boolean }[]; securityNotes: string[] };
+  questions: { id: string; question: string; why: string }[];
+  assumptions: string[];
+}
+export interface Run { id: string; projectId: string; kind: 'create' | 'edit' | 'repair' | 'plan'; status: RunStatus; prompt: string; error: string | null; creditsUsed: number; createdAt: string; finishedAt: string | null; plan?: PlanDraft | null; fromPlanId?: string | null }
 export interface RunEvent { id: string; type: string; agent: string | null; message: string; data?: Record<string, unknown>; createdAt: string }
 export interface Version { id: string; number: number; commitSha: string; message: string; createdAt: string; isHead: boolean }
 export interface Approval { id: string; action: string; status: string; summary: string; createdAt: string; expiresAt: string }
@@ -60,7 +65,7 @@ export const api = {
   project: (id: string) => apiFetch<ProjectDto>(`/projects/${id}`),
   createProject: (input: Omit<CreateProjectInput, 'description'> & { description?: string; type: ProjectType }) => apiFetch<ProjectDto>('/projects', { method: 'POST', body: JSON.stringify(input) }),
   deleteProject: (id: string) => apiFetch<void>(`/projects/${id}`, { method: 'DELETE' }),
-  generate: (projectId: string, prompt: string) => apiFetch<Run>(`/projects/${projectId}/generations`, { method: 'POST', body: JSON.stringify({ prompt }) }),
+  generate: (projectId: string, prompt: string, opts: { mode?: 'build' | 'plan'; planRunId?: string; answers?: string } = {}) => apiFetch<Run>(`/projects/${projectId}/generations`, { method: 'POST', body: JSON.stringify({ prompt, ...opts }) }),
   runs: (projectId: string) => apiFetch<Run[]>(`/projects/${projectId}/generations`),
   events: (runId: string, after = '0') => apiFetch<RunEvent[]>(`/generations/${runId}/events?after=${after}`),
   files: (projectId: string) => apiFetch<{ path: string; sizeBytes: number }[]>(`/projects/${projectId}/files`),
@@ -224,3 +229,22 @@ export async function publicGet<T>(path: string): Promise<T | null> {
     return null;
   }
 }
+
+// ───────── Platform flags, retention ─────────
+
+export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals';
+export const flags = {
+  all: () => apiFetch<Record<FlagKey, boolean>>('/flags', {}, async () => null),
+  admin: () => apiFetch<{ key: FlagKey; enabled: boolean; description: string; default: boolean; updatedAt: string | null }[]>('/admin/flags'),
+  set: (key: FlagKey, enabled: boolean) => apiFetch<unknown>(`/admin/flags/${key}`, { method: 'PATCH', body: JSON.stringify({ enabled }) }),
+};
+
+export interface Achievements {
+  badges: { key: string; title: string; description: string; earnedAt: string | null }[];
+  streak: { current: number; longest: number; last30: boolean[] };
+}
+export interface TimelineItem { id: string; action: string; label: string; at: string; actor: string | null; project: { id: string; name: string } | null; detail: { prompt: string; status: RunStatus } | null }
+export const retention = {
+  achievements: () => apiFetch<Achievements>('/me/achievements'),
+  timeline: (projectId?: string, limit = 20) => apiFetch<TimelineItem[]>(`/timeline?limit=${limit}${projectId ? `&projectId=${projectId}` : ''}`),
+};

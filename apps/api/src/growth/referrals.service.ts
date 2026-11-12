@@ -6,6 +6,7 @@ import { PRISMA } from '../prisma.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { AuditService } from '../audit/audit.service.js';
 import { CreditsService } from '../credits/credits.service.js';
+import { FlagsService } from '../flags/flags.service.js';
 
 export const GrowthSettingsSchema = z.object({
   referralsEnabled: z.boolean(),
@@ -24,6 +25,7 @@ export class ReferralsService {
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(CreditsService) private readonly credits: CreditsService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(FlagsService) private readonly flags: FlagsService,
   ) {}
 
   settings() {
@@ -76,6 +78,7 @@ export class ReferralsService {
    * user's first verified payment, so throwaway accounts earn nothing.
    */
   async claim(user: AuthUser, rawCode: string) {
+    await this.flags.assert('referrals', 'The referral programme');
     const s = await this.settings();
     if (!s.referralsEnabled) throw new BadRequestException('The referral programme is paused.');
     const code = rawCode.trim().toUpperCase();

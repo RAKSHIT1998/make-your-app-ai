@@ -1,4 +1,4 @@
-import { ConflictException, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecord } from '@mya/ai';
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
 import type { FilePatch, FileTree, GitProjectStore } from '@mya/codegen';
@@ -9,6 +9,7 @@ import { APP_CONFIG, type AppConfig } from '../config.js';
 import { AI_ROUTER, ORCHESTRATOR, PROJECT_STORE } from '../ai/ai.providers.js';
 import { CreditsService } from '../credits/credits.service.js';
 import { ProjectsService } from '../projects/projects.service.js';
+import { FlagsService } from '../flags/flags.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { OrgsService } from '../orgs/orgs.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -29,14 +30,29 @@ export class GenerationsService {
     @Inject(AI_ROUTER) private readonly router: ProviderRouter,
     @Inject(ORCHESTRATOR) private readonly orchestrator: Orchestrator,
     @Inject(PROJECT_STORE) private readonly store: GitProjectStore,
+    @Inject(FlagsService) private readonly flags: FlagsService,
     @Inject(CreditsService) private readonly credits: CreditsService,
     @Inject(ProjectsService) private readonly projects: ProjectsService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(OrgsService) private readonly orgs: OrgsService,
   ) {}
 
-  async start(user: AuthUser, projectId: string, prompt: string, ip: string | null) {
+  async start(user: AuthUser, projectId: string, input: string | { prompt: string; mode?: 'build' | 'plan'; planRunId?: string | undefined; answers?: string }, ip: string | null) {
+    const req = typeof input === 'string' ? { prompt: input, mode: 'build' as const, answers: '' } : { mode: 'build' as const, answers: '', ...input };
+    const prompt = req.prompt;
+    await this.flags.assert('ai_generation', 'AI generation');
     const project = await this.projects.getAuthorized(user, projectId, 'member');
+    if (req.mode === 'plan') {
+      await this.flags.assert('plan_first_builder', 'Plan-first building');
+      if (project.headVersionId) throw new BadRequestException('This project already has code. Ask for a change instead of a new plan.');
+    }
+    let fromPlan: { id: string; plan: unknown } | null = null;
+    if (req.planRunId) {
+      if (project.headVersionId) throw new BadRequestException('This project already has code; the plan can’t be rebuilt over it.');
+      const pr = await this.prisma.generationRun.findFirst({ where: { id: req.planRunId, projectId: project.id, kind: 'plan', status: 'succeeded' } });
+      if (!pr?.plan) throw new NotFoundException('Plan not found for this project.');
+      fromPlan = { id: pr.id, plan: pr.plan };
+    }
     if (!supportsProjectType(project.type)) {
       throw new UnprocessableEntityException(`Generation for "${project.type}" projects is not available yet. Websites and business websites are supported today.`);
     }
@@ -56,13 +72,13 @@ export class GenerationsService {
       throw new HttpException('AI generation is not configured on this server (no AI provider key).', HttpStatus.SERVICE_UNAVAILABLE);
     }
 
-    const kind = project.headVersionId ? 'edit' : 'create';
+    const kind = req.mode === 'plan' ? 'plan' : project.headVersionId ? 'edit' : 'create';
     const run = await this.prisma.$transaction(async (tx) => {
       // Lock the project row so two concurrent starts can't both pass the "no active run" check.
       await tx.$queryRaw`SELECT id FROM "Project" WHERE id = ${project.id}::uuid FOR UPDATE`;
       const active = await tx.generationRun.findFirst({ where: { projectId: project.id, status: { in: ACTIVE } } });
       if (active) throw new ConflictException({ message: 'A generation is already running for this project.', runId: active.id });
-      const r = await tx.generationRun.create({ data: { projectId: project.id, requestedBy: user.id, kind, prompt } });
+      const r = await tx.generationRun.create({ data: { projectId: project.id, requestedBy: user.id, kind, prompt: fromPlan && req.answers ? `${prompt}\n\nAnswers: ${req.answers}`.slice(0, 8000) : prompt, ...(fromPlan ? { fromPlanId: fromPlan.id } : {}) } });
       await tx.project.update({ where: { id: project.id }, data: { status: 'generating' } });
       await this.audit.record({ action: 'generation.started', actorId: user.id, organizationId: project.organizationId, targetType: 'generation_run', targetId: r.id, ip, metadata: { kind } }, tx);
       return r;
@@ -125,6 +141,16 @@ export class GenerationsService {
     try {
       await this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'running', startedAt: new Date() } });
       const run = await this.prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
+      if (run.kind === 'plan') {
+        const draft = await this.orchestrator.plan({ projectType: project.type, projectName: project.name, prompt: run.prompt, templateKey: project.templateId }, { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });
+        await this.prisma.$transaction([
+          this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'succeeded', plan: draft as unknown as Prisma.InputJsonValue, finishedAt: new Date() } }),
+          this.prisma.project.update({ where: { id: project.id }, data: { status: 'draft' } }),
+        ]);
+        return;
+      }
+      const planRun = run.fromPlanId ? await this.prisma.generationRun.findUnique({ where: { id: run.fromPlanId } }) : null;
+      const approved = planRun?.plan ? { spec: (planRun.plan as { spec: never }).spec, answers: run.prompt.includes('\n\nAnswers: ') ? run.prompt.split('\n\nAnswers: ')[1]! : '' } : null;
       const outcome = await this.orchestrator.run(
         {
           projectId: project.id,
@@ -135,6 +161,7 @@ export class GenerationsService {
           templateKey: project.templateId,
           spec: (project.spec as never) ?? null,
           design: (project.designSpec as never) ?? null,
+          approvedPlan: approved,
         },
         { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } },
       );
@@ -230,7 +257,7 @@ export class GenerationsService {
   }
 
   toRunDto(r: GenerationRun) {
-    return { id: r.id, projectId: r.projectId, kind: r.kind, status: r.status, prompt: r.prompt, error: r.error, creditsUsed: r.creditsUsed, createdAt: r.createdAt.toISOString(), startedAt: r.startedAt?.toISOString() ?? null, finishedAt: r.finishedAt?.toISOString() ?? null };
+    return { id: r.id, projectId: r.projectId, kind: r.kind, status: r.status, prompt: r.prompt, error: r.error, creditsUsed: r.creditsUsed, createdAt: r.createdAt.toISOString(), startedAt: r.startedAt?.toISOString() ?? null, finishedAt: r.finishedAt?.toISOString() ?? null, plan: r.plan ?? null, fromPlanId: r.fromPlanId ?? null };
   }
 
   async getRun(user: AuthUser, runId: string) {

@@ -23,7 +23,7 @@ export class GenerationsController {
   @HttpCode(202)
   @Throttle({ default: { limit: () => rateLimits.generation, ttl: 60_000 } })
   start(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string, @Body(new ZodPipe(StartGenerationSchema)) body: StartGenerationInput, @Ip() ip: string) {
-    return this.gen.start(user, id, body.prompt, ip);
+    return this.gen.start(user, id, body, ip);
   }
 
   @Get('projects/:id/generations')

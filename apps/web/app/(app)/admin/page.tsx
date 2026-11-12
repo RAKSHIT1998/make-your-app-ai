@@ -6,9 +6,9 @@ import { useState } from 'react';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorNotice, Field, Input, Menu, MenuItem, PageHeader, Segmented, Skeleton, Stat, StatusBadge, Tabs, toast, useConfirm } from '@/components/ui';
 import { DataTable } from '@/components/ui/table';
 import Link from 'next/link';
-import { admin, api, growthAdmin, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
+import { admin, api, flags as flagsApi, growthAdmin, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
 
-type Tab = 'overview' | 'plans' | 'customers' | 'growth' | 'audit';
+type Tab = 'overview' | 'plans' | 'customers' | 'growth' | 'flags' | 'audit';
 const intOk = (v: string, allowNeg = false) => (allowNeg ? /^-?\d+$/ : /^\d+$/).test(v.trim());
 
 export default function AdminPage() {
@@ -18,8 +18,8 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Owner" title="Owner console" description={<span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5" />Platform-wide business data. Every action is recorded in the audit log.</span>} />
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'growth', label: 'Growth' }, { value: 'audit', label: 'Audit log' }]} />
-      {tab === 'overview' ? <Overview /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : tab === 'growth' ? <Growth /> : <Audit />}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'growth', label: 'Growth' }, { value: 'flags', label: 'Feature flags' }, { value: 'audit', label: 'Audit log' }]} />
+      {tab === 'overview' ? <Overview /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : tab === 'growth' ? <Growth /> : tab === 'flags' ? <Flags /> : <Audit />}
     </div>
   );
 }
@@ -292,6 +292,40 @@ function Growth() {
           />
         )}
       </section>
+    </div>
+  );
+}
+
+function Flags() {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const list = useQuery({ queryKey: ['admin-flags'], queryFn: flagsApi.admin });
+  const set = useMutation({
+    mutationFn: ({ key, enabled }: { key: Parameters<typeof flagsApi.set>[0]; enabled: boolean }) => flagsApi.set(key, enabled),
+    onSuccess: (_, v) => { toast.success(`${v.key.replaceAll('_', ' ')} ${v.enabled ? 'enabled' : 'disabled'}`); void qc.invalidateQueries({ queryKey: ['admin-flags'] }); void qc.invalidateQueries({ queryKey: ['flags'] }); },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  if (list.error) return <ErrorNotice error={list.error} onRetry={() => list.refetch()} />;
+  if (!list.data) return <Skeleton className="h-64" />;
+  return (
+    <div className="space-y-3">
+      <p className="text-[13px] text-muted">Platform-wide switches, enforced by the API for everyone (changes apply within a few seconds). Plan entitlements stay on each plan.</p>
+      <Card padded={false}>
+        <ul className="divide-y divide-border">
+          {list.data.map((f) => (
+            <li key={f.key} className="flex items-center gap-4 px-5 py-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2"><span className="font-mono text-[13px] font-medium">{f.key}</span>{f.enabled !== f.default && <Badge tone="warning">Changed</Badge>}</div>
+                <div className="mt-0.5 text-[13px] text-muted">{f.description}</div>
+              </div>
+              <Segmented label={f.key} value={f.enabled ? 'on' : 'off'} onChange={async (v) => {
+                if (v === 'off') { const r = await confirm({ title: `Turn off ${f.key.replaceAll('_', ' ')}?`, body: 'Customers will see that this feature is temporarily unavailable.', confirmLabel: 'Turn off', danger: true }); if (!r.ok) return; }
+                set.mutate({ key: f.key, enabled: v === 'on' });
+              }} options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} />
+            </li>
+          ))}
+        </ul>
+      </Card>
     </div>
   );
 }

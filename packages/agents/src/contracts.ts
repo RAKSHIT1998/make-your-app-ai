@@ -27,6 +27,14 @@ export const ProductSpecSchema = z.object({
 export type ProductSpec = z.infer<typeof ProductSpecSchema>;
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+/** Plan-first mode: the architect's draft spec plus the few questions that would most change it. */
+export const PlanDraftSchema = z.object({
+  spec: ProductSpecSchema,
+  questions: z.array(z.object({ id: z.string().regex(/^[a-z0-9_]{1,30}$/), question: z.string().max(300), why: z.string().max(300) })).max(5),
+  assumptions: z.array(z.string().max(300)).max(10),
+});
+export type PlanDraft = z.infer<typeof PlanDraftSchema>;
+
 export const DesignSpecSchema = z.object({
   tone: z.string().max(120),
   palette: z.object({ primary: hex, primaryForeground: hex, background: hex, surface: hex, text: hex, muted: hex, accent: hex, border: hex }),

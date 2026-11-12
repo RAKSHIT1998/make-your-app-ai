@@ -9,6 +9,7 @@ import { CreditsService } from '../credits/credits.service.js';
 import { OrgsService } from '../orgs/orgs.service.js';
 import { ProjectsService, toProjectDto } from '../projects/projects.service.js';
 import { GenerationsService } from '../generation/generations.service.js';
+import { FlagsService } from '../flags/flags.service.js';
 
 export const CATEGORIES = ['business', 'portfolio', 'restaurant', 'ecommerce', 'education', 'health', 'events', 'nonprofit', 'saas', 'personal', 'other'] as const;
 
@@ -72,6 +73,7 @@ export class ShowcaseService {
     @Inject(CreditsService) private readonly credits: CreditsService,
     @Inject(OrgsService) private readonly orgs: OrgsService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(FlagsService) private readonly flags: FlagsService,
   ) {}
 
   // ───────── Owner: publishing ─────────
@@ -112,6 +114,7 @@ export class ShowcaseService {
       visibility: input.visibility,
     };
     if (input.visibility === 'public') {
+      await this.flags.assert('publishing', 'Publishing');
       if (p.status === 'archived') throw new BadRequestException('Archived projects can’t be published.');
       if (!p.headVersionId) throw new BadRequestException('Generate the project before publishing it.');
       if (p.moderatedAt) throw new ForbiddenException('This project was unpublished by a moderator and can’t be republished. Contact support.');
@@ -169,6 +172,7 @@ export class ShowcaseService {
   // ───────── Public: Explore, pages, creators ─────────
 
   async explore(q: z.infer<typeof ExploreQuerySchema>) {
+    await this.flags.assert('explore', 'Explore');
     const where: Prisma.ProjectWhereInput = {
       ...publicWhere,
       ...(q.type ? { type: q.type } : {}),
@@ -266,6 +270,7 @@ export class ShowcaseService {
    * The original is untouched; attribution is kept via remixedFromId. Secrets-like files are never copied.
    */
   async remix(user: AuthUser, slug: string, organizationId: string | undefined, ip: string | null) {
+    await this.flags.assert('remix', 'Remix');
     const src = await this.findPublic(slug);
     if (!src.allowRemix) throw new ForbiddenException('The creator has turned off remixing for this project.');
     const orgId = organizationId ?? user.personalOrgId;
