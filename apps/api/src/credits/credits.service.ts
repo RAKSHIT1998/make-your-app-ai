@@ -23,11 +23,8 @@ export class CreditsService {
 
   /** Idempotent grant (the idempotency key is unique in the ledger). */
   async grant(organizationId: string, amount: number, reason: 'plan_grant' | 'purchase' | 'adjustment' | 'refund', idempotencyKey: string) {
-    await this.prisma.creditLedgerEntry.upsert({
-      where: { idempotencyKey },
-      update: {},
-      create: { organizationId, amount, reason, idempotencyKey },
-    });
+    // ON CONFLICT DO NOTHING: safe under concurrent duplicate grants (upsert is not).
+    await this.prisma.creditLedgerEntry.createMany({ data: [{ organizationId, amount, reason, idempotencyKey }], skipDuplicates: true });
   }
 
   async ensureInitialGrant(organizationId: string) {

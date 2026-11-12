@@ -30,11 +30,11 @@ export class AuthService {
       return { id: existing.id, email: claims.email, platformRole: existing.platformRole, personalOrgId };
     }
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.user.create({ data: { id: claims.sub, email: claims.email } });
-      await this.audit.record({ action: 'auth.user_created', actorId: u.id, ip }, tx);
-      return u;
-    });
+    // Idempotent under concurrency: a client's first page load fires several requests at once.
+    const created = await this.prisma.user.createMany({ data: [{ id: claims.sub, email: claims.email }], skipDuplicates: true });
+    if (created.count === 1) await this.audit.record({ action: 'auth.user_created', actorId: claims.sub, ip });
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: claims.sub } });
+    if (user.status !== 'active') throw new ForbiddenException('Account is not active');
     const personalOrgId = await this.createPersonalOrg(user.id, user.email);
     return { id: user.id, email: user.email, platformRole: user.platformRole, personalOrgId };
   }
@@ -42,17 +42,18 @@ export class AuthService {
   private async createPersonalOrg(userId: string, email: string): Promise<string> {
     const base = email.split('@')[0]!.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32) || 'workspace';
     const slug = `${base}-${userId.slice(0, 8)}`;
-    const org = await this.prisma.organization.upsert({
-      where: { slug },
-      update: {},
-      create: {
-        name: 'Personal workspace',
-        slug,
-        personal: true,
-        memberships: { create: { userId, role: 'owner' } },
-      },
-    });
-    await this.credits.ensureInitialGrant(org.id);
-    return org.id;
+    let orgId: string;
+    try {
+      const org = await this.prisma.organization.create({
+        data: { name: 'Personal workspace', slug, personal: true, memberships: { create: { userId, role: 'owner' } } },
+      });
+      orgId = org.id;
+    } catch (e) {
+      // Lost a race with a concurrent first request: use the org that request created.
+      if ((e as { code?: string }).code !== 'P2002') throw e;
+      orgId = (await this.prisma.organization.findUniqueOrThrow({ where: { slug } })).id;
+    }
+    await this.credits.ensureInitialGrant(orgId);
+    return orgId;
   }
 }

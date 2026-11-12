@@ -43,6 +43,15 @@ describe('authentication', () => {
     expect(await prisma.organization.count()).toBe(1);
   });
 
+  it('provisions safely when a new user fires many requests at once', async () => {
+    const u = newIdentity('burst');
+    const auth = `Bearer ${await tokenFor(u.id, u.email)}`;
+    const results = await Promise.all(Array.from({ length: 8 }, (_, i) => http().get(i % 2 ? '/me' : '/projects').set('Authorization', auth)));
+    expect(results.map((r) => r.status)).toEqual(Array(8).fill(200));
+    expect(await prisma.organization.count()).toBe(1);
+    expect(await prisma.creditLedgerEntry.count()).toBe(1);
+  });
+
   it('blocks suspended accounts', async () => {
     const u = newIdentity('sus');
     const auth = `Bearer ${await tokenFor(u.id, u.email)}`;
