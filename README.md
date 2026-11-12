@@ -4,7 +4,8 @@
 
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Status: [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md)
-- Setup: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- Setup: [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- Business model & billing: [docs/BUSINESS_MODEL.md](docs/BUSINESS_MODEL.md), [docs/BILLING_ARCHITECTURE.md](docs/BILLING_ARCHITECTURE.md)
 
 ```bash
 pnpm install

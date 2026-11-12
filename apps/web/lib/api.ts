@@ -31,6 +31,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, getToken
 export interface Me {
   id: string;
   email: string;
+  displayName: string | null;
+  platformRole: 'user' | 'support' | 'admin' | 'superadmin';
   personalOrgId: string;
   organizations: { id: string; name: string; role: string; personal: boolean }[];
 }
@@ -93,3 +95,43 @@ export const commerce = {
 export function money(minor: number, currency: string) {
   return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', { style: 'currency', currency }).format(minor / 100);
 }
+
+// ───────── Billing ─────────
+export interface PlanPrice { id: string; interval: 'monthly' | 'yearly'; currency: string; amountMinor: number }
+export interface PublicPlan { id: string; code: string; name: string; description: string; monthlyCredits: number; maxActiveProjects: number; teamSeats: number; dailyCreditLimit: number | null; monthlyBuildCredits: number; featureFlags: string[]; projectTypes: string[]; prices: PlanPrice[] }
+export interface Catalogue { plans: PublicPlan[]; creditPacks: { id: string; name: string; credits: number; priceMinor: number; currency: string }[]; providers: { razorpay: boolean; stripe: boolean } }
+export interface BillingOverview {
+  organizationId: string;
+  plan: { code: string; name: string; source: string };
+  entitlements: { monthlyCredits: number; maxActiveProjects: number; dailyCreditLimit: number | null; maxCreditsPerRun: number; teamSeats: number; featureFlags: string[]; projectTypes: string[] };
+  period: { start: string; end: string | null };
+  subscription: { id: string; status: string; provider: string; interval: string | null; amountMinor: number | null; currency: string | null; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean } | null;
+  credits: { allowanceRemaining: number; purchasedRemaining: number; total: number; usedThisPeriod: number; usedToday: number };
+  usage: { activeProjects: number };
+  invoices: { id: string; number: string; description: string; currency: string; totalMinor: number; refundedMinor: number; status: string; paidAt: string }[];
+}
+export type CheckoutParams = { checkoutId: string; provider: 'razorpay' | 'stripe'; keyId?: string; subscriptionId?: string; orderId?: string; amount?: number; currency?: string; description?: string; email?: string; checkoutUrl?: string };
+
+export const billing = {
+  catalogue: () => apiFetch<Catalogue>('/billing/plans', {}, async () => null),
+  overview: () => apiFetch<BillingOverview>('/billing/overview'),
+  subscribe: (planPriceId: string) => apiFetch<CheckoutParams>('/billing/checkout/subscription', { method: 'POST', body: JSON.stringify({ planPriceId }) }),
+  topup: (creditPackId: string) => apiFetch<CheckoutParams>('/billing/checkout/topup', { method: 'POST', body: JSON.stringify({ creditPackId }) }),
+  checkout: (id: string) => apiFetch<{ id: string; kind: string; status: 'created' | 'completed' | 'expired' | 'failed' }>(`/billing/checkouts/${id}`),
+  cancel: () => apiFetch<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: string | null }>('/billing/subscription/cancel', { method: 'POST', body: '{}' }),
+};
+
+// ───────── Owner admin ─────────
+export interface AdminOverview { days: number; users: { total: number; new: number; active: number }; subscriptions: { active: number; byPlan: Record<string, number>; cancellationsInPeriod: number; paymentProblems: number }; mrrMinor: Record<string, number>; arrMinor: Record<string, number>; revenue: { currency: string; grossMinor: number; refundsMinor: number; feesMinor: number; invoices: number }[]; ai: { costUsd: number; inputTokens: number; outputTokens: number }; generations: Record<string, number>; projects: number; grossMarginInr: { netRevenueMinor: number; aiCostMinor: number; marginMinor: number } | null; notes: string[] }
+export interface AdminPlan { id: string; code: string; name: string; description: string; includedCredits: number; maxProjects: number; maxSeats: number; dailyCreditLimit: number | null; maxCreditsPerRun: number; monthlyBuildCredits: number; active: boolean; public: boolean; projectTypes: string[]; featureFlags: string[]; prices: (PlanPrice & { active: boolean; stripePriceId: string | null; razorpayPlanId: string | null })[]; activeSubscriptions: number }
+export interface AdminUser { id: string; email: string; displayName: string | null; status: string; platformRole: string; createdAt: string; organizationId: string | null; plan: string; subscriptionStatus: string | null; projects: number; aiCostUsd: number; revenue: { currency: string; netMinor: number }[] }
+
+export const admin = {
+  overview: (days = 30) => apiFetch<AdminOverview>(`/admin/overview?days=${days}`),
+  plans: () => apiFetch<AdminPlan[]>('/admin/plans'),
+  updatePlan: (id: string, b: Partial<AdminPlan>) => apiFetch<AdminPlan>(`/admin/plans/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
+  users: (q = '') => apiFetch<AdminUser[]>(`/admin/users?limit=100${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+  setStatus: (id: string, suspend: boolean, reason: string) => apiFetch<unknown>(`/admin/users/${id}/${suspend ? 'suspend' : 'restore'}`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  credits: (orgId: string, amount: number, reason: string) => apiFetch<unknown>(`/admin/organizations/${orgId}/credits`, { method: 'POST', body: JSON.stringify({ amount, reason, bucket: 'purchased', idempotencyKey: crypto.randomUUID() }) }),
+  audit: () => apiFetch<{ id: string; action: string; actor: string | null; targetType: string | null; createdAt: string }[]>('/admin/audit-log?limit=50'),
+};

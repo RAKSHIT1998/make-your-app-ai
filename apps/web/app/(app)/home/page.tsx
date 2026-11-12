@@ -5,7 +5,7 @@ import { FolderKanban, Plus, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { ProjectCard } from '@/components/project-card';
 import { Button, Card, EmptyState, ErrorNotice, Skeleton } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, billing } from '@/lib/api';
 
 const IDEAS = [
   'A website for my boutique hotel with rooms, gallery and WhatsApp enquiries',
@@ -17,6 +17,7 @@ export default function HomePage() {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.projects });
   const credits = useQuery({ queryKey: ['credits'], queryFn: api.credits });
+  const plan = useQuery({ queryKey: ['billing'], queryFn: billing.overview });
   const name = me.data?.email.split('@')[0];
 
   return (
@@ -33,7 +34,7 @@ export default function HomePage() {
         <Card className="p-5">
           <div className="text-sm text-muted">Credits available</div>
           <div className="mt-1 text-3xl font-semibold">{credits.data ? credits.data.balance.toLocaleString() : <Skeleton className="h-9 w-24" />}</div>
-          <p className="mt-2 text-sm text-subtle">Credits are used by AI generation. Billing plans arrive in a later release.</p>
+          <p className="mt-2 text-sm text-subtle">{plan.data ? <>{plan.data.plan.name} plan · {plan.data.credits.allowanceRemaining.toLocaleString()} monthly + {plan.data.credits.purchasedRemaining.toLocaleString()} purchased · <Link href="/billing" className="text-brand hover:underline">Manage</Link></> : 'Loading plan…'}</p>
         </Card>
         <Card className="p-5">
           <div className="text-sm text-muted">Projects</div>

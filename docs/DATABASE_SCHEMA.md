@@ -6,11 +6,13 @@ Source of truth: `packages/db/prisma/schema.prisma`. Migrations: `packages/db/pr
 |---|---|
 | `20261112000000_init` | All core tables, enums, indexes, FKs |
 | `20261112100000_commerce` | Store, Product, Collection, ProductCollection, ProductVariant, Inventory, Customer, Order, OrderItem, Payment, Refund, Discount, ShippingConfiguration, PaymentWebhookEvent, plus RLS and CHECK constraints (stock never negative, reserved ≤ on-hand, refunded ≤ total) |
+| `20261112200000_billing` | PlanPrice, SubscriptionEntitlement, BillingCheckout, CreditPack, Invoice; credit buckets; subscription statuses halted/expired; `invoice_number_seq`; RLS and CHECK constraints |
 | `20261112000100_rls` | RLS enabled on all 25 tables, read policies, helper functions `mya_uid()`, `mya_is_member()`, `mya_can_see_project()` |
 
 ## Domains
 - **Identity & tenancy:** `User` (id = Supabase `auth.users.id`), `Organization`, `OrganizationMembership` (owner/admin/member/viewer)
-- **Billing:** `Plan` (data-driven, admin-editable), `Subscription`, `CreditLedgerEntry` (append-only, idempotency key, balance = SUM)
+- **Billing:** `Plan` (= SubscriptionPlan) → `PlanPrice` → `Subscription` → `Invoice`; `SubscriptionEntitlement` (effective limits, written only by verified billing events); `BillingCheckout`; `CreditPack`; `CreditLedgerEntry` (append-only, idempotency key, buckets `allowance`/`purchased`). See BILLING_ARCHITECTURE.md
+- **Naming vs spec v3:** SubscriptionPlan → `Plan`. Commerce payments → `Payment`. Platform payments → `Invoice` (one per verified payment). SupportTicket → `SupportRequest`. Deployment → `HostingDeployment`. CreditLedger → `CreditLedgerEntry`. AIProvider → `AiProviderConfig`
 - **Projects:** `Project`, `ProjectFile` (head index + small-file cache), `ProjectVersion` (→ git commit SHA)
 - **AI engine:** `GenerationRun`, `AgentTask`, `AgentEvent`, `AiProviderConfig`, `AiUsage` (cost in USD micros, kept separate from credits charged)
 - **Builds & release:** `BuildJob`, `BuildArtifact`, `HostingDeployment` (status `live` only after a passing health check), `Domain`, `PublishingRecord`, `DeveloperAccount`

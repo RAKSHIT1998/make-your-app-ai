@@ -41,7 +41,7 @@ const EnvSchema = z
     WEB_APP_URL: z.string().default('http://localhost:3000'),
     /** Optional USD→INR rate used ONLY for margin reports (AI costs are billed to us in USD). */
     REPORTING_USD_INR: z.coerce.number().positive().optional(),
-    FREE_PLAN_CREDITS: z.coerce.number().int().nonnegative().default(200),
+    FREE_PLAN_CREDITS: z.coerce.number().int().nonnegative().default(100),
   })
   .refine((e) => e.SUPABASE_URL || e.SUPABASE_JWT_SECRET, {
     message: 'Set SUPABASE_URL (JWKS verification) and/or SUPABASE_JWT_SECRET (legacy HS256).',

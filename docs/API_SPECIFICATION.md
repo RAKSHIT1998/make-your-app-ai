@@ -74,6 +74,32 @@ Run statuses: `queued → running → succeeded | failed | awaiting_approval`.
 
 Each event id is processed once. A payment marks its order paid only if the amount and currency match the order exactly.
 
+### Account
+| PATCH | `/me` | `{displayName?, avatarUrl?}`. Role and status fields are ignored |
+|---|---|---|
+
+### Billing (customers)
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/billing/plans` | public | Active public plans with prices, credit packs, and which providers are configured |
+| GET | `/billing/overview` | viewer | Plan, entitlements, period, subscription, credits (allowance / purchased / used), usage, invoices |
+| POST | `/billing/checkout/subscription` | owner | `{planPriceId}` returns Razorpay `{keyId, subscriptionId}` or Stripe `{checkoutUrl}` plus `checkoutId`. 503 `setupRequired` when the provider is not configured |
+| POST | `/billing/checkout/topup` | admin | `{creditPackId}` returns Razorpay `{orderId…}` or Stripe `{checkoutUrl}` |
+| GET | `/billing/checkouts/:id` | viewer | `created` / `completed`. Changes only via webhook |
+| POST | `/billing/subscription/cancel` | owner | Cancel at period end (provider-side) |
+| POST | `/webhooks/billing/{razorpay,stripe}` | signature | The only path that activates plans or credits purchases |
+
+Plan-limit errors are HTTP 402 with a `code`: `plan_limit_projects`, `plan_limit_type`, `insufficient_credits`. The daily limit returns 429 with `plan_limit_daily`.
+
+### Owner console (`/admin`, platform roles: support < admin < superadmin; customers get 404)
+| Method | Path | Min role |
+|---|---|---|
+| GET | `/admin/overview?days=` (MRR/ARR, revenue, fees, AI cost, margin, users, subs, generations) | support |
+| GET | `/admin/users?q=` (plan, net revenue, AI cost per customer), `/admin/plans`, `/admin/credit-packs`, `/admin/audit-log` | support |
+| POST | `/admin/users/:id/suspend`, `/admin/users/:id/restore` `{reason}` | admin |
+| POST | `/admin/organizations/:id/credits` `{amount, bucket, reason, idempotencyKey}` | admin |
+| POST / PATCH | `/admin/plans`, `/admin/plans/:id`, `/admin/plans/:id/prices`, `/admin/prices/:id`, `/admin/credit-packs[/:id]` | superadmin |
+
 ## Planned (Phase 3–6). Not yet implemented.
 | Method | Path | Notes |
 |---|---|---|
