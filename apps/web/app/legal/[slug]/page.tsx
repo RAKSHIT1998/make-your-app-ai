@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { LEGAL, LEGAL_SLUGS } from '@/lib/legal';
+import { LEGAL, LEGAL_COMPLETE, LEGAL_SLUGS } from '@/lib/legal';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  return { title: LEGAL[slug]?.title ?? 'Legal' };
+}
 
 export function generateStaticParams() {
   return LEGAL_SLUGS.map((slug) => ({ slug }));
@@ -14,7 +19,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
     <main className="mx-auto max-w-3xl px-5 py-12">
       <Link href="/pricing" className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline">← Make Your App AI</Link>
       <h1 className="mt-6 text-3xl font-semibold tracking-[-0.03em]">{doc.title}</h1>
-      <p className="mt-2 rounded-[var(--radius-md)] border border-warning/25 bg-warning-soft px-3 py-2 text-sm text-warning">Draft for legal review — not yet in force. Bracketed items must be completed by the company.</p>
+      {!LEGAL_COMPLETE && <p className="mt-2 rounded-[var(--radius-md)] border border-warning/25 bg-warning-soft px-3 py-2 text-sm text-warning">Draft — not yet in force. Bracketed company details must be completed before launch.</p>}
       <div className="mt-8 space-y-6">
         {doc.sections.map(([h, body]) => (
           <section key={h}><h2 className="text-lg font-semibold tracking-[-0.01em]">{h}</h2><p className="mt-2 whitespace-pre-line leading-relaxed text-muted">{body}</p></section>

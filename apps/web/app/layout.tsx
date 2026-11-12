@@ -4,10 +4,16 @@ import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { Providers } from './providers';
 import { themeBootScript } from '@/lib/theme';
+import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: 'Make Your App AI — Build Anything. From Anywhere.', template: '%s · Make Your App AI' },
   description: 'Describe your idea and get a working website, app or online store you own.',
+  applicationName: 'Make Your App AI',
+  openGraph: { type: 'website', siteName: 'Make Your App AI' },
+  twitter: { card: 'summary_large_image' },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

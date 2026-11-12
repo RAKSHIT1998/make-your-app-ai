@@ -1,0 +1,58 @@
+# Render Blueprint. Database and Auth are Supabase; secrets are set in the Render dashboard (sync: false).
+# One API instance until the durable job queue lands (generation runs in-process; see docs/RUNBOOK.md).
+services:
+  - type: web
+    name: mya-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    plan: standard
+    region: singapore
+    numInstances: 1
+    healthCheckPath: /api/v1/health
+    preDeployCommand: cd /migrate && npx prisma migrate deploy
+    disk: { name: projects, mountPath: /data, sizeGB: 20 }
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: TRUST_PROXY, value: "1" }
+      - { key: STORAGE_DIR, value: /data/projects }
+      - { key: SANDBOX_PROVIDER, value: none }
+      - { key: HOSTING_PROVIDER, value: vercel }
+      - { key: DATABASE_URL, sync: false }
+      - { key: DIRECT_URL, sync: false }
+      - { key: SUPABASE_URL, sync: false }
+      - { key: SUPABASE_JWT_SECRET, sync: false }
+      - { key: ENCRYPTION_KEY, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: PLATFORM_OWNER_EMAILS, sync: false }
+      - { key: WEB_ORIGIN, sync: false }
+      - { key: WEB_APP_URL, sync: false }
+      - { key: PUBLIC_API_URL, sync: false }
+      - { key: RAZORPAY_KEY_ID, sync: false }
+      - { key: RAZORPAY_KEY_SECRET, sync: false }
+      - { key: RAZORPAY_WEBHOOK_SECRET, sync: false }
+      - { key: STRIPE_SECRET_KEY, sync: false }
+      - { key: STRIPE_WEBHOOK_SECRET, sync: false }
+      - { key: VERCEL_TOKEN, sync: false }
+      - { key: VERCEL_TEAM_ID, sync: false }
+
+  - type: web
+    name: mya-web
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: singapore
+    healthCheckPath: /robots.txt
+    envVars:
+      # Build-time public values (also passed as Docker build args by Render).
+      - { key: NEXT_PUBLIC_SITE_URL, sync: false }
+      - { key: NEXT_PUBLIC_API_URL, sync: false }
+      - { key: NEXT_PUBLIC_SUPABASE_URL, sync: false }
+      - { key: NEXT_PUBLIC_SUPABASE_ANON_KEY, sync: false }
+      - { key: NEXT_PUBLIC_LEGAL_COMPANY, sync: false }
+      - { key: NEXT_PUBLIC_LEGAL_ADDRESS, sync: false }
+      - { key: NEXT_PUBLIC_LEGAL_EMAIL, sync: false }
+      - { key: NEXT_PUBLIC_LEGAL_GRIEVANCE_OFFICER, sync: false }
+      - { key: NEXT_PUBLIC_LEGAL_JURISDICTION, sync: false }
+      - { key: NEXT_PUBLIC_LEGAL_REFUND_DAYS, sync: false }

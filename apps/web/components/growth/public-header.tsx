@@ -14,7 +14,7 @@ export function PublicHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:px-6">
-        <Link href={session ? '/home' : '/explore'} aria-label="Make Your App AI" className="mr-2"><Logo compact className="sm:hidden" /><Logo className="hidden sm:inline-flex" /></Link>
+        <Link href={session ? '/home' : '/'} aria-label="Make Your App AI" className="mr-2"><Logo compact className="sm:hidden" /><Logo className="hidden sm:inline-flex" /></Link>
         <nav className="flex items-center">{link('/explore', 'Explore')}{link('/pricing', 'Pricing')}</nav>
         <div className="ml-auto">{session ? <Link href="/home"><Button size="sm" variant="secondary">Open app</Button></Link> : <Link href="/login"><Button size="sm">Start building</Button></Link>}</div>
       </div>

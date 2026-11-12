@@ -40,7 +40,7 @@ export default function Login() {
             </View>
             <Card style={{ gap: 16 }}>
               {!configured ? (
-                <Body muted>Sign-in isn&apos;t configured yet. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY and restart.</Body>
+                <Body muted>Sign-in isn&apos;t configured yet. Set EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY and EXPO_PUBLIC_API_URL and restart.</Body>
               ) : (
                 <>
                   <Text style={{ color: c.text, fontSize: 20, fontWeight: '700' }}>{mode === 'signin' ? 'Welcome back' : 'Create your account'}</Text>

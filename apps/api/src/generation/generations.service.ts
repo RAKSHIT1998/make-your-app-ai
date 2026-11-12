@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, ConflictException, type OnApplicationBootstrap, type OnApplicationShutdown, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecord } from '@mya/ai';
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
 import type { FilePatch, FileTree, GitProjectStore } from '@mya/codegen';
@@ -19,7 +19,7 @@ const ACTIVE: GenerationRun['status'][] = ['queued', 'running'];
 const MIN_CREDITS_TO_START = 5;
 
 @Injectable()
-export class GenerationsService {
+export class GenerationsService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly log = new Logger(GenerationsService.name);
   /** In-process execution for now; Phase 2b moves this onto Inngest durable steps. */
   private readonly inflight = new Map<string, Promise<void>>();
@@ -87,6 +87,28 @@ export class GenerationsService {
     const p = this.execute(run.id, project).finally(() => this.inflight.delete(run.id));
     this.inflight.set(run.id, p);
     return this.toRunDto(run);
+  }
+
+  /** A restart kills in-process runs; mark them failed so nobody waits forever (credits already reflect real usage). */
+  async onApplicationBootstrap() {
+    if (!this.config.RECOVER_INTERRUPTED_RUNS) return;
+    const stuck = await this.prisma.generationRun.findMany({ where: { status: { in: ACTIVE } }, select: { id: true, projectId: true } });
+    for (const r of stuck) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.generationRun.update({ where: { id: r.id }, data: { status: 'failed', error: 'Interrupted by a server restart. You were only charged for work already done — please try again.', finishedAt: new Date() } });
+        await tx.agentEvent.create({ data: { generationRunId: r.id, type: 'run.failed', message: 'Interrupted by a server restart.' } });
+        const p = await tx.project.findUnique({ where: { id: r.projectId }, select: { headVersionId: true, status: true } });
+        if (p?.status === 'generating') await tx.project.update({ where: { id: r.projectId }, data: { status: p.headVersionId ? 'ready' : 'error' } });
+      });
+    }
+    if (stuck.length) this.log.warn(`recovered ${stuck.length} run(s) interrupted by a restart`);
+  }
+
+  /** Give in-flight runs a moment to finish on deploys; anything left is recovered on next boot. */
+  async onApplicationShutdown() {
+    if (!this.inflight.size) return;
+    this.log.log(`waiting up to ${this.config.SHUTDOWN_GRACE_SECONDS}s for ${this.inflight.size} run(s)`);
+    await Promise.race([Promise.allSettled([...this.inflight.values()]), new Promise((r) => setTimeout(r, this.config.SHUTDOWN_GRACE_SECONDS * 1000))]);
   }
 
   /** Test/shutdown helper. */

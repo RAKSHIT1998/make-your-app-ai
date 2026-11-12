@@ -7,6 +7,14 @@ import { PRISMA } from './prisma.service.js';
 export class HealthController {
   constructor(@Inject(PRISMA) private readonly prisma: PrismaClient) {}
 
+  /** Liveness: the process is up (no dependencies). */
+  @Public()
+  @Get('live')
+  live() {
+    return { status: 'ok', uptimeSeconds: Math.round(process.uptime()) };
+  }
+
+  /** Readiness: the API can serve traffic (database reachable). Deploys count as healthy only when this returns 200. */
   @Public()
   @Get()
   async check() {

@@ -79,6 +79,7 @@ function PlanEditor({ plan }: { plan: AdminPlan }) {
         <span className="ml-auto text-[13px] text-muted">{plan.activeSubscriptions} subscriber{plan.activeSubscriptions === 1 ? '' : 's'}</span>
       </div>
       <div className="text-[13px] text-muted">{plan.prices.length ? plan.prices.map((p) => `${money(p.amountMinor, p.currency)}/${p.interval === 'yearly' ? 'yr' : 'mo'}${p.active ? '' : ' (inactive)'}`).join(' · ') : 'No price (free)'}</div>
+      {plan.prices.length > 0 && <StripePrices plan={plan} />}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{field('includedCredits', 'Credits / month')}{field('maxProjects', 'Active projects')}{field('dailyCreditLimit', 'Daily limit', 'Empty = none')}{field('maxCreditsPerRun', 'Max / run')}</div>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={() => save.mutate()} disabled={!valid || !dirty} loading={save.isPending}>Save limits</Button>
@@ -88,6 +89,38 @@ function PlanEditor({ plan }: { plan: AdminPlan }) {
         }}>{plan.active ? 'Hide plan' : 'Activate plan'}</Button>}
       </div>
     </Card>
+  );
+}
+
+/** Stripe needs a recurring Price created in its dashboard; Razorpay plans are created automatically on first checkout. */
+function StripePrices({ plan }: { plan: AdminPlan }) {
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3">
+      <div className="text-[13px] font-medium">Stripe price ids</div>
+      <p className="text-[13px] text-muted">Create a recurring Price in Stripe with the same amount, currency and interval, then paste its id. Razorpay plans are created automatically on the first checkout.</p>
+      {plan.prices.map((p) => <StripePriceRow key={p.id} planName={plan.name} price={p} />)}
+    </div>
+  );
+}
+
+function StripePriceRow({ planName, price }: { planName: string; price: AdminPlan['prices'][number] }) {
+  const qc = useQueryClient();
+  const [v, setV] = useState(price.stripePriceId ?? '');
+  const label = `${money(price.amountMinor, price.currency)}/${price.interval === 'yearly' ? 'yr' : 'mo'}`;
+  const trimmed = v.trim();
+  const valid = trimmed === '' || /^price_[A-Za-z0-9]+$/.test(trimmed);
+  const save = useMutation({
+    mutationFn: () => admin.updatePrice(price.id, { stripePriceId: trimmed === '' ? null : trimmed }),
+    onSuccess: () => { toast.success(`${planName} ${label}: Stripe price saved`); void qc.invalidateQueries({ queryKey: ['admin-plans'] }); },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <Field label={label} error={valid ? null : 'Must start with price_'} hint={price.razorpayPlanId ? `Razorpay plan ${price.razorpayPlanId}` : undefined} className="min-w-0 flex-1">
+        <Input aria-label={`${planName} ${label} Stripe price id`} placeholder="price_…" value={v} onChange={(e) => setV(e.target.value)} className="font-mono" />
+      </Field>
+      <Button size="sm" variant="secondary" disabled={!valid || trimmed === (price.stripePriceId ?? '')} loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
+    </div>
   );
 }
 

@@ -2,20 +2,28 @@
   "expo": {
     "name": "Make Your App AI",
     "slug": "make-your-app-ai",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "makeyourappai",
     "userInterfaceStyle": "automatic",
-    "ios": { "bundleIdentifier": "ai.makeyourapp.app", "supportsTablet": true },
+    "backgroundColor": "#FAFAF9",
+    "primaryColor": "#0C0C0B",
+    "ios": {
+      "bundleIdentifier": "ai.makeyourapp.app",
+      "supportsTablet": true,
+      "config": { "usesNonExemptEncryption": false }
+    },
     "android": {
       "package": "ai.makeyourapp.app",
-      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#5B4CF5" }
+      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#0C0C0B" },
+      "permissions": ["INTERNET"],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO", "android.permission.SYSTEM_ALERT_WINDOW"]
     },
     "web": { "output": "single", "favicon": "./assets/icon.png" },
     "plugins": [
       "expo-router",
-      ["expo-splash-screen", { "image": "./assets/splash-icon.png", "imageWidth": 120, "backgroundColor": "#FBFBFC", "dark": { "backgroundColor": "#0B0B0E" } }]
+      ["expo-splash-screen", { "image": "./assets/splash-icon.png", "imageWidth": 120, "backgroundColor": "#FAFAF9", "dark": { "backgroundColor": "#0A0A09" } }]
     ],
     "experiments": { "typedRoutes": false }
   }

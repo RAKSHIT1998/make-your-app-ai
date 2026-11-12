@@ -314,6 +314,12 @@ describe('owner administration', () => {
     expect((await http().get(`${V}/billing/plans`).expect(200)).body.plans.find((p: { code: string }) => p.code === 'creator')).toMatchObject({ monthlyCredits: 600, maxActiveProjects: 5 });
     await http().post(`${V}/admin/plans/${creator.id}/prices`).set('Authorization', owner.auth).send({ interval: 'monthly', currency: 'INR', amountMinor: 129_900 }).expect(409);
     await http().post(`${V}/admin/plans/${creator.id}/prices`).set('Authorization', owner.auth).send({ interval: 'yearly', currency: 'INR', amountMinor: 999_000 }).expect(201);
+    // Stripe price ids are set from the admin UI; duplicates are a clear 409, not a 404.
+    const [p1, p2] = plans.flatMap((p: { prices: { id: string }[] }) => p.prices).slice(0, 2);
+    await http().patch(`${V}/admin/prices/${p1.id}`).set('Authorization', owner.auth).send({ stripePriceId: 'nope' }).expect(400);
+    expect((await http().patch(`${V}/admin/prices/${p1.id}`).set('Authorization', owner.auth).send({ stripePriceId: 'price_abc123' }).expect(200)).body.stripePriceId).toBe('price_abc123');
+    expect((await http().patch(`${V}/admin/prices/${p2.id}`).set('Authorization', owner.auth).send({ stripePriceId: 'price_abc123' }).expect(409)).body.message).toMatch(/already used/);
+    await http().patch(`${V}/admin/prices/00000000-0000-4000-8000-000000000000`).set('Authorization', owner.auth).send({ active: false }).expect(404);
     const free = plans.find((p: { code: string }) => p.code === 'free');
     await http().patch(`${V}/admin/plans/${free.id}`).set('Authorization', owner.auth).send({ active: false }).expect(400);
     const log = (await http().get(`${V}/admin/audit-log?limit=10`).set('Authorization', owner.auth).expect(200)).body.map((l: { action: string }) => l.action);

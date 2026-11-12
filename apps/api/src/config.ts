@@ -48,14 +48,28 @@ const EnvSchema = z
     /** Optional USD→INR rate used ONLY for margin reports (AI costs are billed to us in USD). */
     REPORTING_USD_INR: z.coerce.number().positive().optional(),
     FREE_PLAN_CREDITS: z.coerce.number().int().nonnegative().default(100),
+    /** Reverse-proxy hops in front of the API (load balancer = 1) so rate limits and audit logs see the real client IP. */
+    TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
+    /** On boot, fail runs left "running" by a previous process. Single-instance deployments only (until the durable queue). */
+    RECOVER_INTERRUPTED_RUNS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+    /** Seconds to wait for in-flight AI runs on shutdown before exiting (unfinished runs are recovered on next boot). */
+    SHUTDOWN_GRACE_SECONDS: z.coerce.number().int().min(0).max(300).default(25),
   })
-  .refine((e) => e.SUPABASE_URL || e.SUPABASE_JWT_SECRET, {
-    message: 'Set SUPABASE_URL (JWKS verification) and/or SUPABASE_JWT_SECRET (legacy HS256).',
-  })
-  .refine((e) => !(e.NODE_ENV === 'production' && e.HOSTING_PROVIDER === 'fake'), { message: 'HOSTING_PROVIDER=fake is for development only.', path: ['HOSTING_PROVIDER'] })
-  .refine((e) => e.HOSTING_PROVIDER !== 'vercel' || !!e.VERCEL_TOKEN, { message: 'HOSTING_PROVIDER=vercel needs VERCEL_TOKEN.', path: ['VERCEL_TOKEN'] })
-  .refine((e) => !(e.NODE_ENV === 'production' && e.SANDBOX_PROVIDER === 'local'), {
-    message: 'SANDBOX_PROVIDER=local is development-only; use docker (or a managed sandbox) in production.',
+  .superRefine((e, ctx) => {
+    // Report every problem at once (keys only — never values).
+    const bad = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+    const prod = e.NODE_ENV === 'production';
+    if (!e.SUPABASE_URL && !e.SUPABASE_JWT_SECRET) bad('SUPABASE_URL', 'Set SUPABASE_URL (JWKS verification) and/or SUPABASE_JWT_SECRET (legacy HS256).');
+    if (e.HOSTING_PROVIDER === 'vercel' && !e.VERCEL_TOKEN) bad('VERCEL_TOKEN', 'HOSTING_PROVIDER=vercel needs VERCEL_TOKEN.');
+    if (prod && e.HOSTING_PROVIDER === 'fake') bad('HOSTING_PROVIDER', 'HOSTING_PROVIDER=fake is for development only.');
+    if (prod && e.SANDBOX_PROVIDER === 'local') bad('SANDBOX_PROVIDER', 'SANDBOX_PROVIDER=local is development-only; use docker (or a managed sandbox) in production.');
+    if (prod && !e.ENCRYPTION_KEY) bad('ENCRYPTION_KEY', 'ENCRYPTION_KEY is required in production (openssl rand -base64 32).');
+    if (prod) {
+      for (const k of ['WEB_ORIGIN', 'WEB_APP_URL', 'PUBLIC_API_URL'] as const) {
+        if (!e[k].split(',').every((x) => x.startsWith('https://') && !/localhost|127\.0\.0\.1/.test(x))) bad(k, `${k} must be a public https:// URL in production.`);
+      }
+      if (!e.STORAGE_DIR.startsWith('/')) bad('STORAGE_DIR', 'STORAGE_DIR must be an absolute path on a persistent disk in production.');
+    }
   });
 
 export type AppConfig = z.infer<typeof EnvSchema>;

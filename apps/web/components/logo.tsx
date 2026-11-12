@@ -1,4 +1,4 @@
-import { cx } from './ui/core';
+import { cx } from '@/lib/cx';
 
 /** Brand mark: an ink tile with a geometric "M" and an ember dot ("from anywhere"). */
 export function LogoMark({ className }: { className?: string }) {

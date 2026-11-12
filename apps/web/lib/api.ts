@@ -150,6 +150,7 @@ export const admin = {
   overview: (days = 30) => apiFetch<AdminOverview>(`/admin/overview?days=${days}`),
   plans: () => apiFetch<AdminPlan[]>('/admin/plans'),
   updatePlan: (id: string, b: Partial<AdminPlan>) => apiFetch<AdminPlan>(`/admin/plans/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
+  updatePrice: (id: string, b: { active?: boolean; stripePriceId?: string | null }) => apiFetch<unknown>(`/admin/prices/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
   users: (q = '') => apiFetch<AdminUser[]>(`/admin/users?limit=100${q ? `&q=${encodeURIComponent(q)}` : ''}`),
   setStatus: (id: string, suspend: boolean, reason: string) => apiFetch<unknown>(`/admin/users/${id}/${suspend ? 'suspend' : 'restore'}`, { method: 'POST', body: JSON.stringify({ reason }) }),
   credits: (orgId: string, amount: number, reason: string) => apiFetch<unknown>(`/admin/organizations/${orgId}/credits`, { method: 'POST', body: JSON.stringify({ amount, reason, bucket: 'purchased', idempotencyKey: crypto.randomUUID() }) }),

@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { API_CONFIGURED } from './api';
 import { supabase } from './supabase';
 
 interface AuthState {
@@ -17,6 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = supabase.auth.onAuthStateChange((_e, session) => setState({ session, loading: false, configured: true }));
     return () => data.subscription.unsubscribe();
   }, []);
-  return <Ctx.Provider value={state}>{children}</Ctx.Provider>;
+  // Sign-in is only offered when both Supabase and the API URL are configured.
+  return <Ctx.Provider value={{ ...state, configured: state.configured && API_CONFIGURED }}>{children}</Ctx.Provider>;
 }
 export const useAuth = () => useContext(Ctx);

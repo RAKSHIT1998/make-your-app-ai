@@ -148,5 +148,18 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 ## §16–17 Design & security
 Design system v2 ✅ · AI adapters ✅ · sandbox isolation ✅ (no generated code in API) · validation ✅ · tenant isolation ✅ (tests) · audit logs ✅ · rate limits ✅ · migrations ✅ · background jobs 🟡 (in-process) · observability 🟡 (logs only; Sentry pending)
 
+## Launch readiness (session 9)
+| Item | Status | Notes |
+|---|---|---|
+| Production config validation, health live/ready, graceful shutdown, run recovery | ✅ | API e2e (`production.e2e.test.ts`) |
+| Deploy: Dockerfiles, docker-compose, Render blueprint, CI | ✅ | Bundles verified natively; CI builds the images |
+| Security headers (CSP, HSTS, frame, referrer, permissions) | ✅ | Playwright: no CSP violations |
+| Landing page, SEO (metadata, robots, sitemap, OG, manifest), 404/error pages | ✅ | |
+| Legal details from env + draft banner | ✅ | Needs your company details + counsel review |
+| Stripe price ids in Owner console | ✅ | Razorpay plans auto-created |
+| Mobile store prep (icons, app.json 1.0.0, eas.json) | ✅ | Needs `eas init` + store accounts |
+| Launch checklist, runbook, deployment guide | ✅ | docs/ |
+| Error tracking (Sentry), platform refund sync | ⬜ | post-launch |
+
 ## Credentials / infrastructure still needed
 Anthropic key (live AI) · Supabase project · live Razorpay + Stripe keys · Docker host for sandbox · hosting provider (Vercel/Cloudflare/Render) · Cloudflare R2 (uploads/screenshots) · Expo EAS token · Inngest + Upstash Redis · Sentry.

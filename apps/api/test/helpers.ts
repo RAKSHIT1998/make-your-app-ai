@@ -16,7 +16,7 @@ export const DB_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:po
 
 export async function createTestApp(opts: { env?: Record<string, string>; overrides?: { provide: symbol; useValue: unknown }[] } = {}): Promise<{ app: INestApplication; prisma: PrismaClient }> {
   const storage = await mkdtemp(path.join(tmpdir(), 'mya-api-store-'));
-  const config = loadConfig({ NODE_ENV: 'test', DATABASE_URL: DB_URL, SUPABASE_JWT_SECRET: JWT_SECRET, STORAGE_DIR: storage, SANDBOX_PROVIDER: 'none', ...opts.env });
+  const config = loadConfig({ NODE_ENV: 'test', DATABASE_URL: DB_URL, SUPABASE_JWT_SECRET: JWT_SECRET, STORAGE_DIR: storage, SANDBOX_PROVIDER: 'none', RECOVER_INTERRUPTED_RUNS: 'false', ...opts.env });
   const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config, opts.overrides ?? [])] }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
   configureApp(app, config);

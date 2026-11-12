@@ -129,8 +129,10 @@ export class AdminService {
   }
 
   async updatePrice(admin: AuthUser, priceId: string, input: z.infer<typeof PriceUpdate>) {
-    const price = await this.prisma.planPrice.update({ where: { id: priceId }, data: input }).catch(() => {
-      throw new NotFoundException('Price not found');
+    const price = await this.prisma.planPrice.update({ where: { id: priceId }, data: input }).catch((e: unknown) => {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictException('That Stripe price id is already used by another plan price.');
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') throw new NotFoundException('Price not found');
+      throw e;
     });
     await this.audit.record({ action: 'admin.price_updated', actorId: admin.id, targetType: 'plan_price', targetId: priceId, metadata: input as Prisma.InputJsonValue });
     return price;

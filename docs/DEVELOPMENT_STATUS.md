@@ -1,6 +1,6 @@
 # Development Status
 
-_Last updated: 2026-11-13, session 8 (Hosting, Templates, App Studio). Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
+_Last updated: 2026-11-13, session 9 (launch readiness). Launch steps: **LAUNCH_CHECKLIST.md**, operations: **RUNBOOK.md**, deploy: **DEPLOYMENT.md**. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
 _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue from "Next tasks"._
 
 ## Current phase
@@ -18,10 +18,11 @@ _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue f
 | **Growth engine G1** — publishing with frozen public snapshots, Explore (search, filters, trending/new/liked/featured), public project pages with OG images, creator profiles + handles, likes, daily-unique views, share links, **Remix with AI** (published version only, lineage, secrets stripped), **referral programme** (rewards only after verified first payment, monthly caps, claim window, admin-configurable), reports with auto-hide and owner moderation (hide/restore/feature/dismiss). See GROWTH.md | 6 new API e2e tests (showcase flow, remix isolation, moderation, handles, referral anti-abuse incl. webhook idempotency); Playwright at 1440 and 390: publish → Explore (logged out) → project page → OG image + meta → creator page → invite link → sign-up → invite applied → like → remix → owner console feature; overflow sweep incl. new pages 360–1440: none; no console errors |
 | **Session 7** — platform feature flags (owner console, API-enforced), plan-first conversational builder (plan + clarifying questions + assumptions before code, revise by chat, build from approved plan), voice input (Create + chat), achievements (9 badges from real records), build streaks, activity timeline | 4 new API e2e tests (plan isolation across projects/tenants, metering, flags 503 + audit, badges only after real activity, timeline tenant isolation); Playwright desktop + mobile: plan → answer → build → streak/badges → flag off hides voice; overflow sweep clean |
 | **Session 8** — Cloud Studio (`@mya/hosting`, Vercel adapter, deployments/logs/rollback/env/domains), Templates (submit → review → gallery → use), App Studio (Expo template + generation, app settings → app.json, release checklist, source .zip) | 8 new API e2e + 2 adapter tests; Playwright desktop + mobile for all three; overflow sweep incl. new pages clean; `turbo build typecheck test` 31/31 |
+| **Session 9 — ship-ready** — production config validation (all problems reported at once; refuses fake hosting, local sandbox, missing ENCRYPTION_KEY, non-https or localhost URLs, relative STORAGE_DIR), `TRUST_PROXY`, liveness `/health/live` + readiness `/health`, graceful shutdown that waits for in-flight runs, interrupted-run recovery on boot; Dockerfiles (API with migration tooling, web standalone), `infra/docker-compose.yml`, `infra/render.yaml`, GitHub Actions CI; web security headers (CSP, HSTS, frame/referrer/permissions policies, no x-powered-by); public landing page, robots, sitemap, web manifest, OG image, 404/error pages; legal details from env (draft banner until complete); Stripe price ids editable in Owner console → Plans; mobile store assets in the new identity, app.json 1.0.0, `eas.json` build/submit profiles, release builds refuse to call localhost | 3 production e2e tests + Stripe-price assertions in billing e2e; the `pnpm deploy` bundle boots with NODE_ENV=production (live/ready ok, 401 without a token, every config error listed); the web standalone server, laid out as the image copies it, serves landing, robots, sitemap, manifest, OG image, legal and static assets, and 404s unknown pages; all 8 migrations apply to an empty database; Expo iOS+Android export OK; Playwright: no CSP violations or page errors on any page, landing → login keeps the idea, admin Stripe field at 1440 and 390, overflow sweep clean. Docker images were not built here (Docker Hub is blocked in this workspace); CI builds both |
 | New read-only endpoints backing the redesign: `GET /activity`, `GET /generations/estimate`, `GET /billing/usage`, `GET /stores/:id/customers?q=` | 2 new API e2e tests (incl. tenant isolation) |
 | Earlier sessions: AI engine + website generation, commerce engine + merchant dashboard, web and mobile apps | see git history; all tests green |
 
-**Test totals (this run):** api 75, hosting 2, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 28/28. Mobile typecheck OK. `next build` OK. **0 failing.**
+**Test totals (this run):** api 78, hosting 2, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 31/31. `pnpm audit --prod`: 1 moderate (minimatch inside Expo's build tooling), 0 high. Mobile typecheck OK. `next build` OK. **0 failing.**
 
 ## In progress
 None. The session ended at a clean commit.
@@ -35,16 +36,16 @@ None. The session ended at a clean commit.
 | Docker sandbox run | A host with a Docker daemon |
 | Live deployments | `HOSTING_PROVIDER=vercel`, `VERCEL_TOKEN` (optional `VERCEL_TEAM_ID`) |
 | Managed mobile builds | `EXPO_TOKEN` + a sandbox build runner |
+| Production launch | Domain, Render (or Docker host with a persistent disk), legal company details (`NEXT_PUBLIC_LEGAL_*`), Expo/EAS + Apple/Google developer accounts. Full list: LAUNCH_CHECKLIST.md |
 
 ## Failed tests
 None.
 
 ## Known issues / limitations
-- Pro and Studio advertise features that are not built yet. The pricing page marks them "coming soon". **Recommendation: hide Pro and Studio in the Owner console until App Studio and hosting ship.**
 - Plan allowances, yearly prices and credit-pack prices are proposals (BUSINESS_MODEL.md). Validate them with real generation costs.
-- No proration. Invoice numbers come from one global sequence (GST may need per-FY numbering and a GSTIN invoice PDF). No dunning emails. No platform refund UI.
-- Legal pages are drafts with bracketed company details. They need counsel review.
-- Generation, the stock-hold timer and rate limiting run in-process. They need Inngest and Redis before running more than one instance.
+- No proration. Invoice numbers come from one global sequence (GST may need per-FY numbering and a GSTIN invoice PDF). No dunning emails. Platform refunds are issued in the provider dashboard and not synced back (adjust credits by hand); store-order refunds are synced.
+- Legal pages fill in company details from `NEXT_PUBLIC_LEGAL_*` and show a draft banner until all are set. The wording still needs counsel review, especially the refund commitment.
+- Generation, the stock-hold timer and rate limiting run in-process. Run one API instance until a durable queue and Redis-backed rate limits exist (RUNBOOK → Scaling).
 - Sandbox compute, storage, hosting and bandwidth costs are not metered yet. Margin reports say so.
 - Commerce: no storefront generator, customer accounts, wishlist, reviews, returns or PayPal.
 - Mobile app has no billing or owner screens yet (web only). It compiles against the new tokens (brand aliases) but has not been visually redesigned.
@@ -57,9 +58,10 @@ None.
 Supabase (URL, anon key, DB URLs, JWT secret if legacy) · `ANTHROPIC_API_KEY` · `ENCRYPTION_KEY` · `PLATFORM_OWNER_EMAILS` · platform Razorpay keys and webhook secret · platform Stripe keys and webhook secret · `REPORTING_USD_INR` (optional). Later: Upstash Redis, Inngest, Cloudflare R2, Render, Expo/EAS, Vercel or Cloudflare, Sentry.
 
 ## Next tasks (in spec order)
+0. **Launch:** work through LAUNCH_CHECKLIST.md (accounts, legal details, Render deploy, webhooks, production smoke test).
 1. With live keys: run the Phase 2 acceptance with a ₹1 test plan, then verify webhooks from the provider dashboards.
 2. Phase 3 completion: Inngest durable runs, OpenAI and Gemini adapters, backend agent, Docker sandbox verification.
-3. Phase 4 App Studio: Expo template + generator, Expo-web preview.
+3. Error tracking (Sentry) and uptime alerts; platform refund webhooks → credit clawback.
 4. Phase 5: live preview + visual editor (Website Studio). The workspace Preview tab and the Studio's editor UI slot in once a sandboxed preview exists.
 6. Growth G2: challenges, voting, leaderboards, comments, follows, collections, badges (GROWTH.md). Then G3: plan-first builder and voice input.
 7. Unarchive API + UI; file attachments on Create (R2 upload); redesign the Expo app screens with the v2 tokens.

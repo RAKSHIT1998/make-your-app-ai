@@ -1,12 +1,10 @@
 'use client';
 
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
-/** Joins class names and resolves Tailwind conflicts so callers can override defaults (e.g. a narrower input). */
-export const cx = (...a: ClassValue[]) => twMerge(clsx(a));
+export { cx } from '@/lib/cx';
+import { cx } from '@/lib/cx';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent';
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
