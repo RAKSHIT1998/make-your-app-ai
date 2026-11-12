@@ -20,9 +20,21 @@ importers:
 
   apps/api:
     dependencies:
+      '@mya/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
+      '@mya/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@mya/codegen':
+        specifier: workspace:*
+        version: link:../../packages/codegen
       '@mya/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@mya/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
       '@mya/shared':
         specifier: workspace:*
         version: link:../../packages/shared

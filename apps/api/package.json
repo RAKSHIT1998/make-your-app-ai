@@ -20,7 +20,11 @@
     "jose": "6.2.17",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@mya/ai": "workspace:*",
+    "@mya/agents": "workspace:*",
+    "@mya/codegen": "workspace:*",
+    "@mya/sandbox": "workspace:*"
   },
   "devDependencies": {
     "@mya/config": "workspace:*",

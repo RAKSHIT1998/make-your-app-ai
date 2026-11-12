@@ -9,3 +9,5 @@ coverage
 !.env.example
 *.log
 packages/db/generated
+
+.data

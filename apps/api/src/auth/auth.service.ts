@@ -3,6 +3,7 @@ import type { PrismaClient } from '@mya/db';
 import { PRISMA } from '../prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from './auth.types.js';
+import { CreditsService } from '../credits/credits.service.js';
 import type { VerifiedClaims } from './token-verifier.js';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class AuthService {
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(CreditsService) private readonly credits: CreditsService,
   ) {}
 
   /** Upserts the platform user for a verified Supabase identity and ensures a personal org exists. */
@@ -50,6 +52,7 @@ export class AuthService {
         memberships: { create: { userId, role: 'owner' } },
       },
     });
+    await this.credits.ensureInitialGrant(org.id);
     return org.id;
   }
 }

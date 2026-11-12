@@ -5,15 +5,19 @@ import type { INestApplication } from '@nestjs/common';
 import { SignJWT } from 'jose';
 import { createPrismaClient, type PrismaClient } from '@mya/db';
 import { AppModule } from '../src/app.module.js';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { configureApp } from '../src/bootstrap.js';
 import { loadConfig } from '../src/config.js';
 
 export const JWT_SECRET = 'test-secret-at-least-32-characters-long!!';
 export const DB_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/mya_test';
 
-export async function createTestApp(): Promise<{ app: INestApplication; prisma: PrismaClient }> {
-  const config = loadConfig({ NODE_ENV: 'test', DATABASE_URL: DB_URL, SUPABASE_JWT_SECRET: JWT_SECRET });
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] }).compile();
+export async function createTestApp(opts: { env?: Record<string, string>; overrides?: { provide: symbol; useValue: unknown }[] } = {}): Promise<{ app: INestApplication; prisma: PrismaClient }> {
+  const storage = await mkdtemp(path.join(tmpdir(), 'mya-api-store-'));
+  const config = loadConfig({ NODE_ENV: 'test', DATABASE_URL: DB_URL, SUPABASE_JWT_SECRET: JWT_SECRET, STORAGE_DIR: storage, SANDBOX_PROVIDER: 'none', ...opts.env });
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config, opts.overrides ?? [])] }).compile();
   const app = moduleRef.createNestApplication();
   configureApp(app, config);
   await app.init();
@@ -37,5 +41,5 @@ export function newIdentity(label: string) {
 }
 
 export async function resetDb(prisma: PrismaClient) {
-  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "AuditLog" CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "AuditLog", "AiProviderConfig" CASCADE');
 }
