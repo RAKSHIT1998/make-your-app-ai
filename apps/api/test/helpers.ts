@@ -18,7 +18,7 @@ export async function createTestApp(opts: { env?: Record<string, string>; overri
   const storage = await mkdtemp(path.join(tmpdir(), 'mya-api-store-'));
   const config = loadConfig({ NODE_ENV: 'test', DATABASE_URL: DB_URL, SUPABASE_JWT_SECRET: JWT_SECRET, STORAGE_DIR: storage, SANDBOX_PROVIDER: 'none', ...opts.env });
   const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config, opts.overrides ?? [])] }).compile();
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication({ rawBody: true });
   configureApp(app, config);
   await app.init();
   return { app, prisma: createPrismaClient(DB_URL) };
@@ -41,5 +41,5 @@ export function newIdentity(label: string) {
 }
 
 export async function resetDb(prisma: PrismaClient) {
-  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "AuditLog", "AiProviderConfig" CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "AuditLog", "AiProviderConfig", "PaymentWebhookEvent" CASCADE');
 }

@@ -69,6 +69,7 @@ model Organization {
   developerAccounts DeveloperAccount[]
   domains           Domain[]
   auditLogs         AuditLog[]
+  stores            Store[]
 }
 
 model OrganizationMembership {
@@ -101,21 +102,21 @@ enum PaymentProvider {
 
 /// Plans are data, editable by admins — never hardcoded.
 model Plan {
-  id                 String   @id @default(uuid()) @db.Uuid
-  code               String   @unique // free | creator | pro | studio
-  name               String
-  priceMonthlyMinor  Int // smallest currency unit
-  currency           String   @default("USD")
-  includedCredits    Int
-  maxProjects        Int
-  maxOrgs            Int      @default(1)
-  maxSeats           Int      @default(1)
-  features           Json     @default("{}")
-  active             Boolean  @default(true)
-  providerPriceIds   Json     @default("{}") // { stripe: "...", razorpay: "..." }
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  subscriptions      Subscription[]
+  id                String         @id @default(uuid()) @db.Uuid
+  code              String         @unique // free | creator | pro | studio
+  name              String
+  priceMonthlyMinor Int // smallest currency unit
+  currency          String         @default("USD")
+  includedCredits   Int
+  maxProjects       Int
+  maxOrgs           Int            @default(1)
+  maxSeats          Int            @default(1)
+  features          Json           @default("{}")
+  active            Boolean        @default(true)
+  providerPriceIds  Json           @default("{}") // { stripe: "...", razorpay: "..." }
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  subscriptions     Subscription[]
 }
 
 model Subscription {
@@ -195,16 +196,17 @@ model Project {
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
 
-  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy       User               @relation("ProjectCreator", fields: [createdById], references: [id])
-  headVersion     ProjectVersion?    @relation("ProjectHead", fields: [headVersionId], references: [id])
-  versions        ProjectVersion[]   @relation("ProjectVersions")
-  files           ProjectFile[]
-  generationRuns  GenerationRun[]
-  buildJobs       BuildJob[]
-  deployments     HostingDeployment[]
-  publishing      PublishingRecord[]
-  approvals       ApprovalRequest[]
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User                @relation("ProjectCreator", fields: [createdById], references: [id])
+  headVersion    ProjectVersion?     @relation("ProjectHead", fields: [headVersionId], references: [id])
+  versions       ProjectVersion[]    @relation("ProjectVersions")
+  files          ProjectFile[]
+  generationRuns GenerationRun[]
+  buildJobs      BuildJob[]
+  deployments    HostingDeployment[]
+  publishing     PublishingRecord[]
+  approvals      ApprovalRequest[]
+  store          Store?
 
   @@index([organizationId, deletedAt])
 }
@@ -315,17 +317,17 @@ model AgentEvent {
 }
 
 model AiProviderConfig {
-  id           String   @id @default(uuid()) @db.Uuid
-  provider     String // anthropic | openai | gemini | ...
-  model        String
-  tier         String // fast | balanced | deep
-  enabled      Boolean  @default(true)
-  priority     Int      @default(100) // lower = preferred
+  id                      String   @id @default(uuid()) @db.Uuid
+  provider                String // anthropic | openai | gemini | ...
+  model                   String
+  tier                    String // fast | balanced | deep
+  enabled                 Boolean  @default(true)
+  priority                Int      @default(100) // lower = preferred
   inputCostPerMTokMicros  Int // USD micros per million input tokens
   outputCostPerMTokMicros Int
-  capabilities Json     @default("{}") // { structuredOutput: true, tools: true, maxOutput: 32000 }
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  capabilities            Json     @default("{}") // { structuredOutput: true, tools: true, maxOutput: 32000 }
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@unique([provider, model])
 }
@@ -360,20 +362,20 @@ enum BuildTarget {
 }
 
 model BuildJob {
-  id          String          @id @default(uuid()) @db.Uuid
-  projectId   String          @db.Uuid
-  versionId   String?         @db.Uuid
-  target      BuildTarget
-  profile     String          @default("preview") // development | preview | production
-  status      RunStatus       @default(queued)
-  provider    String // sandbox | eas
-  externalId  String?
-  logsKey     String?
-  startedAt   DateTime?
-  finishedAt  DateTime?
-  createdAt   DateTime        @default(now())
-  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  artifacts   BuildArtifact[]
+  id         String          @id @default(uuid()) @db.Uuid
+  projectId  String          @db.Uuid
+  versionId  String?         @db.Uuid
+  target     BuildTarget
+  profile    String          @default("preview") // development | preview | production
+  status     RunStatus       @default(queued)
+  provider   String // sandbox | eas
+  externalId String?
+  logsKey    String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime        @default(now())
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifacts  BuildArtifact[]
 }
 
 model BuildArtifact {
@@ -539,4 +541,316 @@ model SupportRequest {
   status    String   @default("open")
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────── Commerce (multi-tenant) ─────────────────────────
+// Every generated store runs on this shared engine. All money is integer minor units (paise/cents).
+
+enum StoreStatus {
+  draft
+  active
+  paused
+}
+
+model Store {
+  id               String                  @id @default(uuid()) @db.Uuid
+  organizationId   String                  @db.Uuid
+  projectId        String?                 @unique @db.Uuid
+  name             String
+  slug             String                  @unique
+  currency         String                  @default("INR")
+  status           StoreStatus             @default(draft)
+  contactEmail     String?
+  theme            Json                    @default("{}")
+  /// Basis points, e.g. 1800 = 18%.
+  taxRateBps       Int                     @default(0)
+  pricesIncludeTax Boolean                 @default(true)
+  paymentProvider  PaymentProvider?
+  nextOrderNumber  Int                     @default(1001)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  deletedAt        DateTime?
+  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project          Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  products         Product[]
+  collections      Collection[]
+  customers        Customer[]
+  orders           Order[]
+  discounts        Discount[]
+  shippingConfigs  ShippingConfiguration[]
+
+  @@index([organizationId])
+}
+
+enum ProductStatus {
+  draft
+  active
+  archived
+}
+
+model Product {
+  id          String              @id @default(uuid()) @db.Uuid
+  storeId     String              @db.Uuid
+  title       String
+  handle      String
+  description String              @default("")
+  status      ProductStatus       @default(draft)
+  digital     Boolean             @default(false)
+  images      Json                @default("[]")
+  tags        String[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variants    ProductVariant[]
+  collections ProductCollection[]
+
+  @@unique([storeId, handle])
+  @@index([storeId, status])
+}
+
+model Collection {
+  id          String              @id @default(uuid()) @db.Uuid
+  storeId     String              @db.Uuid
+  title       String
+  handle      String
+  description String              @default("")
+  createdAt   DateTime            @default(now())
+  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products    ProductCollection[]
+
+  @@unique([storeId, handle])
+}
+
+model ProductCollection {
+  productId    String     @db.Uuid
+  collectionId String     @db.Uuid
+  position     Int        @default(0)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([productId, collectionId])
+}
+
+model ProductVariant {
+  id             String      @id @default(uuid()) @db.Uuid
+  productId      String      @db.Uuid
+  storeId        String      @db.Uuid
+  title          String
+  sku            String?
+  priceMinor     Int
+  compareAtMinor Int?
+  options        Json        @default("{}")
+  weightGrams    Int?
+  position       Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  product        Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory      Inventory?
+  orderItems     OrderItem[]
+
+  @@unique([storeId, sku])
+  @@index([productId])
+}
+
+/// available = onHand - reserved. Reservations are taken at checkout and converted (or released) on payment.
+model Inventory {
+  id                String         @id @default(uuid()) @db.Uuid
+  variantId         String         @unique @db.Uuid
+  storeId           String         @db.Uuid
+  tracked           Boolean        @default(true)
+  onHand            Int            @default(0)
+  reserved          Int            @default(0)
+  lowStockThreshold Int            @default(5)
+  updatedAt         DateTime       @updatedAt
+  variant           ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+model Customer {
+  id               String   @id @default(uuid()) @db.Uuid
+  storeId          String   @db.Uuid
+  email            String
+  name             String?
+  phone            String?
+  acceptsMarketing Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  store            Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders           Order[]
+
+  @@unique([storeId, email])
+}
+
+enum OrderStatus {
+  pending_payment
+  paid
+  partially_refunded
+  refunded
+  cancelled
+  expired
+}
+
+enum FulfillmentStatus {
+  unfulfilled
+  fulfilled
+  returned
+}
+
+model Order {
+  id                   String            @id @default(uuid()) @db.Uuid
+  storeId              String            @db.Uuid
+  number               Int
+  customerId           String?           @db.Uuid
+  email                String
+  status               OrderStatus       @default(pending_payment)
+  fulfillmentStatus    FulfillmentStatus @default(unfulfilled)
+  currency             String
+  subtotalMinor        Int
+  discountMinor        Int               @default(0)
+  shippingMinor        Int               @default(0)
+  taxMinor             Int               @default(0)
+  totalMinor           Int
+  refundedMinor        Int               @default(0)
+  discountCode         String?
+  shippingMethod       String?
+  shippingAddress      Json              @default("{}")
+  /// Client-supplied idempotency key: retrying checkout with the same token returns the same order.
+  checkoutToken        String            @unique
+  /// Secret given to the buyer; required (with the order id) to view the order without a merchant login.
+  accessToken          String            @unique
+  reservationExpiresAt DateTime
+  paidAt               DateTime?
+  cancelledAt          DateTime?
+  fulfilledAt          DateTime?
+  trackingNumber       String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  store                Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer             Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items                OrderItem[]
+  payments             Payment[]
+  refunds              Refund[]
+
+  @@unique([storeId, number])
+  @@index([storeId, status, createdAt])
+  @@index([status, reservationExpiresAt])
+}
+
+model OrderItem {
+  id             String         @id @default(uuid()) @db.Uuid
+  orderId        String         @db.Uuid
+  variantId      String         @db.Uuid
+  productTitle   String
+  variantTitle   String
+  sku            String?
+  unitPriceMinor Int
+  quantity       Int
+  totalMinor     Int
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant        ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([variantId])
+}
+
+enum PaymentStatus {
+  created
+  succeeded
+  failed
+}
+
+model Payment {
+  id                String          @id @default(uuid()) @db.Uuid
+  orderId           String          @db.Uuid
+  storeId           String          @db.Uuid
+  provider          PaymentProvider
+  providerOrderId   String          @unique
+  providerPaymentId String?         @unique
+  amountMinor       Int
+  currency          String
+  status            PaymentStatus   @default(created)
+  /// Public parameters the storefront needs to complete payment (never secrets). Re-served on idempotent checkout retries.
+  clientParams      Json            @default("{}")
+  failureReason     String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds           Refund[]
+
+  @@index([storeId])
+}
+
+enum RefundStatus {
+  pending
+  succeeded
+  failed
+}
+
+model Refund {
+  id               String       @id @default(uuid()) @db.Uuid
+  orderId          String       @db.Uuid
+  paymentId        String       @db.Uuid
+  amountMinor      Int
+  reason           String       @default("")
+  status           RefundStatus @default(pending)
+  providerRefundId String?      @unique
+  idempotencyKey   String       @unique
+  restock          Boolean      @default(false)
+  createdById      String       @db.Uuid
+  createdAt        DateTime     @default(now())
+  order            Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment          Payment      @relation(fields: [paymentId], references: [id])
+}
+
+enum DiscountType {
+  percentage
+  fixed_amount
+  free_shipping
+}
+
+model Discount {
+  id               String       @id @default(uuid()) @db.Uuid
+  storeId          String       @db.Uuid
+  code             String
+  type             DiscountType
+  /// percentage: basis points (1000 = 10%); fixed_amount: minor units; free_shipping: ignored.
+  value            Int          @default(0)
+  minSubtotalMinor Int          @default(0)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  usageLimit       Int?
+  usageCount       Int          @default(0)
+  active           Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  store            Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, code])
+}
+
+model ShippingConfiguration {
+  id            String   @id @default(uuid()) @db.Uuid
+  storeId       String   @db.Uuid
+  name          String
+  rateMinor     Int
+  freeOverMinor Int?
+  countries     String[]
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+/// Every verified provider webhook is recorded once; duplicates are acknowledged and skipped.
+model PaymentWebhookEvent {
+  id          String          @id @default(uuid()) @db.Uuid
+  provider    PaymentProvider
+  eventId     String
+  type        String
+  storeId     String?         @db.Uuid
+  receivedAt  DateTime        @default(now())
+  processedAt DateTime?
+  outcome     String?
+
+  @@unique([provider, eventId])
 }

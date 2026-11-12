@@ -1,10 +1,12 @@
 import { Body, Controller, Get, HttpCode, Inject, Ip, MessageEvent, Param, ParseUUIDPipe, Post, Query, Sse } from '@nestjs/common';
 import { StartGenerationSchema, type StartGenerationInput } from '@mya/shared';
+import { Throttle } from '@nestjs/throttler';
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 import { CurrentUser } from '../auth/decorators.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { ZodPipe } from '../common/zod.pipe.js';
+import { rateLimits } from '../common/rate-limits.js';
 import { GenerationsService } from './generations.service.js';
 
 const EventsQuery = z.object({ after: z.string().regex(/^\d+$/).default('0') });
@@ -17,6 +19,7 @@ export class GenerationsController {
 
   @Post('projects/:id/generations')
   @HttpCode(202)
+  @Throttle({ default: { limit: () => rateLimits.generation, ttl: 60_000 } })
   start(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string, @Body(new ZodPipe(StartGenerationSchema)) body: StartGenerationInput, @Ip() ip: string) {
     return this.gen.start(user, id, body.prompt, ip);
   }

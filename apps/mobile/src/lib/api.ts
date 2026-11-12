@@ -1,7 +1,7 @@
 import type { CreateProjectInput, ProjectDto, ProjectType } from '@mya/shared';
 import { supabase } from './supabase';
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
+export const API_URL = `${process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1`;
 
 export class ApiError extends Error {
   constructor(readonly status: number, message: string, readonly body: unknown) {

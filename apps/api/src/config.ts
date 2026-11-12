@@ -19,6 +19,16 @@ const EnvSchema = z
     /** Hard cap on credits one generation run may consume. */
     MAX_CREDITS_PER_RUN: z.coerce.number().int().positive().default(500),
     /** One-time credit grant for new workspaces (until billing plans are configured). */
+    /** Requests per minute per client (IP + user). In-memory store; switch to Redis storage when running >1 instance. */
+    RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+    /** 32-byte key (base64) for encrypting customer integration credentials at rest. Required to connect payment gateways. */
+    ENCRYPTION_KEY: z.string().optional().refine((v) => !v || Buffer.from(v, 'base64').length === 32, 'ENCRYPTION_KEY must be 32 bytes, base64-encoded'),
+    /** Public base URL of this API, used to show merchants their webhook URL. */
+    PUBLIC_API_URL: z.string().default('http://localhost:4000'),
+    /** Minutes a checkout holds stock while awaiting payment. */
+    CHECKOUT_RESERVATION_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(30),
+    CHECKOUT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(15),
+    GENERATION_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
     FREE_PLAN_CREDITS: z.coerce.number().int().nonnegative().default(200),
   })
   .refine((e) => e.SUPABASE_URL || e.SUPABASE_JWT_SECRET, {

@@ -29,3 +29,17 @@ Paths must be relative, normalised and inside the project root. No `..`, no abso
 - Content from the customer's project files and prompts is placed in clearly delimited data blocks, never in instruction position (prompt-injection mitigation).
 - Agents cannot publish, deploy, change domains, activate payments or delete projects. Those actions require an `ApprovalRequest` that the customer approves.
 - Any patch set that deletes files, or that rewrites more than 60% of an existing file, is flagged `destructive`. On edit runs a destructive patch set requires approval before it is applied.
+
+## Per-task guarantees (implemented)
+| Requirement | Where |
+|---|---|
+| Unique task ID | Each attempt is an `AgentTask` row (uuid) with an `attempt` number |
+| Input / output schema | zod schemas in `packages/agents/src/contracts.ts`, sent to the model as JSON Schema (structured output) and re-validated on receipt |
+| Tool permissions | Agents have **no tools and no shell**. They return data only (specs or file patches). Only the orchestrator applies patches (through `safePath`) and runs allow-listed commands in the sandbox |
+| Execution status | `AgentTask.status`: running → succeeded / failed, timestamps included |
+| Retry limit | Schema failures: 2 attempts per agent call. Provider errors: 3 attempts per route, then fallback. QA repair: 2 loops |
+| Error handling | Invalid output → `AgentOutputError`. Budget → `BudgetExceededError`. Both fail the run visibly with a message |
+| Usage tracking | One `AiUsage` row per model call (tokens, cost in micros, credits, latency, success), plus a ledger debit |
+| Audit history | `AgentEvent` stream per run, plus `AuditLog` for starts, approvals and restores |
+
+Agents not yet implemented: **backend** (with full-stack templates, Phase 3) and **release** (Phase 5). Their contracts are defined above but not wired in.

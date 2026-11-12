@@ -58,14 +58,14 @@ beforeEach(async () => {
 async function login(label: string) {
   const u = newIdentity(label);
   const auth = `Bearer ${await tokenFor(u.id, u.email)}`;
-  const me = await http().get('/me').set('Authorization', auth).expect(200);
+  const me = await http().get('/api/v1/me').set('Authorization', auth).expect(200);
   return { ...u, auth, orgId: me.body.personalOrgId as string };
 }
 async function newProject(auth: string, type = 'website') {
-  return (await http().post('/projects').set('Authorization', auth).send({ name: 'Grand Lake', type }).expect(201)).body.id as string;
+  return (await http().post('/api/v1/projects').set('Authorization', auth).send({ name: 'Grand Lake', type }).expect(201)).body.id as string;
 }
 async function generate(auth: string, projectId: string, prompt: string) {
-  const res = await http().post(`/projects/${projectId}/generations`).set('Authorization', auth).send({ prompt });
+  const res = await http().post(`/api/v1/projects/${projectId}/generations`).set('Authorization', auth).send({ prompt });
   if (res.status === 202) await gen.waitFor(res.body.id);
   return res;
 }
@@ -73,7 +73,7 @@ async function generate(auth: string, projectId: string, prompt: string) {
 describe('generation flow', () => {
   it('grants starter credits to new workspaces', async () => {
     const a = await login('a');
-    expect((await http().get('/credits').set('Authorization', a.auth).expect(200)).body.balance).toBe(200);
+    expect((await http().get('/api/v1/credits').set('Authorization', a.auth).expect(200)).body.balance).toBe(200);
   });
 
   it('prompt → spec → code → validated → committed version, with usage metered and credits debited', async () => {
@@ -84,29 +84,29 @@ describe('generation flow', () => {
     expect(started.status).toBe(202);
     expect(started.body).toMatchObject({ kind: 'create', status: 'queued' });
 
-    const run = (await http().get(`/generations/${started.body.id}`).set('Authorization', a.auth).expect(200)).body;
+    const run = (await http().get(`/api/v1/generations/${started.body.id}`).set('Authorization', a.auth).expect(200)).body;
     expect(run.status).toBe('succeeded');
     expect(run.tasks.map((t: { agent: string; status: string }) => `${t.agent}:${t.status}`)).toEqual(['architect:succeeded', 'designer:succeeded', 'frontend:succeeded']);
     expect(run.creditsUsed).toBeGreaterThan(0);
 
-    const project = (await http().get(`/projects/${pid}`).set('Authorization', a.auth).expect(200)).body;
+    const project = (await http().get(`/api/v1/projects/${pid}`).set('Authorization', a.auth).expect(200)).body;
     expect(project.status).toBe('ready');
-    const versions = (await http().get(`/projects/${pid}/versions`).set('Authorization', a.auth).expect(200)).body;
+    const versions = (await http().get(`/api/v1/projects/${pid}/versions`).set('Authorization', a.auth).expect(200)).body;
     expect(versions).toHaveLength(1);
     expect(versions[0]).toMatchObject({ number: 1, isHead: true });
 
-    const files = (await http().get(`/projects/${pid}/files`).set('Authorization', a.auth).expect(200)).body.map((f: { path: string }) => f.path);
+    const files = (await http().get(`/api/v1/projects/${pid}/files`).set('Authorization', a.auth).expect(200)).body.map((f: { path: string }) => f.path);
     expect(files).toEqual(expect.arrayContaining(['app/layout.tsx', 'app/page.tsx', 'app/rooms/page.tsx', 'components/Hero.tsx', 'package.json']));
-    const hero = (await http().get(`/projects/${pid}/file?path=components/Hero.tsx`).set('Authorization', a.auth).expect(200)).body;
+    const hero = (await http().get(`/api/v1/projects/${pid}/file?path=components/Hero.tsx`).set('Authorization', a.auth).expect(200)).body;
     expect(hero.content).toBe(HERO);
 
-    const events = (await http().get(`/generations/${started.body.id}/events`).set('Authorization', a.auth).expect(200)).body;
+    const events = (await http().get(`/api/v1/generations/${started.body.id}/events`).set('Authorization', a.auth).expect(200)).body;
     expect(events.map((e: { type: string }) => e.type)).toEqual(expect.arrayContaining(['step.started', 'files.changed', 'check.skipped', 'version.committed']));
-    const later = (await http().get(`/generations/${started.body.id}/events?after=${events[2].id}`).set('Authorization', a.auth).expect(200)).body;
+    const later = (await http().get(`/api/v1/generations/${started.body.id}/events?after=${events[2].id}`).set('Authorization', a.auth).expect(200)).body;
     expect(later).toHaveLength(events.length - 3);
 
     expect(await prisma.aiUsage.count({ where: { generationRunId: run.id } })).toBe(3);
-    const balance = (await http().get('/credits').set('Authorization', a.auth)).body.balance;
+    const balance = (await http().get('/api/v1/credits').set('Authorization', a.auth)).body.balance;
     expect(balance).toBe(200 - run.creditsUsed);
     const ledger = await prisma.creditLedgerEntry.findMany({ where: { organizationId: a.orgId, reason: 'ai_usage' } });
     expect(ledger.reduce((n, e) => n + e.amount, 0)).toBe(-run.creditsUsed);
@@ -120,14 +120,14 @@ describe('generation flow', () => {
     provider.queue([json({ summary: 'Add penthouse', patches: [{ op: 'update', path: 'lib/rooms.ts', content: ROOMS_LIB.replace('];', "  { name: 'Penthouse', capacity: 2 },\n];"), reason: '' }] })]);
     const edit = await generate(a.auth, pid, 'Add a penthouse room');
     expect(edit.body.kind).toBe('edit');
-    expect((await http().get(`/generations/${edit.body.id}`).set('Authorization', a.auth)).body.status).toBe('succeeded');
-    expect((await http().get(`/projects/${pid}/file?path=lib/rooms.ts`).set('Authorization', a.auth)).body.content).toContain('Penthouse');
+    expect((await http().get(`/api/v1/generations/${edit.body.id}`).set('Authorization', a.auth)).body.status).toBe('succeeded');
+    expect((await http().get(`/api/v1/projects/${pid}/file?path=lib/rooms.ts`).set('Authorization', a.auth)).body.content).toContain('Penthouse');
 
-    const versions = (await http().get(`/projects/${pid}/versions`).set('Authorization', a.auth)).body;
+    const versions = (await http().get(`/api/v1/projects/${pid}/versions`).set('Authorization', a.auth)).body;
     expect(versions.map((v: { number: number }) => v.number)).toEqual([2, 1]);
-    const restored = (await http().post(`/projects/${pid}/versions/${versions[1].id}/restore`).set('Authorization', a.auth).expect(201)).body;
+    const restored = (await http().post(`/api/v1/projects/${pid}/versions/${versions[1].id}/restore`).set('Authorization', a.auth).expect(201)).body;
     expect(restored[0]).toMatchObject({ number: 3, isHead: true });
-    expect((await http().get(`/projects/${pid}/file?path=lib/rooms.ts`).set('Authorization', a.auth)).body.content).not.toContain('Penthouse');
+    expect((await http().get(`/api/v1/projects/${pid}/file?path=lib/rooms.ts`).set('Authorization', a.auth)).body.content).not.toContain('Penthouse');
   });
 
   it('holds destructive edits for approval; only an admin can apply them', async () => {
@@ -139,17 +139,17 @@ describe('generation flow', () => {
     await generate(a.auth, pid, 'hotel site');
     provider.queue([json({ summary: 'Remove rooms page', patches: [{ op: 'delete', path: 'app/rooms/page.tsx', reason: '' }] })]);
     const run = await generate(member.auth, pid, 'remove the rooms page');
-    expect((await http().get(`/generations/${run.body.id}`).set('Authorization', a.auth)).body.status).toBe('awaiting_approval');
-    expect((await http().get(`/projects/${pid}/versions`).set('Authorization', a.auth)).body).toHaveLength(1);
+    expect((await http().get(`/api/v1/generations/${run.body.id}`).set('Authorization', a.auth)).body.status).toBe('awaiting_approval');
+    expect((await http().get(`/api/v1/projects/${pid}/versions`).set('Authorization', a.auth)).body).toHaveLength(1);
 
-    const [approval] = (await http().get(`/projects/${pid}/approvals`).set('Authorization', a.auth).expect(200)).body;
+    const [approval] = (await http().get(`/api/v1/projects/${pid}/approvals`).set('Authorization', a.auth).expect(200)).body;
     expect(approval).toMatchObject({ action: 'destructive_change', status: 'pending' });
-    await http().post(`/approvals/${approval.id}/approve`).set('Authorization', member.auth).expect(403);
-    expect((await http().post(`/approvals/${approval.id}/approve`).set('Authorization', a.auth).expect(201)).body).toEqual({ status: 'applied' });
-    await http().post(`/approvals/${approval.id}/approve`).set('Authorization', a.auth).expect(409);
-    const files = (await http().get(`/projects/${pid}/files`).set('Authorization', a.auth)).body.map((f: { path: string }) => f.path);
+    await http().post(`/api/v1/approvals/${approval.id}/approve`).set('Authorization', member.auth).expect(403);
+    expect((await http().post(`/api/v1/approvals/${approval.id}/approve`).set('Authorization', a.auth).expect(201)).body).toEqual({ status: 'applied' });
+    await http().post(`/api/v1/approvals/${approval.id}/approve`).set('Authorization', a.auth).expect(409);
+    const files = (await http().get(`/api/v1/projects/${pid}/files`).set('Authorization', a.auth)).body.map((f: { path: string }) => f.path);
     expect(files).not.toContain('app/rooms/page.tsx');
-    expect((await http().get(`/projects/${pid}/versions`).set('Authorization', a.auth)).body).toHaveLength(2);
+    expect((await http().get(`/api/v1/projects/${pid}/versions`).set('Authorization', a.auth)).body).toHaveLength(2);
   });
 
   it('rejects unsupported project types honestly (no fake output)', async () => {
@@ -166,8 +166,8 @@ describe('generation flow', () => {
     let release!: () => void;
     provider.gate = new Promise((r) => (release = r));
     provider.queue(CREATE_SCRIPT);
-    const first = await http().post(`/projects/${pid}/generations`).set('Authorization', a.auth).send({ prompt: 'hotel site' }).expect(202);
-    const second = await http().post(`/projects/${pid}/generations`).set('Authorization', a.auth).send({ prompt: 'again' }).expect(409);
+    const first = await http().post(`/api/v1/projects/${pid}/generations`).set('Authorization', a.auth).send({ prompt: 'hotel site' }).expect(202);
+    const second = await http().post(`/api/v1/projects/${pid}/generations`).set('Authorization', a.auth).send({ prompt: 'again' }).expect(409);
     expect(second.body.runId).toBe(first.body.id);
     release();
     await gen.waitFor(first.body.id);
@@ -183,10 +183,10 @@ describe('generation flow', () => {
     provider.queue(CREATE_SCRIPT);
     const run = await generate(a.auth, pid, 'hotel site');
     expect(run.status).toBe(202);
-    const done = (await http().get(`/generations/${run.body.id}`).set('Authorization', a.auth)).body;
+    const done = (await http().get(`/api/v1/generations/${run.body.id}`).set('Authorization', a.auth)).body;
     expect(done.status).toBe('failed');
     expect(done.error).toMatch(/Not enough credits/);
-    expect((await http().get('/credits').set('Authorization', a.auth)).body.balance).toBeGreaterThanOrEqual(0);
+    expect((await http().get('/api/v1/credits').set('Authorization', a.auth)).body.balance).toBeGreaterThanOrEqual(0);
   });
 
   it('keeps runs, events, files and versions private to the owning org', async () => {
@@ -195,10 +195,10 @@ describe('generation flow', () => {
     const pid = await newProject(a.auth);
     provider.queue(CREATE_SCRIPT);
     const run = await generate(a.auth, pid, 'hotel site');
-    for (const url of [`/generations/${run.body.id}`, `/generations/${run.body.id}/events`, `/projects/${pid}/files`, `/projects/${pid}/file?path=app/page.tsx`, `/projects/${pid}/versions`, `/projects/${pid}/approvals`]) {
+    for (const url of [`/api/v1/generations/${run.body.id}`, `/api/v1/generations/${run.body.id}/events`, `/api/v1/projects/${pid}/files`, `/api/v1/projects/${pid}/file?path=app/page.tsx`, `/api/v1/projects/${pid}/versions`, `/api/v1/projects/${pid}/approvals`]) {
       await http().get(url).set('Authorization', b.auth).expect(404);
     }
-    await http().post(`/projects/${pid}/generations`).set('Authorization', b.auth).send({ prompt: 'hijack' }).expect(404);
+    await http().post(`/api/v1/projects/${pid}/generations`).set('Authorization', b.auth).send({ prompt: 'hijack' }).expect(404);
   });
 
   it('streams events over SSE until the run finishes', async () => {
@@ -206,7 +206,7 @@ describe('generation flow', () => {
     const pid = await newProject(a.auth);
     provider.queue(CREATE_SCRIPT);
     const run = await generate(a.auth, pid, 'hotel site');
-    const res = await http().get(`/generations/${run.body.id}/stream`).set('Authorization', a.auth).expect(200);
+    const res = await http().get(`/api/v1/generations/${run.body.id}/stream`).set('Authorization', a.auth).expect(200);
     expect(res.headers['content-type']).toContain('text/event-stream');
     expect(res.text).toContain('event: agent-event');
     expect(res.text).toContain('event: run');
