@@ -201,6 +201,24 @@ describe('generation flow', () => {
     await http().post(`/api/v1/projects/${pid}/generations`).set('Authorization', b.auth).send({ prompt: 'hijack' }).expect(404);
   });
 
+  it('reports workspace activity, credit estimates and usage history from real records', async () => {
+    const a = await login('a');
+    const pid = await newProject(a.auth);
+    provider.queue(CREATE_SCRIPT);
+    const run = await generate(a.auth, pid, 'hotel site');
+    const activity = (await http().get('/api/v1/activity').set('Authorization', a.auth).expect(200)).body;
+    expect(activity[0]).toMatchObject({ id: run.body.id, status: 'succeeded', project: { id: pid, name: 'Grand Lake' } });
+    const est = (await http().get('/api/v1/generations/estimate').set('Authorization', a.auth).expect(200)).body;
+    expect(est).toMatchObject({ maxCreditsPerRun: 500, typical: { create: null, edit: null } });
+    expect(est.balance).toBe(200 - activity[0].creditsUsed);
+    const usage = (await http().get('/api/v1/billing/usage').set('Authorization', a.auth).expect(200)).body;
+    expect(usage.filter((u: { reason: string }) => u.reason === 'ai_usage').length).toBeGreaterThan(0);
+    expect(usage.find((u: { reason: string }) => u.reason === 'ai_usage').detail).toContain('Grand Lake');
+    const b = await login('b');
+    await http().get(`/api/v1/activity?organizationId=${a.orgId}`).set('Authorization', b.auth).expect(404);
+    await http().get(`/api/v1/billing/usage?organizationId=${a.orgId}`).set('Authorization', b.auth).expect(404);
+  });
+
   it('streams events over SSE until the run finishes', async () => {
     const a = await login('a');
     const pid = await newProject(a.auth);

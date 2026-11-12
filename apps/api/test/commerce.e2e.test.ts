@@ -267,6 +267,15 @@ describe('orders after payment', () => {
     expect(await inventory(small)).toMatchObject({ onHand: 5, reserved: 0 });
   });
 
+  it('lists customers with real order totals and supports search', async () => {
+    const { owner, store, order } = await paidOrder();
+    const list = (await http().get(`${V}/stores/${store.id}/customers?q=buyer`).set('Authorization', owner.auth).expect(200)).body;
+    expect(list).toEqual([expect.objectContaining({ email: 'buyer@example.com', orders: 1, spentMinor: order.totalMinor })]);
+    expect((await http().get(`${V}/stores/${store.id}/customers?q=nobody`).set('Authorization', owner.auth).expect(200)).body).toEqual([]);
+    const outsider = await login('x');
+    await http().get(`${V}/stores/${store.id}/customers`).set('Authorization', outsider.auth).expect(404);
+  });
+
   it('fulfils paid orders and reports analytics from real orders', async () => {
     const { owner, store, order } = await paidOrder();
     await http().post(`${V}/stores/${store.id}/orders/${order.id}/fulfill`).set('Authorization', owner.auth).send({ trackingNumber: 'DTDC123' }).expect(201);

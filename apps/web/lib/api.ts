@@ -38,11 +38,20 @@ export interface Me {
 }
 export type RunStatus = 'queued' | 'running' | 'awaiting_approval' | 'succeeded' | 'failed' | 'canceled';
 export interface Run { id: string; projectId: string; kind: 'create' | 'edit' | 'repair'; status: RunStatus; prompt: string; error: string | null; creditsUsed: number; createdAt: string; finishedAt: string | null }
-export interface RunEvent { id: string; type: string; agent: string | null; message: string; createdAt: string }
+export interface RunEvent { id: string; type: string; agent: string | null; message: string; data?: Record<string, unknown>; createdAt: string }
 export interface Version { id: string; number: number; commitSha: string; message: string; createdAt: string; isHead: boolean }
 export interface Approval { id: string; action: string; status: string; summary: string; createdAt: string; expiresAt: string }
 
+export interface ActivityItem extends Run { project: { id: string; name: string; type: string } }
+export interface Estimate { balance: number; maxCreditsPerRun: number; typical: { create: { median: number; p90: number; sample: number } | null; edit: { median: number; p90: number; sample: number } | null } }
+export interface UsageEntry { id: string; amount: number; reason: string; bucket: 'allowance' | 'purchased'; createdAt: string; detail: string | null }
+
 export const api = {
+  activity: (limit = 12) => apiFetch<ActivityItem[]>(`/activity?limit=${limit}`),
+  estimate: () => apiFetch<Estimate>('/generations/estimate'),
+  updateMe: (b: { displayName?: string | null }) => apiFetch<Me>('/me', { method: 'PATCH', body: JSON.stringify(b) }),
+  archiveProject: (id: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'archived' }) }),
+  renameProject: (id: string, name: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   me: () => apiFetch<Me>('/me'),
   credits: () => apiFetch<{ balance: number }>('/credits'),
   projects: () => apiFetch<{ items: ProjectDto[]; nextCursor: string | null }>('/projects?limit=50'),
@@ -81,8 +90,11 @@ export const commerce = {
   products: (id: string) => apiFetch<Product[]>(`/stores/${id}/products`),
   createProduct: (id: string, b: unknown) => apiFetch<Product>(`/stores/${id}/products`, { method: 'POST', ...j(b) }),
   updateProduct: (id: string, pid: string, b: unknown) => apiFetch<Product>(`/stores/${id}/products/${pid}`, { method: 'PATCH', ...j(b) }),
-  setStock: (id: string, vid: string, set: number) => apiFetch<unknown>(`/stores/${id}/variants/${vid}/inventory`, { method: 'POST', ...j({ set }) }),
-  orders: (id: string) => apiFetch<{ items: Order[] }>(`/stores/${id}/orders?limit=50`),
+  setStock: (id: string, vid: string, set: number, lowStockThreshold?: number) => apiFetch<unknown>(`/stores/${id}/variants/${vid}/inventory`, { method: 'POST', ...j({ set, ...(lowStockThreshold !== undefined ? { lowStockThreshold } : {}) }) }),
+  deleteProduct: (id: string, pid: string) => apiFetch<void>(`/stores/${id}/products/${pid}`, { method: 'DELETE' }),
+  orders: (id: string, status?: string) => apiFetch<{ items: Order[] }>(`/stores/${id}/orders?limit=100${status ? `&status=${status}` : ''}`),
+  customers: (id: string, q = '') => apiFetch<{ id: string; email: string; name: string | null; createdAt: string; orders: number; spentMinor: number; lastOrderAt: string | null }[]>(`/stores/${id}/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  setDiscountActive: (id: string, did: string, active: boolean) => apiFetch<void>(`/stores/${id}/discounts/${did}`, { method: 'PATCH', body: JSON.stringify({ active }) }),
   order: (id: string, oid: string) => apiFetch<Order>(`/stores/${id}/orders/${oid}`),
   fulfill: (id: string, oid: string, trackingNumber?: string) => apiFetch<Order>(`/stores/${id}/orders/${oid}/fulfill`, { method: 'POST', ...j({ trackingNumber }) }),
   refund: (id: string, oid: string, b: { amountMinor: number; reason: string; restock: boolean; idempotencyKey: string }) => apiFetch<unknown>(`/stores/${id}/orders/${oid}/refunds`, { method: 'POST', ...j(b) }),
@@ -118,6 +130,7 @@ export const billing = {
   subscribe: (planPriceId: string) => apiFetch<CheckoutParams>('/billing/checkout/subscription', { method: 'POST', body: JSON.stringify({ planPriceId }) }),
   topup: (creditPackId: string) => apiFetch<CheckoutParams>('/billing/checkout/topup', { method: 'POST', body: JSON.stringify({ creditPackId }) }),
   checkout: (id: string) => apiFetch<{ id: string; kind: string; status: 'created' | 'completed' | 'expired' | 'failed' }>(`/billing/checkouts/${id}`),
+  usage: (limit = 50) => apiFetch<UsageEntry[]>(`/billing/usage?limit=${limit}`),
   cancel: () => apiFetch<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: string | null }>('/billing/subscription/cancel', { method: 'POST', body: '{}' }),
 };
 

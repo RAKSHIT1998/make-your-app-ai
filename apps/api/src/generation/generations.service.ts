@@ -10,6 +10,7 @@ import { AI_ROUTER, ORCHESTRATOR, PROJECT_STORE } from '../ai/ai.providers.js';
 import { CreditsService } from '../credits/credits.service.js';
 import { ProjectsService } from '../projects/projects.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { OrgsService } from '../orgs/orgs.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 
 const ACTIVE: GenerationRun['status'][] = ['queued', 'running'];
@@ -31,6 +32,7 @@ export class GenerationsService {
     @Inject(CreditsService) private readonly credits: CreditsService,
     @Inject(ProjectsService) private readonly projects: ProjectsService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(OrgsService) private readonly orgs: OrgsService,
   ) {}
 
   async start(user: AuthUser, projectId: string, prompt: string, ip: string | null) {
@@ -268,6 +270,33 @@ export class GenerationsService {
     await this.recordVersion(project, sha, tree, `Restored version ${v.number}`, null);
     await this.audit.record({ action: 'project.version_restored', actorId: user.id, organizationId: project.organizationId, targetType: 'project', targetId: projectId, ip, metadata: { versionNumber: v.number } });
     return this.listVersions(user, projectId);
+  }
+
+  /** Recent AI runs across the caller's workspace (real activity feed). */
+  async activity(user: AuthUser, organizationId: string | undefined, limit: number) {
+    const orgId = organizationId ?? user.personalOrgId;
+    await this.orgs.assertRole(user.id, orgId, 'viewer');
+    const runs = await this.prisma.generationRun.findMany({
+      where: { project: { organizationId: orgId, deletedAt: null } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: { project: { select: { id: true, name: true, type: true } } },
+    });
+    return runs.map((r) => ({ ...this.toRunDto(r), project: r.project }));
+  }
+
+  /** Credit expectations for a new run: the plan cap, the balance, and the typical cost of recent real runs. */
+  async estimate(user: AuthUser, organizationId: string | undefined) {
+    const orgId = organizationId ?? user.personalOrgId;
+    await this.orgs.assertRole(user.id, orgId, 'viewer');
+    const ent = await this.credits.entitlement(orgId);
+    const typical = async (kind: 'create' | 'edit') => {
+      const rows = await this.prisma.generationRun.findMany({ where: { kind, status: 'succeeded', creditsUsed: { gt: 0 } }, orderBy: { createdAt: 'desc' }, take: 50, select: { creditsUsed: true } });
+      if (rows.length < 3) return null;
+      const sorted = rows.map((r) => r.creditsUsed).sort((a, b) => a - b);
+      return { median: sorted[Math.floor(sorted.length / 2)]!, p90: sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1]!, sample: sorted.length };
+    };
+    return { balance: await this.credits.balance(orgId), maxCreditsPerRun: Math.min(this.config.MAX_CREDITS_PER_RUN, ent.maxCreditsPerRun), typical: { create: await typical('create'), edit: await typical('edit') } };
   }
 
   // ───────────────────────── Approvals ─────────────────────────

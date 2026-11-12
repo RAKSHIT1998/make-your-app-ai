@@ -11,6 +11,8 @@ import { GenerationsService } from './generations.service.js';
 
 const EventsQuery = z.object({ after: z.string().regex(/^\d+$/).default('0') });
 const FileQuery = z.object({ path: z.string().min(1).max(300) });
+const ActivityQuery = z.object({ organizationId: z.uuid().optional(), limit: z.coerce.number().int().min(1).max(50).default(15) });
+const OrgQ = z.object({ organizationId: z.uuid().optional() });
 const TERMINAL = new Set(['succeeded', 'failed', 'canceled', 'awaiting_approval']);
 
 @Controller()
@@ -27,6 +29,16 @@ export class GenerationsController {
   @Get('projects/:id/generations')
   list(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.gen.listRuns(user, id);
+  }
+
+  @Get('activity')
+  activity(@CurrentUser() user: AuthUser, @Query(new ZodPipe(ActivityQuery)) q: z.infer<typeof ActivityQuery>) {
+    return this.gen.activity(user, q.organizationId, q.limit);
+  }
+
+  @Get('generations/estimate')
+  estimate(@CurrentUser() user: AuthUser, @Query(new ZodPipe(OrgQ)) q: z.infer<typeof OrgQ>) {
+    return this.gen.estimate(user, q.organizationId);
   }
 
   @Get('generations/:runId')

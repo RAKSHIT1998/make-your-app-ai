@@ -33,7 +33,7 @@ export async function openCheckout(p: CheckoutParams, onDismiss: () => void) {
     name: 'Make Your App AI',
     description: p.description ?? 'Subscription',
     prefill: { email: p.email },
-    theme: { color: '#5B4CF5' },
+    theme: { color: '#0C0C0B' },
     modal: { ondismiss: onDismiss },
   });
   rzp.open();

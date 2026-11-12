@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
 export type Theme = 'light' | 'dark' | 'system';
 
 export function applyTheme(theme: Theme) {
@@ -9,6 +13,7 @@ export function applyTheme(theme: Theme) {
   } catch {
     /* storage unavailable */
   }
+  window.dispatchEvent(new Event('mya-theme'));
 }
 
 export function storedTheme(): Theme {
@@ -18,6 +23,17 @@ export function storedTheme(): Theme {
   } catch {
     return 'system';
   }
+}
+
+export function useTheme() {
+  const [theme, setTheme] = useState<Theme>('system');
+  useEffect(() => {
+    const sync = () => setTheme(storedTheme());
+    sync();
+    window.addEventListener('mya-theme', sync);
+    return () => window.removeEventListener('mya-theme', sync);
+  }, []);
+  return { theme, setTheme: applyTheme };
 }
 
 /** Inline script that applies the stored theme before paint (prevents a flash). */

@@ -91,6 +91,20 @@ export class BillingService {
     };
   }
 
+  /** Credit ledger history for the workspace (most recent first). */
+  async usage(user: AuthUser, organizationId: string | undefined, limit: number) {
+    const orgId = organizationId ?? user.personalOrgId;
+    await this.orgs.assertRole(user.id, orgId, 'viewer');
+    const rows = await this.prisma.creditLedgerEntry.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: 'desc' }, take: limit });
+    const runIds = [...new Set(rows.filter((r) => r.referenceType === 'ai_usage' && r.referenceId).map((r) => r.referenceId!))];
+    const usage = runIds.length ? await this.prisma.aiUsage.findMany({ where: { id: { in: runIds } }, select: { id: true, agent: true, model: true, run: { select: { project: { select: { name: true } } } } } }) : [];
+    const byId = new Map(usage.map((u) => [u.id, u]));
+    return rows.map((r) => {
+      const u = r.referenceId ? byId.get(r.referenceId) : undefined;
+      return { id: r.id, amount: r.amount, reason: r.reason, bucket: r.bucket, createdAt: r.createdAt.toISOString(), detail: u ? `${u.agent ?? 'AI'} · ${u.run?.project.name ?? 'project'}` : null };
+    });
+  }
+
   // ───────── Checkout ─────────
 
   private urls(checkoutId: string) {

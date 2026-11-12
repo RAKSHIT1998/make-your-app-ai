@@ -46,6 +46,7 @@ export class MerchantController {
   @Post(':storeId/shipping') createShipping(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Body(new ZodPipe(CreateShippingSchema)) b: z.infer<typeof CreateShippingSchema>) { return this.m.createShipping(u, id, b); }
   @Get(':storeId/shipping') shipping(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string) { return this.m.listShipping(u, id); }
 
+  @Get(':storeId/customers') customers(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Query(new ZodPipe(ProductsQuery)) q: z.infer<typeof ProductsQuery>) { return this.m.listCustomers(u, id, q.q); }
   @Get(':storeId/orders') orders(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Query(new ZodPipe(OrdersQuery)) q: z.infer<typeof OrdersQuery>) { return this.m.listOrders(u, id, q); }
   @Get(':storeId/orders/:orderId') order(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string) { return this.m.getOrder(u, id, oid); }
   @Post(':storeId/orders/:orderId/fulfill') fulfill(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string, @Body(new ZodPipe(FulfillSchema)) b: z.infer<typeof FulfillSchema>) { return this.m.fulfill(u, id, oid, b.trackingNumber); }

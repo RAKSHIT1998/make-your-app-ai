@@ -200,6 +200,28 @@ export class MerchantService {
     return this.prisma.shippingConfiguration.findMany({ where: { storeId }, orderBy: { createdAt: 'asc' } });
   }
 
+  // ───────── Customers ─────────
+
+  async listCustomers(user: AuthUser, storeId: string, q: string | undefined) {
+    await this.authorize(user, storeId, 'viewer');
+    const customers = await this.prisma.customer.findMany({
+      where: { storeId, ...(q ? { OR: [{ email: { contains: q, mode: 'insensitive' } }, { name: { contains: q, mode: 'insensitive' } }] } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    const stats = await this.prisma.order.groupBy({
+      by: ['customerId'],
+      where: { storeId, customerId: { in: customers.map((c) => c.id) }, status: { in: ['paid', 'partially_refunded', 'refunded'] } },
+      _sum: { totalMinor: true, refundedMinor: true },
+      _count: true,
+      _max: { paidAt: true },
+    });
+    return customers.map((c) => {
+      const s = stats.find((x) => x.customerId === c.id);
+      return { id: c.id, email: c.email, name: c.name, createdAt: c.createdAt.toISOString(), orders: s?._count ?? 0, spentMinor: (s?._sum.totalMinor ?? 0) - (s?._sum.refundedMinor ?? 0), lastOrderAt: s?._max.paidAt?.toISOString() ?? null };
+    });
+  }
+
   // ───────── Orders ─────────
 
   async listOrders(user: AuthUser, storeId: string, q: { status?: string | undefined; limit: number; cursor?: string | undefined }) {
