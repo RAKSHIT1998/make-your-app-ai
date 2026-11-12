@@ -17,15 +17,30 @@ Request bodies and queries are validated with the zod schemas in `@mya/shared`. 
 | PATCH | `/projects/:id` | member+ | Body `UpdateProjectSchema` (name / description / status=archived) |
 | DELETE | `/projects/:id` | admin+ | Soft delete → 204 |
 
-## Planned (Phase 2–6). Not yet implemented.
+### Generation, files, versions, approvals, credits (tested)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/projects/:id/generations` | member+ | Body `{prompt}`. Returns 202 with a run. The first run creates the project and later runs edit it. 422 if the project type has no template yet, 402 if out of credits, 409 if a run is already active, 503 if no AI provider is configured |
+| GET | `/projects/:id/generations` | viewer+ | Last 50 runs |
+| GET | `/generations/:runId` | viewer+ | Run status, credits used, agent tasks |
+| GET | `/generations/:runId/events?after=<id>` | viewer+ | Incremental AgentEvents (JSON polling) |
+| GET | `/generations/:runId/stream` | viewer+ | Server-sent events, closed when the run finishes |
+| GET | `/projects/:id/files` | viewer+ | File index at head |
+| GET | `/projects/:id/file?path=` | viewer+ | File content |
+| GET | `/projects/:id/versions` | viewer+ | Version history, marking which version is head |
+| POST | `/projects/:id/versions/:versionId/restore` | member+ | Undo: commits the old tree as a new version |
+| GET | `/projects/:id/approvals` | viewer+ | Approval requests (destructive edits) |
+| POST | `/approvals/:id/approve` | admin+ | Applies the stored patches, verifies them and commits. Single use |
+| POST | `/approvals/:id/reject` | member+ | Discards the change |
+| GET | `/credits` | viewer+ | Org credit balance (sum of ledger entries) |
+
+Run statuses: `queued → running → succeeded | failed | awaiting_approval`.
+
+## Planned (Phase 3–6). Not yet implemented.
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/projects/:id/generations` | Start a create or edit run (credit check) |
-| GET | `/generations/:id` | Run status + tasks |
-| GET | `/generations/:id/events` | SSE stream of AgentEvents |
-| GET | `/projects/:id/files`, `/files/*path` | File tree / content at head |
-| GET | `/projects/:id/versions` · POST `/versions/:vid/restore` | Version history, undo |
-| POST | `/approvals/:id/approve` · `/reject` | Customer approvals |
+| GET | `/projects/:id/preview` | Live preview URL from the sandbox preview server |
 | * | `/builds`, `/deployments`, `/domains`, `/integrations`, `/billing/*` | Phases 4–6 |
 | * | `/admin/*` | Separate `PlatformAdminGuard` |
 | POST | `/webhooks/{stripe,razorpay,eas}` | Signature verified over the raw body |

@@ -3,33 +3,33 @@
 Every phase ends with the app running, the relevant tests executed, errors fixed and docs and DEVELOPMENT_STATUS.md updated. A capability is marked done only after its tests have actually run and passed.
 
 ## Phase 1 — Foundation
-- [ ] Monorepo (pnpm, turbo, shared tsconfig/eslint)
-- [ ] Design tokens + ui-web + ui-native starter components
-- [ ] NestJS API: config validation, health, structured logging, error filter
-- [ ] Prisma schema (all core models), first migration, RLS policies
-- [ ] Supabase JWT auth guard, user upsert, personal org bootstrap
-- [ ] Organizations + memberships + role checks
-- [ ] Projects CRUD with ownership checks + audit log
-- [ ] Web shell: auth, Home, Create, Projects, Settings
-- [ ] Mobile shell: auth, tab navigation, Home, Create, Projects
-- [ ] Tests: API unit + e2e (auth, authz, projects), web component tests
+- [x] Monorepo (pnpm, turbo, shared tsconfig/eslint)
+- [x] Design tokens + web and native UI primitives (in-app; extraction to packages pending)
+- [x] NestJS API: config validation, health, error handling (pino structured logging pending)
+- [x] Prisma schema (all core models), first migration, RLS policies
+- [x] Supabase JWT auth guard, user upsert, personal org bootstrap
+- [x] Organizations + memberships + role checks
+- [x] Projects CRUD with ownership checks + audit log
+- [x] Web shell: auth, Home, Create, Projects, Settings
+- [x] Mobile shell: auth, tab navigation, Home, Create, Projects
+- [x] Tests: API unit + e2e (auth, authz, projects), web component tests
 
 ## Phase 2 — AI engine
-- [ ] `AiProvider` interface, Anthropic adapter, router (complexity routing, retries, fallback, budget enforcement)
-- [ ] Usage + cost tracking, credit ledger debits
-- [ ] Agent contracts (zod) for all 6 agents + orchestrator
-- [ ] Sandbox interface + Docker dev adapter (limits, timeouts, no-network mode)
-- [ ] Per-project git storage + ProjectVersion
-- [ ] **End-to-end basic generation: prompt → spec → files → build check → commit → version**
+- [x] `AiProvider` interface, Anthropic adapter, router (complexity routing, retries, fallback, budget enforcement)
+- [x] Usage + cost tracking, credit ledger debits
+- [~] Agent contracts + orchestrator: architect, designer, frontend and qa are live; backend and release contracts come with Phase 3–5
+- [~] Sandbox interface: local dev adapter tested; Docker adapter written but not yet run (no Docker daemon in the build environment)
+- [x] Per-project git storage + ProjectVersion
+- [x] **End-to-end basic generation: prompt → spec → files → build check → commit → version**
 - [ ] OpenAI + Gemini adapters
 
 ## Phase 3 — Generation products
-- [ ] Next.js website template + generator
+- [x] Next.js website template + generator
 - [ ] Expo app template + generator
 - [ ] NestJS/Prisma backend template + full-stack generator
-- [ ] Edit-by-chat with minimal patches; undo/redo via versions
+- [x] Edit-by-chat with minimal patches; undo/redo via versions
 - [ ] Live preview (sandbox preview server + proxied URL)
-- [ ] Workspace UI: chat, preview, file explorer, versions, logs
+- [x] Workspace UI: chat, file explorer, versions, run log (live preview pending)
 
 ## Phase 4 — Commerce
 - [ ] Commerce engine modules (catalog, variants, inventory, cart, checkout, orders, discounts, tax, shipping)

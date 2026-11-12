@@ -94,6 +94,9 @@ Edit runs send the agent the current file tree index (paths, exports, sizes) plu
 ### 4.3 Auth
 Supabase Auth issues JWTs on the client. The API verifies them with the project's JWKS (asymmetric keys) or the JWT secret (legacy HS256), then upserts the `User` row. On first login it creates a personal `Organization`.
 
+### 4.4 Current execution model (interim)
+Generation runs execute in-process in the API, as a background promise per run, with all state persisted to Postgres. A crashed API therefore leaves runs in `running`. Moving `GenerationsService.execute` onto Inngest durable steps (one step per agent) is the next infrastructure task. The orchestrator is already structured as discrete steps for this.
+
 ## 5. Technology choices (pinned in package.json)
 
 | Area | Choice |
