@@ -54,7 +54,7 @@ export class GenerationsService {
       fromPlan = { id: pr.id, plan: pr.plan };
     }
     if (!supportsProjectType(project.type)) {
-      throw new UnprocessableEntityException(`Generation for "${project.type}" projects is not available yet. Websites and business websites are supported today.`);
+      throw new UnprocessableEntityException(`Generation for "${project.type}" projects is not available yet. Websites, business websites and mobile apps are supported today.`);
     }
     const ent = await this.credits.entitlement(project.organizationId);
     if (!ent.projectTypes.includes(project.type)) {

@@ -97,7 +97,7 @@ export class HostingService {
     const orgId = organizationId ?? user.personalOrgId;
     await this.orgs.assertRole(user.id, orgId, 'viewer');
     const projects = await this.prisma.project.findMany({
-      where: { organizationId: orgId, deletedAt: null, status: { not: 'archived' } },
+      where: { organizationId: orgId, deletedAt: null, status: { not: 'archived' }, type: { in: ['website', 'business_website'] } },
       orderBy: { updatedAt: 'desc' },
       select: { id: true, name: true, type: true, headVersionId: true, hostingSite: true, deployments: { orderBy: { createdAt: 'desc' }, take: 1 } },
     });

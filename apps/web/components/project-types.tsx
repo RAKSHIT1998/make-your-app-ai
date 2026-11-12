@@ -13,7 +13,7 @@ export interface ProjectTypeOption {
 export const PROJECT_TYPE_OPTIONS: ProjectTypeOption[] = [
   { type: 'website', label: 'Website', description: 'Responsive, SEO-ready site built with Next.js', icon: Globe, available: true },
   { type: 'business_website', label: 'Business Website', description: 'Your company, services and contact', icon: Briefcase, available: true },
-  { type: 'mobile_app', label: 'Mobile App', description: 'iOS and Android with React Native', icon: Smartphone, available: false },
+  { type: 'mobile_app', label: 'Mobile App', description: 'iOS and Android with React Native (Expo)', icon: Smartphone, available: true },
   { type: 'ecommerce', label: 'Online Store', description: 'Catalog, cart, checkout and store admin', icon: ShoppingBag, available: false },
   { type: 'saas', label: 'SaaS Platform', description: 'Auth, subscriptions and dashboards', icon: LayoutDashboard, available: false },
   { type: 'custom_software', label: 'Custom Software', description: 'CRM, ERP, internal tools and APIs', icon: Boxes, available: false },

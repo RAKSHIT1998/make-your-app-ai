@@ -27,3 +27,14 @@ Copy `.env.example` to `.env`. **Never commit `.env`.** Values marked *secret* m
 - **Razorpay (platform):** enable Subscriptions. Add a webhook for `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed` and `order.paid`.
 - **Stripe (platform):** create recurring Prices and paste each `price_…` id on the plan in the Owner console. Add a webhook for `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated` and `customer.subscription.deleted`.
 - **Supabase:** Auth → enable Email (and Google if wanted). Set the site URL to your web app.
+
+
+## Hosting (Cloud Studio)
+| Variable | Notes |
+|---|---|
+| `HOSTING_PROVIDER` | `vercel` in production. `fake` only for local development (rejected when NODE_ENV=production). Default `none` = hosting shows "not connected". |
+| `VERCEL_TOKEN` | Platform Vercel access token (Account Settings → Tokens). Server-side only; never sent to browsers. |
+| `VERCEL_TEAM_ID` | Optional: deploy into a Vercel team. |
+| `MAX_DEPLOYMENTS_PER_DAY` | Per workspace (default 30). |
+| `DEPLOY_RATE_LIMIT_PER_MINUTE` | Per client (default 10). |
+`ENCRYPTION_KEY` is required for project environment variables.

@@ -14,7 +14,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Payments | Platform billing: Razorpay + Stripe adapters, verified webhooks only. Merchant payments: Razorpay + Stripe gateways per store |
 | Codegen | Git-backed project store, patch validation, static checks, approvals for destructive changes |
 | Sandbox | Provider interface with Docker + local implementations; never runs inside the API process |
-| Hosting/deploy | Schema only (`HostingDeployment`, `Domain`, `BuildJob`) — no provider adapter yet |
+| Hosting/deploy | `@mya/hosting` provider adapters (Vercel implemented, fake for dev); deployments, rollback, env vars, domains (session 8) |
 | Known limitations | Generation runs in-process (needs Inngest/Redis for multi-instance); no live preview; only website/business_website generation |
 
 ## §2 Viral growth engine
@@ -61,7 +61,8 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 |---|---|---|
 | Trending, new, popular, by type, featured | ✅ | Sorts + type/category filters |
 | Popular this week as a named section; creator collections | 🟡 / ⬜ | Trending = 7-day window; collections not started |
-| Template marketplace (free/paid, previews, reviews, purchase, clone, earnings, commission, refunds) | ⬜ | Phase 4. Needs marketplace payouts design (Razorpay Route / Stripe Connect) |
+| Template gallery: submit published project → owner approval → listed; search, category, popular/new/featured; use (clone) without exposing later edits | ✅ (session 8) | Frozen to the published version; secrets stripped; owner review queue |
+| Paid templates, reviews/ratings, purchase flow, creator earnings, commission, refunds | ⬜ | Needs creator payouts (Razorpay Route / Stripe Connect) |
 
 ## §6 Retention
 | Item | Status | Notes |
@@ -88,11 +89,28 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Workspaces, roles (server-enforced) | 🟡 | Org model + roles enforced; no invitations UI, no designer/developer roles |
 | Invitations, shared AI conversations, multiplayer editing, task assignment, team billing, agency client workspaces | ⬜ | Phase 4 |
 
-## §10 Cloud Studio · §11 Mobile Build Studio
+## §10 Cloud Studio
 | Item | Status | Notes |
 |---|---|---|
-| Deployments, domains, SSL, logs, rollbacks, env vars, analytics, usage, monitoring | ⛔ | Provider adapter + credentials needed (Vercel/Cloudflare/Render) |
-| Expo generation, EAS builds, icons, splash, artifacts, release checklist | ⛔ | Needs Expo template + EAS token; customer developer accounts modelled in schema |
+| Provider-adapter architecture | ✅ (session 8) | `HostingProvider` interface; Vercel adapter (REST, tested against emulated API); fake provider for dev/tests only |
+| Website deployments, status, build logs, history | ✅ (session 8) | Exact version files; restart-safe status sync; "live" only after a real HTTP health check |
+| Rollbacks | ✅ (session 8) | Redeploys an earlier version as a new deployment; failed builds never replace the live site |
+| Environment variables | ✅ (session 8) | AES-256-GCM, write-only, admin role, synced to provider; NEXT_PUBLIC_ warning |
+| Custom domains + SSL | ✅ (session 8) | Pro+; DNS records from provider; SSL reported only when provider confirms |
+| Plan gating, daily cap, rate limit, kill switch, audit | ✅ (session 8) | Creator deploys, Pro domains |
+| Going live | ⛔ | Needs your `VERCEL_TOKEN` (+ optional `VERCEL_TEAM_ID`) and `HOSTING_PROVIDER=vercel` |
+| Backend deployments, hosting analytics, bandwidth/storage usage, error monitoring | ⬜ | Bandwidth/analytics via provider usage APIs next; backends need full-stack generation |
+
+## §11 Mobile Build Studio
+| Item | Status | Notes |
+|---|---|---|
+| Expo / React Native generation | ✅ (session 8) | `expo-app@1` template (SDK 58, Expo Router); mobile_app generation enabled for plans that include it (Pro/Studio by default) |
+| App metadata (name, version, bundle ids, colours, privacy URL) | ✅ (session 8) | Written to app.json as a new version (no AI); build numbers bump with version |
+| Release checklist | ✅ (session 8) | Computed from app.json; honest blocked/manual items |
+| Source download (.zip) | ✅ (session 8) | Any project; secrets stripped; audited |
+| Icons & splash images | ⛔ | Colours set; image upload needs R2 storage |
+| EAS builds, build logs, artifacts, test builds | ⛔ | Needs `EXPO_TOKEN` + build runner (eas-cli in sandbox); customers can run `eas build` on the download today |
+| Customer Apple/Google account submission flows | ⬜ | Customer-controlled; never auto-published |
 
 ## §12 Monetization
 | Item | Status |

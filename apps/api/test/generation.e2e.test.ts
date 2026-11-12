@@ -154,8 +154,8 @@ describe('generation flow', () => {
 
   it('rejects unsupported project types honestly (no fake output)', async () => {
     const a = await login('a');
-    const pid = await newProject(a.auth, 'mobile_app');
-    const res = await generate(a.auth, pid, 'a food delivery app');
+    const pid = await newProject(a.auth, 'saas');
+    const res = await generate(a.auth, pid, 'a SaaS for gyms');
     expect(res.status).toBe(422);
     expect(res.body.message).toContain('not available yet');
   });

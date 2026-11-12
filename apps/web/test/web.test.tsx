@@ -26,7 +26,7 @@ describe('Composer', () => {
     wrap(<Composer />);
     const website = screen.getByRole('radio', { name: /^Website/ });
     expect((website as HTMLButtonElement).disabled).toBe(false);
-    const mobile = screen.getByRole('radio', { name: /Mobile App/ });
+    const mobile = screen.getByRole('radio', { name: /SaaS Platform/ });
     expect((mobile as HTMLButtonElement).disabled).toBe(true);
     expect(mobile.textContent?.toLowerCase()).toContain('soon');
 

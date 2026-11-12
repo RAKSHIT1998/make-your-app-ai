@@ -1,27 +1,26 @@
 'use client';
 
-import { Smartphone } from 'lucide-react';
+import { Composer } from '@/components/composer';
 import { StudioPage } from '@/components/studio';
-import Link from 'next/link';
-import { Button, Notice } from '@/components/ui';
+import { Card } from '@/components/ui';
 
 export default function AppStudioPage() {
   return (
     <StudioPage
       title="App Studio"
-      description="Mobile apps, SaaS platforms and custom software."
-      types={['mobile_app', 'saas', 'custom_software']}
-      create={
-        <Notice action={<Link href="/studio/website"><Button size="sm" variant="secondary">Open Website Studio</Button></Link>}>
-          <div className="flex items-start gap-3"><Smartphone className="mt-0.5 size-4 shrink-0" /><div><div className="font-medium text-fg">App generation is in development</div>Mobile apps, SaaS platforms and custom software can't be generated yet. Websites and business sites are available today.</div></div>
-        </Notice>
-      }
-      emptyBody="App projects will appear here once app generation is available."
+      description="iOS and Android apps with React Native (Expo) — generated from a description, refined in conversation, built with your own developer accounts."
+      types={['mobile_app']}
+      create={<Card><Composer compact types={['mobile_app', 'saas', 'custom_software']} defaultType="mobile_app" /></Card>}
+      emptyBody="Describe an app above to create your first one."
       capabilities={[
-        { label: 'Mobile apps (iOS and Android)', detail: 'React Native apps generated from a description.', live: false },
-        { label: 'SaaS platforms', detail: 'Auth, subscriptions and dashboards.', live: false },
-        { label: 'Custom software', detail: 'CRMs, internal tools and APIs.', live: false },
-        { label: 'Builds and store submission', detail: 'Cloud builds for app stores.', live: false },
+        { label: 'Generate an Expo app from a description', detail: 'Screens with Expo Router, a shared theme and TypeScript — real React Native code you own.', live: true },
+        { label: 'Edit by chatting, with version history', detail: 'Every change is checked and saved as a version you can restore.', live: true },
+        { label: 'App settings and release checklist', detail: 'Name, bundle identifiers, version, colours and privacy policy, written to app.json.', live: true },
+        { label: 'Download the source', detail: 'A ZIP of your app, ready for `eas build` with your own Expo account.', live: true },
+        { label: 'Managed iOS and Android builds (EAS)', detail: 'Cloud builds, build logs and installable test builds from here.', live: false },
+        { label: 'App icon and splash image upload', detail: 'Needs file storage; Expo’s default icon is used until then.', live: false },
+        { label: 'Live preview on your phone', detail: 'Open the app in Expo Go from a QR code.', live: false },
+        { label: 'SaaS platforms and custom software', detail: 'Auth, subscriptions, dashboards and APIs.', live: false },
       ]}
     />
   );

@@ -1,9 +1,10 @@
 import { nextjsSiteTemplate } from './nextjs-site.js';
+import { expoAppTemplate } from './expo-app.js';
 import type { ProjectTemplate } from './types.js';
 
 export * from './types.js';
 
-const TEMPLATES: ProjectTemplate[] = [nextjsSiteTemplate];
+const TEMPLATES: ProjectTemplate[] = [nextjsSiteTemplate, expoAppTemplate];
 
 export function templateKey(t: ProjectTemplate) {
   return `${t.id}@${t.version}`;

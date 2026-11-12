@@ -16,7 +16,7 @@ const EXAMPLES: Record<string, string[]> = {
   website: ['A portfolio for a wedding photographer with packages, a gallery and an enquiry form', 'A landing page for a yoga studio in Pune with class timings and pricing'],
   business_website: ['A website for our dental clinic in Jammu with services, doctors and appointment enquiries', 'A boutique lakeside hotel site with rooms, a gallery and WhatsApp enquiries'],
   ecommerce: ['A premium dry fruit store with packaging sizes, coupons and Razorpay checkout'],
-  mobile_app: ['A fitness app with workout plans, progress tracking and reminders'],
+  mobile_app: ['A fitness app with workout plans, a progress log and an exercise library', 'A café app with our menu, opening hours and a table-booking request form'],
   saas: ['A CRM for small agencies with clients, deals and a sales pipeline'],
   custom_software: ['An inventory tool for a pharmacy with stock alerts and supplier orders'],
 };

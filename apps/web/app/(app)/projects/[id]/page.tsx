@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer, Rocket } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer, Rocket, Smartphone, Download } from 'lucide-react';
 import Link from 'next/link';
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -9,7 +9,7 @@ import { projectTypeOption } from '@/components/project-types';
 import { timeAgo } from '@/components/project-card';
 import { PublishPanel } from '@/components/growth/publish-panel';
 import { Badge, Button, cx, Drawer, EmptyState, ErrorNotice, Kbd, Skeleton, SoonBadge, StatusBadge, Tabs, Textarea, toast, Tooltip, useConfirm } from '@/components/ui';
-import { api, ApiError, type PlanDraft, type Run, type RunEvent } from '@/lib/api';
+import { api, ApiError, downloadSource, type PlanDraft, type Run, type RunEvent } from '@/lib/api';
 import { VoiceButton } from '@/components/voice-button';
 
 const ACTIVE = new Set(['queued', 'running']);
@@ -84,7 +84,9 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
           <div className="truncate text-xs text-subtle">{opt?.label}{runs.data?.[0] ? ` · last change ${timeAgo(runs.data[0].createdAt)}` : ''}</div>
         </div>
         {activeRun ? <Badge tone="accent" dot pulse>AI working</Badge> : project.data && <span className="hidden sm:inline-flex"><StatusBadge status={project.data.status} /></span>}
-        <Link href={`/hosting/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Rocket className="size-3.5" />Deploy</Button></Link>
+        {project.data?.type === 'mobile_app'
+          ? <Link href={`/studio/app/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Smartphone className="size-3.5" />App settings</Button></Link>
+          : <Link href={`/hosting/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Rocket className="size-3.5" />Deploy</Button></Link>}
         <Button size="sm" variant="secondary" onClick={() => setSharing(true)}><Share2 className="size-3.5" />Share</Button>
       </header>
       <Drawer open={sharing} onOpenChange={setSharing} title="Publish & share" side={desktop === false ? 'bottom' : 'right'}>
@@ -228,7 +230,9 @@ function Versions({ projectId, busy }: { projectId: string; busy: boolean }) {
   if (!versions.data) return <div className="space-y-2 p-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-12" />)}</div>;
   if (!versions.data.length) return <EmptyState icon={<History className="size-5" />} title="No versions yet" body="Every successful generation or edit is saved as a version you can restore." />;
   return (
-    <ol className="h-full overflow-y-auto p-3">
+    <div className="h-full overflow-y-auto">
+    <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 text-[13px] text-muted"><span>You own this code.</span><DownloadButton projectId={projectId} /></div>
+    <ol className="p-3">
       {versions.data.map((v, i) => (
         <li key={v.id} className="relative flex gap-3 pb-4 pl-1">
           {i < versions.data.length - 1 && <span className="absolute left-[15px] top-8 h-[calc(100%-24px)] w-px bg-border" aria-hidden />}
@@ -248,7 +252,13 @@ function Versions({ projectId, busy }: { projectId: string; busy: boolean }) {
         </li>
       ))}
     </ol>
+    </div>
   );
+}
+
+function DownloadButton({ projectId }: { projectId: string }) {
+  const [busy, setBusy] = useState(false);
+  return <Button size="xs" variant="secondary" loading={busy} onClick={async () => { setBusy(true); try { await downloadSource(projectId); } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); } }}><Download className="size-3" />Download .zip</Button>;
 }
 
 function Logs({ runs }: { runs?: Run[] }) {

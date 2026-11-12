@@ -9,6 +9,6 @@ export function configureApp(app: INestApplication, config: AppConfig) {
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalFilters(new HttpErrorFilter());
   app.use(helmet());
-  app.enableCors({ origin: config.WEB_ORIGIN.split(','), credentials: false });
+  app.enableCors({ origin: config.WEB_ORIGIN.split(','), credentials: false, exposedHeaders: ['Content-Disposition'] });
   app.enableShutdownHooks();
 }

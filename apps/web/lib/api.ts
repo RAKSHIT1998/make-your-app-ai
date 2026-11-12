@@ -292,3 +292,31 @@ export const templatesApi = {
   queue: (status?: 'pending' | 'approved' | 'rejected') => apiFetch<TemplateReview[]>(`/admin/templates${status ? `?status=${status}` : ''}`),
   review: (id: string, decision: 'approve' | 'reject' | 'feature' | 'unfeature', note?: string) => apiFetch<unknown>(`/admin/templates/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, ...(note ? { note } : {}) }) }),
 };
+
+// ───────── App Studio ─────────
+
+export interface AppConfig { name: string; slug: string; version: string; iosBundleId: string; androidPackage: string; primaryColor: string; splashColor: string; privacyPolicyUrl: string }
+export interface AppStudioState {
+  generated: boolean; version?: number; config: AppConfig | null;
+  checklist: { key: string; label: string; done: boolean; detail: string; blocked?: boolean; manual?: boolean }[];
+  builds: { available: boolean; reason: string };
+}
+export const appStudio = {
+  config: (projectId: string) => apiFetch<AppStudioState>(`/projects/${projectId}/app-config`),
+  update: (projectId: string, c: AppConfig) => apiFetch<AppStudioState>(`/projects/${projectId}/app-config`, { method: 'PUT', body: JSON.stringify(c) }),
+};
+
+/** Downloads the project's current version as a ZIP (authenticated). */
+export async function downloadSource(projectId: string) {
+  const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+  const res = await fetch(`${API_URL}/projects/${projectId}/export`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null) as { message?: string } | null;
+    throw new ApiError(res.status, body?.message ?? `Download failed (${res.status})`, body);
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'project.zip';
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
