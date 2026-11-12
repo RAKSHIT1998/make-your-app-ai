@@ -16,6 +16,7 @@ export type BillingEventKind =
   | 'subscription.ended'
   | 'checkout.linked'
   | 'topup.paid'
+  | 'payment.refunded'
   | 'ignored';
 
 export interface BillingPaymentInfo {
@@ -34,6 +35,8 @@ export interface BillingEvent {
   providerCheckoutRef: string | null;
   providerCustomerId: string | null;
   payment: BillingPaymentInfo | null;
+  /** Set for `payment.refunded`. `refundedTotalMinor` is cumulative for the payment, so replays and partial refunds are safe. */
+  refund: { providerPaymentId: string; refundedTotalMinor: number; currency: string; paymentIntentId?: string | null } | null;
   periodStart: Date | null;
   periodEnd: Date | null;
   raw: unknown;
@@ -52,6 +55,8 @@ export interface BillingProvider {
   createTopupCheckout(p: { amountMinor: number; currency: string; description: string; checkoutId: string; organizationId: string; email: string; successUrl: string; cancelUrl: string }): Promise<CheckoutResult>;
   cancelSubscription(providerSubscriptionId: string, atPeriodEnd: boolean): Promise<void>;
   parseWebhook(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): BillingEvent;
+  /** Maps a payment reference in a refund event to the reference stored on our invoice, when the provider needs a lookup. */
+  resolveInvoicePaymentId?(paymentIntentId: string): Promise<string | null>;
 }
 
 const sec = (n: number | null | undefined) => (typeof n === 'number' && n > 0 ? new Date(n * 1000) : null);
@@ -121,8 +126,9 @@ export class RazorpayBilling implements BillingProvider {
     const given = Buffer.from(sig);
     if (expected.length !== given.length || !timingSafeEqual(expected, given)) throw new WebhookSignatureError();
     type Sub = { id: string; status: string; current_start?: number | null; current_end?: number | null; customer_id?: string | null };
-    type Pay = { id: string; amount: number; currency: string; fee?: number | null; tax?: number | null; order_id?: string | null };
-    const evt = JSON.parse(rawBody.toString('utf8')) as { event: string; payload?: { subscription?: { entity?: Sub }; payment?: { entity?: Pay }; order?: { entity?: { id: string } } } };
+    type Pay = { id: string; amount: number; currency: string; fee?: number | null; tax?: number | null; order_id?: string | null; amount_refunded?: number | null };
+    type Ref = { id: string; payment_id: string; amount: number; currency?: string };
+    const evt = JSON.parse(rawBody.toString('utf8')) as { event: string; payload?: { subscription?: { entity?: Sub }; payment?: { entity?: Pay }; order?: { entity?: { id: string } }; refund?: { entity?: Ref } } };
     const sub = evt.payload?.subscription?.entity;
     const pay = evt.payload?.payment?.entity;
     const idHeader = headers['x-razorpay-event-id'];
@@ -133,6 +139,7 @@ export class RazorpayBilling implements BillingProvider {
       providerCheckoutRef: sub?.id ?? evt.payload?.order?.entity?.id ?? pay?.order_id ?? null,
       providerCustomerId: sub?.customer_id ?? null,
       payment: pay ? { providerPaymentId: pay.id, amountMinor: pay.amount, currency: pay.currency.toUpperCase(), feeMinor: pay.fee ?? null, taxMinor: pay.tax ?? null } : null,
+      refund: null,
       periodStart: sec(sub?.current_start),
       periodEnd: sec(sub?.current_end),
       raw: evt,
@@ -151,6 +158,13 @@ export class RazorpayBilling implements BillingProvider {
         return { ...base, kind: 'subscription.ended' };
       case 'order.paid':
         return sub ? base : { ...base, kind: 'topup.paid' };
+      case 'refund.processed': {
+        const ref = evt.payload?.refund?.entity;
+        if (!ref?.payment_id) return base;
+        // Prefer the payment's cumulative refunded amount; fall back to this refund's amount.
+        const total = pay?.amount_refunded ?? ref.amount;
+        return { ...base, kind: 'payment.refunded', payment: null, refund: { providerPaymentId: ref.payment_id, refundedTotalMinor: total, currency: (ref.currency ?? pay?.currency ?? '').toUpperCase() } };
+      }
       default:
         return base;
     }
@@ -222,6 +236,13 @@ export class StripeBilling implements BillingProvider {
     return { providerRef: session.id, clientParams: { provider: 'stripe', checkoutUrl: session.url } };
   }
 
+  /** Subscription invoices are stored under the Stripe invoice id; refunds arrive keyed by payment intent. */
+  async resolveInvoicePaymentId(paymentIntentId: string) {
+    const r = await this.wrap(() => this.stripe.invoicePayments.list({ payment: { type: 'payment_intent', payment_intent: paymentIntentId }, limit: 1 }));
+    const inv = r.data[0]?.invoice;
+    return typeof inv === 'string' ? inv : (inv?.id ?? null);
+  }
+
   async cancelSubscription(id: string, atPeriodEnd: boolean) {
     await this.wrap(() => (atPeriodEnd ? this.stripe.subscriptions.update(id, { cancel_at_period_end: true }) : this.stripe.subscriptions.cancel(id)));
   }
@@ -235,7 +256,7 @@ export class StripeBilling implements BillingProvider {
     } catch {
       throw new WebhookSignatureError();
     }
-    const base: BillingEvent = { eventId: event.id, kind: 'ignored', providerSubscriptionId: null, providerCheckoutRef: null, providerCustomerId: null, payment: null, periodStart: null, periodEnd: null, raw: event };
+    const base: BillingEvent = { eventId: event.id, kind: 'ignored', providerSubscriptionId: null, providerCheckoutRef: null, providerCustomerId: null, payment: null, refund: null, periodStart: null, periodEnd: null, raw: event };
     const idOf = (v: string | { id: string } | null | undefined) => (typeof v === 'string' ? v : (v?.id ?? null));
 
     switch (event.type) {
@@ -272,6 +293,12 @@ export class StripeBilling implements BillingProvider {
       }
       case 'customer.subscription.deleted':
         return { ...base, kind: 'subscription.ended', providerSubscriptionId: event.data.object.id };
+      case 'charge.refunded': {
+        const ch = event.data.object;
+        const pi = idOf(ch.payment_intent);
+        if (!pi) return base;
+        return { ...base, kind: 'payment.refunded', refund: { providerPaymentId: pi, paymentIntentId: pi, refundedTotalMinor: ch.amount_refunded, currency: ch.currency.toUpperCase() } };
+      }
       default:
         return base;
     }

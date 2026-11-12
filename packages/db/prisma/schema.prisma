@@ -476,6 +476,9 @@ model GenerationRun {
   fromPlanId  String?         @db.Uuid
   startedAt   DateTime?
   finishedAt  DateTime?
+  /// Which API instance is executing the run, and when it last proved it is alive. A run whose lease lapses is failed by any instance.
+  workerId    String?
+  heartbeatAt DateTime?
   createdAt   DateTime        @default(now())
   project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks       AgentTask[]
@@ -1232,4 +1235,13 @@ model Template {
   project     Project        @relation("TemplateSource", fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([status, usesCount])
+}
+
+/// Shared request counters for rate limiting across API instances (RATE_LIMIT_STORE=postgres). Expired rows are swept.
+model RateLimitHit {
+  key       String   @id
+  hits      Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }

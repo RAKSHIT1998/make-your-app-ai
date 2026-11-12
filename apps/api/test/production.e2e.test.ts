@@ -38,7 +38,10 @@ describe('operations', () => {
     await request(app.getHttpServer()).get('/api/v1/me').set('Authorization', auth).expect(200);
     const project = (await request(app.getHttpServer()).post('/api/v1/projects').set('Authorization', auth).send({ name: 'Stuck', type: 'website' }).expect(201)).body;
     await prisma.project.update({ where: { id: project.id }, data: { status: 'generating' } });
-    const run = await prisma.generationRun.create({ data: { projectId: project.id, requestedBy: u.id, kind: 'create', prompt: 'x', status: 'running' } });
+    // One run whose owner died long ago, one that another (live) instance renewed a moment ago.
+    const longAgo = new Date(Date.now() - 10 * 60_000);
+    const run = await prisma.generationRun.create({ data: { projectId: project.id, requestedBy: u.id, kind: 'create', prompt: 'x', status: 'running', workerId: 'dead-instance', heartbeatAt: longAgo, createdAt: longAgo } });
+    const live = await prisma.generationRun.create({ data: { projectId: project.id, requestedBy: u.id, kind: 'edit', prompt: 'y', status: 'running', workerId: 'live-instance', heartbeatAt: new Date() } });
     await app.close();
     await prisma.$disconnect();
 
@@ -49,6 +52,8 @@ describe('operations', () => {
     const after = await prisma.generationRun.findUniqueOrThrow({ where: { id: run.id } });
     expect(after).toMatchObject({ status: 'failed', error: expect.stringContaining('Interrupted by a server restart') });
     expect((await prisma.project.findUniqueOrThrow({ where: { id: project.id } })).status).toBe('error');
+    // A run that a live instance is still renewing is left alone (several instances share one database).
+    expect((await prisma.generationRun.findUniqueOrThrow({ where: { id: live.id } })).status).toBe('running');
     // Security headers from helmet are on every response.
     const r = await http().get('/api/v1/health/live');
     expect(r.headers['x-content-type-options']).toBe('nosniff');

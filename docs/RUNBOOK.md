@@ -8,8 +8,8 @@ Operating Make Your App AI in production. Deploy steps live in `DEPLOYMENT.md`.
 - Logs go to stdout. Every error response carries an `x-request-id` (also in the JSON body), so search the logs by it. Privileged, billing and moderation actions are also written to Admin → Audit log.
 
 ## Restarts and deploys
-- On SIGTERM the API stops accepting work and waits up to `SHUTDOWN_GRACE_SECONDS` (default 25) for in-flight generation runs to finish.
-- On boot, with `RECOVER_INTERRUPTED_RUNS=true`, runs still marked queued/running are marked **failed** with "Interrupted by a server restart". Credits are charged per AI call actually made, so the user pays only for work already done, and can retry. Nothing is left spinning forever.
+- On SIGTERM the API stops accepting work and waits up to `SHUTDOWN_GRACE_SECONDS` (default 25) for in-flight generation runs to finish. Runs still unfinished are failed immediately with "Interrupted by a server restart", so users aren't left waiting.
+- Each running generation holds a **lease**: its instance renews a heartbeat every few seconds. With `RECOVER_INTERRUPTED_RUNS=true`, any instance fails runs whose lease lapsed (`RUN_LEASE_SECONDS`, default 60), for example after a crash or kill -9, and unsticks the project. Live runs on other instances are never touched. Credits are charged per AI call actually made, so users pay only for work already done and can retry.
 - Migrations run before the new version starts (Render `preDeployCommand`). Migrations are additive. If one fails, the deploy stops and the old version keeps serving.
 
 ## Rollback
@@ -40,12 +40,13 @@ Operating Make Your App AI in production. Deploy steps live in `DEPLOYMENT.md`.
 7. Write a short postmortem: impact, timeline, root cause, fix, follow-ups.
 
 ## Scaling
-Run **one API instance** today. Generation runs, request rate limits and the flag cache are in-process. Before scaling out:
-- move generation runs to a durable job queue,
-- switch the throttler to shared (Redis) storage,
-- keep `STORAGE_DIR` on shared storage, or route each project to one instance.
+Scale **up** first: a larger instance is simplest, and Anthropic rate limits usually bind before CPU does. The Render blueprint runs one instance because its persistent disk attaches to a single instance.
 
-Scale up (a larger instance) first. Watch your Anthropic rate limits; they usually bind before CPU does.
+The API is safe to replicate when you provide the two shared pieces:
+1. `RATE_LIMIT_STORE=postgres`, so request limits are enforced across all instances (otherwise each instance counts on its own).
+2. A `STORAGE_DIR` that every instance can read and write (a network volume such as NFS/EFS). Projects are git repositories on that path, and the database already guarantees one active run per project.
+
+Everything else is already instance-safe: run ownership uses leases, stock-hold release locks each order, webhooks are deduplicated in the database, and the flag cache refreshes every 5 seconds. Generation still executes in the instance that accepted the request (there is no separate queue); a crash is recovered by the lease sweep. Use a load balancer with no special affinity.
 
 ## Routine
 - Weekly: Admin → Overview (revenue, AI cost, margin, failed generations) against the provider dashboards' payouts, plus the reports queue under Admin → Growth.

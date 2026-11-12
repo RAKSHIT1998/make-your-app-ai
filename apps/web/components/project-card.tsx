@@ -2,7 +2,7 @@
 
 import type { ProjectDto } from '@mya/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Archive, MoreHorizontal, Pencil } from 'lucide-react';
+import { Archive, ArchiveRestore, MoreHorizontal, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { projectTypeOption } from './project-types';
@@ -27,6 +27,7 @@ export function ProjectCard({ project }: { project: ProjectDto }) {
   const refresh = () => { for (const k of ['projects', 'billing']) void qc.invalidateQueries({ queryKey: [k] }); };
   const rename = useMutation({ mutationFn: (name: string) => api.renameProject(project.id, name), onSuccess: () => { refresh(); toast.success('Project renamed'); }, onError: (e) => toast.error((e as Error).message) });
   const archive = useMutation({ mutationFn: () => api.archiveProject(project.id), onSuccess: () => { refresh(); toast.success('Project archived'); }, onError: (e) => toast.error((e as Error).message) });
+  const restore = useMutation({ mutationFn: () => api.restoreProject(project.id), onSuccess: () => { refresh(); toast.success('Project restored'); }, onError: (e) => toast.error((e as Error).message) });
   return (
     <div className="group relative rounded-[var(--radius-lg)] border border-border bg-surface shadow-sm transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md">
       <Link href={`/projects/${project.id}`} className="block p-4 pr-12">
@@ -42,7 +43,8 @@ export function ProjectCard({ project }: { project: ProjectDto }) {
       <div className="absolute right-2 top-2">
         <Menu trigger={<Button variant="ghost" size="sm" iconOnly aria-label={`Actions for ${project.name}`}><MoreHorizontal className="size-4" /></Button>}>
           <MenuItem icon={<Pencil />} onSelect={async () => { const r = await confirm({ title: 'Rename project', confirmLabel: 'Save', input: { label: 'Name', defaultValue: project.name, required: true } }); if (r.ok) rename.mutate(r.value.trim()); }}>Rename</MenuItem>
-          {project.status !== 'archived' && <MenuItem icon={<Archive />} onSelect={async () => { const r = await confirm({ title: `Archive “${project.name}”?`, body: 'The project keeps its code and versions but stops counting toward your plan’s active projects. Unarchiving isn’t available yet.', confirmLabel: 'Archive' }); if (r.ok) archive.mutate(); }}>Archive</MenuItem>}
+          {project.status === 'archived' && <MenuItem icon={<ArchiveRestore />} onSelect={() => restore.mutate()}>Restore</MenuItem>}
+          {project.status !== 'archived' && <MenuItem icon={<Archive />} onSelect={async () => { const r = await confirm({ title: `Archive “${project.name}”?`, body: 'The project keeps its code and versions but stops counting toward your plan’s active projects. You can restore it from the Archived tab at any time.', confirmLabel: 'Archive' }); if (r.ok) archive.mutate(); }}>Archive</MenuItem>}
         </Menu>
       </div>
     </div>

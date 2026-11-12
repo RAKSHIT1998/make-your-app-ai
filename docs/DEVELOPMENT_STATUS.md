@@ -43,9 +43,9 @@ None.
 
 ## Known issues / limitations
 - Plan allowances, yearly prices and credit-pack prices are proposals (BUSINESS_MODEL.md). Validate them with real generation costs.
-- No proration. Invoice numbers come from one global sequence (GST may need per-FY numbering and a GSTIN invoice PDF). No dunning emails. Platform refunds are issued in the provider dashboard and not synced back (adjust credits by hand); store-order refunds are synced.
+- No proration. Invoice numbers come from one global sequence (GST may need per-FY numbering and a GSTIN invoice PDF). No dunning emails. Platform refunds are issued in the provider dashboard and synced by webhook (see below); a subscription refund never cancels the plan.
 - Legal pages fill in company details from `NEXT_PUBLIC_LEGAL_*` and show a draft banner until all are set. The wording still needs counsel review, especially the refund commitment.
-- Generation, the stock-hold timer and rate limiting run in-process. Run one API instance until a durable queue and Redis-backed rate limits exist (RUNBOOK → Scaling).
+- Generation executes in the instance that accepts the request (lease-based crash recovery, no separate queue). Replicating the API needs `RATE_LIMIT_STORE=postgres` and a shared `STORAGE_DIR` (RUNBOOK → Scaling); Render's single persistent disk keeps the default deployment at one instance.
 - Sandbox compute, storage, hosting and bandwidth costs are not metered yet. Margin reports say so.
 - Commerce: no storefront generator, customer accounts, wishlist, reviews, returns or PayPal.
 - Mobile app has no billing or owner screens yet (web only). It compiles against the new tokens (brand aliases) but has not been visually redesigned.
@@ -61,7 +61,7 @@ Supabase (URL, anon key, DB URLs, JWT secret if legacy) · `ANTHROPIC_API_KEY` �
 0. **Launch:** work through LAUNCH_CHECKLIST.md (accounts, legal details, Render deploy, webhooks, production smoke test).
 1. With live keys: run the Phase 2 acceptance with a ₹1 test plan, then verify webhooks from the provider dashboards.
 2. Phase 3 completion: Inngest durable runs, OpenAI and Gemini adapters, backend agent, Docker sandbox verification.
-3. Error tracking (Sentry) and uptime alerts; platform refund webhooks → credit clawback.
+3. Error tracking (Sentry) and uptime alerts.
 4. Phase 5: live preview + visual editor (Website Studio). The workspace Preview tab and the Studio's editor UI slot in once a sandboxed preview exists.
 6. Growth G2: challenges, voting, leaderboards, comments, follows, collections, badges (GROWTH.md). Then G3: plan-first builder and voice input.
 7. Unarchive API + UI; file attachments on Create (R2 upload); redesign the Expo app screens with the v2 tokens.

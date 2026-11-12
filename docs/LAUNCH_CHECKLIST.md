@@ -28,7 +28,7 @@ Tick these in order. Items marked **(you)** need accounts, decisions or legal si
 ## 4. Smoke test in production (real accounts)
 - [ ] Sign up, confirm email, sign in on web and mobile
 - [ ] Create a website and an app; the generation finishes and the preview renders
-- [ ] Buy the cheapest plan with a real card and see the plan and credits arrive (webhook-driven). Then refund it in the provider dashboard and cancel the subscription in Billing
+- [ ] Buy the cheapest plan with a real card and see the plan and credits arrive (webhook-driven). Then refund it in the provider dashboard: the invoice shows the refund and, for a top-up, the unspent credits are clawed back. Cancel the subscription separately (a refund alone never changes the plan)
 - [ ] Publish a project to Explore; open the public page logged out; remix it from a second account
 - [ ] Deploy a project to hosting (if enabled) and open the live URL
 - [ ] Download a project ZIP; export the App Studio project and run it with `npx expo start`
@@ -48,7 +48,7 @@ Tick these in order. Items marked **(you)** need accounts, decisions or legal si
 - [ ] `eas build --profile production` → `eas submit` → TestFlight / Play internal testing → submit for review (approval is up to Apple/Google)
 
 ## Known limits at launch
-- Run one API instance (in-process jobs and rate limits; see RUNBOOK → Scaling).
+- Run one API instance on Render (single persistent disk). Replicating needs `RATE_LIMIT_STORE=postgres` plus a shared `STORAGE_DIR`; see RUNBOOK → Scaling.
 - On Render, generated code gets static checks (`SANDBOX_PROVIDER=none`). Full install/build checks need a host with Docker (`SANDBOX_PROVIDER=docker`).
-- Refunds of platform subscriptions/credit packs are issued in the Razorpay/Stripe dashboard. They are not synced back automatically, so adjust the customer's credits in Admin → Customers if needed. (Store-order refunds for merchants *are* synced.)
+- Refunds of platform payments are issued in the Razorpay/Stripe dashboard and synced back by webhook (invoice refund status; unspent credits from a refunded top-up are clawed back). A refund never cancels a subscription; cancel it in the provider or in Billing.
 - Native mobile builds of *generated* apps are exported as Expo projects for the user to build. The platform does not submit them to stores.

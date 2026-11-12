@@ -3,7 +3,7 @@ import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecor
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
 import type { FilePatch, FileTree, GitProjectStore } from '@mya/codegen';
 import type { GenerationRun, Prisma, PrismaClient, Project } from '@mya/db';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { PRISMA } from '../prisma.service.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { AI_ROUTER, ORCHESTRATOR, PROJECT_STORE } from '../ai/ai.providers.js';
@@ -23,6 +23,9 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
   private readonly log = new Logger(GenerationsService.name);
   /** In-process execution for now; Phase 2b moves this onto Inngest durable steps. */
   private readonly inflight = new Map<string, Promise<void>>();
+  /** Identifies this API instance on the runs it owns. */
+  readonly workerId = randomUUID();
+  private timer: NodeJS.Timeout | undefined;
 
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
@@ -78,7 +81,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       await tx.$queryRaw`SELECT id FROM "Project" WHERE id = ${project.id}::uuid FOR UPDATE`;
       const active = await tx.generationRun.findFirst({ where: { projectId: project.id, status: { in: ACTIVE } } });
       if (active) throw new ConflictException({ message: 'A generation is already running for this project.', runId: active.id });
-      const r = await tx.generationRun.create({ data: { projectId: project.id, requestedBy: user.id, kind, prompt: fromPlan && req.answers ? `${prompt}\n\nAnswers: ${req.answers}`.slice(0, 8000) : prompt, ...(fromPlan ? { fromPlanId: fromPlan.id } : {}) } });
+      const r = await tx.generationRun.create({ data: { projectId: project.id, requestedBy: user.id, workerId: this.workerId, heartbeatAt: new Date(), kind, prompt: fromPlan && req.answers ? `${prompt}\n\nAnswers: ${req.answers}`.slice(0, 8000) : prompt, ...(fromPlan ? { fromPlanId: fromPlan.id } : {}) } });
       await tx.project.update({ where: { id: project.id }, data: { status: 'generating' } });
       await this.audit.record({ action: 'generation.started', actorId: user.id, organizationId: project.organizationId, targetType: 'generation_run', targetId: r.id, ip, metadata: { kind } }, tx);
       return r;
@@ -89,26 +92,63 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
     return this.toRunDto(run);
   }
 
-  /** A restart kills in-process runs; mark them failed so nobody waits forever (credits already reflect real usage). */
+  /**
+   * Run ownership is a lease: the instance executing a run renews `heartbeatAt` every few seconds, and any instance
+   * fails runs whose lease lapsed (their owner crashed or was killed). Several API instances can therefore share one database.
+   */
   async onApplicationBootstrap() {
     if (!this.config.RECOVER_INTERRUPTED_RUNS) return;
-    const stuck = await this.prisma.generationRun.findMany({ where: { status: { in: ACTIVE } }, select: { id: true, projectId: true } });
+    await this.recoverAbandoned().catch((e) => this.log.error(`recovery failed: ${e instanceof Error ? e.message : e}`));
+    if (this.config.NODE_ENV === 'test') return; // tests drive renewLeases()/recoverAbandoned() directly
+    const lease = this.config.RUN_LEASE_SECONDS;
+    let tick = 0;
+    this.timer = setInterval(() => {
+      void this.renewLeases().catch((e) => this.log.error(`lease renewal failed: ${e instanceof Error ? e.message : e}`));
+      if (++tick % 3 === 0) void this.recoverAbandoned().catch((e) => this.log.error(`recovery failed: ${e instanceof Error ? e.message : e}`));
+    }, Math.max(1, Math.floor(lease / 6)) * 1000);
+    this.timer.unref();
+  }
+
+  /** Proves to other instances that this one is still working on its runs. */
+  async renewLeases() {
+    const ids = [...this.inflight.keys()];
+    if (ids.length) await this.prisma.generationRun.updateMany({ where: { id: { in: ids }, status: { in: ACTIVE } }, data: { heartbeatAt: new Date() } });
+  }
+
+  /** Fails runs whose lease lapsed (owner died). Never touches runs this instance is executing. */
+  async recoverAbandoned(now = new Date()): Promise<number> {
+    const cutoff = new Date(now.getTime() - this.config.RUN_LEASE_SECONDS * 1000);
+    const n = await this.failActive({ id: { notIn: [...this.inflight.keys()] }, OR: [{ heartbeatAt: { lt: cutoff } }, { heartbeatAt: null, createdAt: { lt: cutoff } }] }, 'Interrupted by a server restart. You were only charged for work already done — please try again.');
+    if (n) this.log.warn(`recovered ${n} run(s) abandoned by a stopped instance`);
+    return n;
+  }
+
+  /** Marks matching active runs failed (claiming each atomically so two instances can't both do it) and unsticks their projects. */
+  private async failActive(where: Prisma.GenerationRunWhereInput, message: string): Promise<number> {
+    const stuck = await this.prisma.generationRun.findMany({ where: { status: { in: ACTIVE }, ...where }, select: { id: true, projectId: true } });
+    let n = 0;
     for (const r of stuck) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.generationRun.update({ where: { id: r.id }, data: { status: 'failed', error: 'Interrupted by a server restart. You were only charged for work already done — please try again.', finishedAt: new Date() } });
+      const done = await this.prisma.$transaction(async (tx) => {
+        const claimed = await tx.generationRun.updateMany({ where: { ...where, id: r.id, status: { in: ACTIVE } }, data: { status: 'failed', error: message, finishedAt: new Date() } });
+        if (!claimed.count) return false;
         await tx.agentEvent.create({ data: { generationRunId: r.id, type: 'run.failed', message: 'Interrupted by a server restart.' } });
         const p = await tx.project.findUnique({ where: { id: r.projectId }, select: { headVersionId: true, status: true } });
         if (p?.status === 'generating') await tx.project.update({ where: { id: r.projectId }, data: { status: p.headVersionId ? 'ready' : 'error' } });
+        return true;
       });
+      if (done) n++;
     }
-    if (stuck.length) this.log.warn(`recovered ${stuck.length} run(s) interrupted by a restart`);
+    return n;
   }
 
-  /** Give in-flight runs a moment to finish on deploys; anything left is recovered on next boot. */
+  /** Deploys: give in-flight runs a moment to finish, then fail what's left right away instead of making users wait out the lease. */
   async onApplicationShutdown() {
+    if (this.timer) clearInterval(this.timer);
     if (!this.inflight.size) return;
     this.log.log(`waiting up to ${this.config.SHUTDOWN_GRACE_SECONDS}s for ${this.inflight.size} run(s)`);
     await Promise.race([Promise.allSettled([...this.inflight.values()]), new Promise((r) => setTimeout(r, this.config.SHUTDOWN_GRACE_SECONDS * 1000))]);
+    const left = [...this.inflight.keys()];
+    if (left.length) await this.failActive({ id: { in: left } }, 'Interrupted by a server restart. You were only charged for work already done — please try again.').catch(() => 0);
   }
 
   /** Test/shutdown helper. */
@@ -161,7 +201,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
     };
 
     try {
-      await this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'running', startedAt: new Date() } });
+      await this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'running', startedAt: new Date(), workerId: this.workerId, heartbeatAt: new Date() } });
       const run = await this.prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
       if (run.kind === 'plan') {
         const draft = await this.orchestrator.plan({ projectType: project.type, projectName: project.name, prompt: run.prompt, templateKey: project.templateId }, { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });

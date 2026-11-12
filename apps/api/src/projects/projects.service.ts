@@ -100,6 +100,22 @@ export class ProjectsService {
     return toProjectDto(updated);
   }
 
+  /** Brings an archived project back. Respects the plan's active-project limit; visibility stays private until republished. */
+  async restore(user: AuthUser, id: string, ip: string | null) {
+    const p = await this.getAuthorized(user, id, 'member');
+    if (p.status !== 'archived') return toProjectDto(p);
+    const ent = await this.credits.entitlement(p.organizationId);
+    if ((await this.credits.activeProjectCount(p.organizationId)) >= ent.maxActiveProjects) {
+      throw new HttpException({ message: `Your plan allows ${ent.maxActiveProjects} active project${ent.maxActiveProjects === 1 ? '' : 's'}. Archive another project or upgrade to restore this one.`, code: 'plan_limit_projects' }, HttpStatus.PAYMENT_REQUIRED);
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.project.update({ where: { id: p.id }, data: { status: p.headVersionId ? 'ready' : 'draft' } });
+      await this.audit.record({ action: 'project.restored', actorId: user.id, organizationId: p.organizationId, targetType: 'project', targetId: p.id, ip }, tx);
+      return u;
+    });
+    return toProjectDto(updated);
+  }
+
   /** Soft delete. Destructive — requires admin in the org. Source in git is retained for recovery. */
   async remove(user: AuthUser, id: string, ip: string | null) {
     const p = await this.getAuthorized(user, id, 'admin');

@@ -57,6 +57,7 @@ export const api = {
   activity: (limit = 12) => apiFetch<ActivityItem[]>(`/activity?limit=${limit}`),
   estimate: () => apiFetch<Estimate>('/generations/estimate'),
   updateMe: (b: { displayName?: string | null; handle?: string; bio?: string }) => apiFetch<Me>('/me', { method: 'PATCH', body: JSON.stringify(b) }),
+  restoreProject: (id: string) => apiFetch<ProjectDto>(`/projects/${id}/restore`, { method: 'POST' }),
   archiveProject: (id: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'archived' }) }),
   renameProject: (id: string, name: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   me: () => apiFetch<Me>('/me'),

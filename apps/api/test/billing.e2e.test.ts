@@ -28,6 +28,7 @@ const fakeFetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
   if (u === 'https://api.razorpay.com/v1/orders') return Response.json({ id: `order_${++seq}`, amount: (body as { amount: number }).amount, currency: (body as { currency: string }).currency });
   if (u.includes('api.stripe.com/v1/checkout/sessions')) return Response.json({ id: `cs_test_${++seq}`, object: 'checkout.session', url: `https://checkout.stripe.com/c/pay/cs_test_${seq}` });
   if (u.includes('api.stripe.com/v1/subscriptions/')) return Response.json({ id: u.split('/').pop(), object: 'subscription', status: method === 'DELETE' ? 'canceled' : 'active' });
+  if (u.includes('api.stripe.com/v1/invoice_payments')) return Response.json({ object: 'list', has_more: false, url: '/v1/invoice_payments', data: u.includes('pi_sub_1') ? [{ id: 'inpay_1', object: 'invoice_payment', invoice: 'in_1' }] : [] });
   return new Response('{}', { status: 404 });
 }) as typeof fetch;
 
@@ -39,7 +40,7 @@ const http = () => request(app.getHttpServer());
 const V = '/api/v1';
 
 beforeAll(async () => {
-  ({ app, prisma } = await createTestApp({ env: { PLATFORM_OWNER_EMAILS: OWNER_EMAIL, REPORTING_USD_INR: '85' }, overrides: [{ provide: BILLING_PROVIDERS, useValue: providers }] }));
+  ({ app, prisma } = await createTestApp({ env: { PLATFORM_OWNER_EMAILS: OWNER_EMAIL, REPORTING_USD_INR: '85', BILLING_RATE_LIMIT_PER_MINUTE: '1000' }, overrides: [{ provide: BILLING_PROVIDERS, useValue: providers }] }));
 });
 afterAll(async () => {
   await app.close();
@@ -96,6 +97,25 @@ describe('plans & free tier', () => {
     await http().post(`${V}/projects`).set('Authorization', a.auth).send({ name: 'One', type: 'website' }).expect(201);
     const second = await http().post(`${V}/projects`).set('Authorization', a.auth).send({ name: 'Two', type: 'website' }).expect(402);
     expect(second.body.code).toBe('plan_limit_projects');
+  });
+
+  it('restores archived projects only while the plan has room, and audits it', async () => {
+    const a = await login('restore');
+    const b = await login('stranger');
+    const one = (await http().post(`${V}/projects`).set('Authorization', a.auth).send({ name: 'One', type: 'website' }).expect(201)).body;
+    await http().patch(`${V}/projects/${one.id}`).set('Authorization', a.auth).send({ status: 'archived' }).expect(200);
+    const two = (await http().post(`${V}/projects`).set('Authorization', a.auth).send({ name: 'Two', type: 'website' }).expect(201)).body;
+    // Free plan = 1 active project: restoring while "Two" is active is refused with the same upgrade code.
+    const refused = await http().post(`${V}/projects/${one.id}/restore`).set('Authorization', a.auth).expect(402);
+    expect(refused.body.code).toBe('plan_limit_projects');
+    // Other tenants can't see or restore it.
+    await http().post(`${V}/projects/${one.id}/restore`).set('Authorization', b.auth).expect(404);
+    await http().patch(`${V}/projects/${two.id}`).set('Authorization', a.auth).send({ status: 'archived' }).expect(200);
+    const back = (await http().post(`${V}/projects/${one.id}/restore`).set('Authorization', a.auth).expect(200)).body;
+    expect(back).toMatchObject({ id: one.id, status: 'draft' });
+    // Restoring an active project is a harmless no-op.
+    await http().post(`${V}/projects/${one.id}/restore`).set('Authorization', a.auth).expect(200);
+    expect(await prisma.auditLog.count({ where: { action: 'project.restored', targetId: one.id } })).toBe(1);
   });
 });
 
@@ -272,6 +292,59 @@ describe('subscriptions (Stripe)', () => {
     const inv = { id: 'in_1', object: 'invoice', amount_paid: 2900, currency: 'usd', customer: 'cus_1', parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_stripe_1' } }, lines: { object: 'list', data: [{ period: { start: T0, end: T0 + 30 * 86400 } }] } };
     expect((await send({ id: 'evt_2', object: 'event', type: 'invoice.paid', data: { object: inv } })).outcome).toBe('subscription_charged');
     expect(await overview(a.auth)).toMatchObject({ plan: { code: 'pro' }, subscription: { provider: 'stripe', currency: 'USD' } });
+  });
+});
+
+describe('refunds (verified webhooks only)', () => {
+  const refundEvt = (paymentId: string, refundId: string, amount: number, refundedTotal?: number) =>
+    rzpEvent('refund.processed', { refund: { entity: { id: refundId, payment_id: paymentId, amount, currency: 'INR' } }, ...(refundedTotal === undefined ? {} : { payment: { entity: { id: paymentId, amount: 49_900, currency: 'INR', amount_refunded: refundedTotal } } }) });
+
+  it('Razorpay top-up: partial then full refunds claw back unspent purchased credits, idempotently', async () => {
+    const { pack } = await seedPlans();
+    const a = await login('refund');
+    const top = (await http().post(`${V}/billing/checkout/topup`).set('Authorization', a.auth).send({ creditPackId: pack }).expect(201)).body;
+    await sendRzp(rzpEvent('order.paid', { order: { entity: { id: top.orderId } }, payment: { entity: { id: 'pay_rf1', amount: 49_900, currency: 'INR', order_id: top.orderId } } }));
+    expect((await overview(a.auth)).credits).toMatchObject({ purchasedRemaining: 300 });
+    // Unsigned / forged refund events change nothing.
+    const forged = refundEvt('pay_rf1', 'rfnd_x', 49_900, 49_900);
+    await http().post(`${V}/webhooks/billing/razorpay`).set({ ...forged.headers, 'x-razorpay-signature': 'f'.repeat(64) }).send(forged.raw).expect(400);
+    expect((await overview(a.auth)).credits).toMatchObject({ purchasedRemaining: 300 });
+    // Half refunded → half the credits come back.
+    expect((await sendRzp(refundEvt('pay_rf1', 'rfnd_1', 24_950, 24_950))).outcome).toBe('refund_recorded');
+    let o = await overview(a.auth);
+    expect(o.credits).toMatchObject({ purchasedRemaining: 150 });
+    expect(o.invoices[0]).toMatchObject({ refundedMinor: 24_950, status: 'partially_refunded' });
+    // A replayed refund (new event id, same cumulative total) is a no-op.
+    expect((await sendRzp(refundEvt('pay_rf1', 'rfnd_1', 24_950, 24_950))).outcome).toBe('already_recorded');
+    // The customer spent 100 of the remaining credits, then the rest is refunded: only the unspent 50 can be clawed back.
+    await prisma.$transaction((tx) => app.get(CreditsService).debit(tx, a.orgId, 100 + 100, `test:${randomUUID()}`, { type: 'test', id: 'r' }));
+    expect((await overview(a.auth)).credits).toMatchObject({ allowanceRemaining: 0, purchasedRemaining: 50 });
+    expect((await sendRzp(refundEvt('pay_rf1', 'rfnd_2', 24_950, 49_900))).outcome).toBe('refund_recorded');
+    o = await overview(a.auth);
+    expect(o.credits.purchasedRemaining).toBe(0);
+    expect(o.invoices[0]).toMatchObject({ refundedMinor: 49_900, status: 'refunded' });
+    expect(await prisma.auditLog.count({ where: { action: 'billing.payment_refunded', organizationId: a.orgId } })).toBe(2);
+    // Unknown payments are acknowledged but ignored.
+    expect((await sendRzp(refundEvt('pay_nope', 'rfnd_9', 100, 100))).outcome).toBe('unknown_payment');
+  });
+
+  it('Stripe subscription: charge.refunded is matched to the invoice via its payment intent and never changes the plan', async () => {
+    const { proUsd } = await seedPlans();
+    const a = await login('usd-refund');
+    const co = (await http().post(`${V}/billing/checkout/subscription`).set('Authorization', a.auth).send({ planPriceId: proUsd }).expect(201)).body;
+    const sessionId = (await prisma.billingCheckout.findUniqueOrThrow({ where: { id: co.checkoutId } })).providerRef;
+    const send = async (evt: object) => {
+      const payload = JSON.stringify(evt);
+      return (await http().post(`${V}/webhooks/billing/stripe`).set({ 'stripe-signature': Stripe.webhooks.generateTestHeaderString({ payload, secret: STRIPE_WHSEC }), 'content-type': 'application/json' }).send(payload).expect(200)).body;
+    };
+    await send({ id: 'evt_r1', object: 'event', type: 'checkout.session.completed', data: { object: { id: sessionId, object: 'checkout.session', mode: 'subscription', subscription: 'sub_stripe_r', customer: 'cus_r', payment_status: 'paid' } } });
+    await send({ id: 'evt_r2', object: 'event', type: 'invoice.paid', data: { object: { id: 'in_1', object: 'invoice', amount_paid: 2900, currency: 'usd', customer: 'cus_r', parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_stripe_r' } }, lines: { object: 'list', data: [{ period: { start: T0, end: T0 + 30 * 86400 } }] } } } });
+    const charge = (pi: string, refunded: number) => ({ id: 'evt_c' + pi + refunded, object: 'event', type: 'charge.refunded', data: { object: { id: 'ch_1', object: 'charge', payment_intent: pi, amount_refunded: refunded, currency: 'usd' } } });
+    expect((await send(charge('pi_other', 2900))).outcome).toBe('unknown_payment');
+    expect((await send(charge('pi_sub_1', 2900))).outcome).toBe('refund_recorded');
+    const o = await overview(a.auth);
+    expect(o.plan.code).toBe('pro');
+    expect(o.invoices[0]).toMatchObject({ refundedMinor: 2900, status: 'refunded' });
   });
 });
 

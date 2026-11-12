@@ -43,6 +43,7 @@ const EnvSchema = z
     VERCEL_TEAM_ID: z.string().optional(),
     MAX_DEPLOYMENTS_PER_DAY: z.coerce.number().int().positive().default(30),
     DEPLOY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
+    BILLING_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
     /** Where customers return after checkout. */
     WEB_APP_URL: z.string().default('http://localhost:3000'),
     /** Optional USD→INR rate used ONLY for margin reports (AI costs are billed to us in USD). */
@@ -50,9 +51,13 @@ const EnvSchema = z
     FREE_PLAN_CREDITS: z.coerce.number().int().nonnegative().default(100),
     /** Reverse-proxy hops in front of the API (load balancer = 1) so rate limits and audit logs see the real client IP. */
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
-    /** On boot, fail runs left "running" by a previous process. Single-instance deployments only (until the durable queue). */
+    /** Fail runs whose owning instance died (lease expired). Safe with several instances: live runs keep renewing their lease. */
     RECOVER_INTERRUPTED_RUNS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
-    /** Seconds to wait for in-flight AI runs on shutdown before exiting (unfinished runs are recovered on next boot). */
+    /** Seconds a run may go without a heartbeat before another instance treats its owner as dead. */
+    RUN_LEASE_SECONDS: z.coerce.number().int().min(10).max(3600).default(60),
+    /** Where request counters live. `postgres` shares limits across API instances (one extra query per request). */
+    RATE_LIMIT_STORE: z.enum(['memory', 'postgres']).default('memory'),
+    /** Seconds to wait for in-flight AI runs on shutdown before exiting; runs still unfinished are failed so users aren't left waiting. */
     SHUTDOWN_GRACE_SECONDS: z.coerce.number().int().min(0).max(300).default(25),
   })
   .superRefine((e, ctx) => {

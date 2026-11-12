@@ -55,8 +55,9 @@ Production-like stack: `docker compose -f infra/docker-compose.yml up --build` r
 | `HOSTING_PROVIDER=vercel`, `VERCEL_TOKEN`, `VERCEL_TEAM_ID` | One-click hosting. `fake` is refused in production |
 | `SANDBOX_PROVIDER` | `none` = static checks only (the Render default: no Docker-in-Docker). `docker` needs a host with a Docker daemon plus `SANDBOX_DOCKER_IMAGE` and `SANDBOX_DOCKER_INSTALL_NETWORK`. `local` is refused in production |
 | `CREDITS_PER_USD`, `MAX_CREDITS_PER_RUN`, `FREE_PLAN_CREDITS`, `REPORTING_USD_INR` | Credit pricing and reporting |
-| `RATE_LIMIT_PER_MINUTE`, `GENERATION_RATE_LIMIT_PER_MINUTE`, `CHECKOUT_RATE_LIMIT_PER_MINUTE`, `DEPLOY_RATE_LIMIT_PER_MINUTE`, `MAX_DEPLOYMENTS_PER_DAY`, `CHECKOUT_RESERVATION_MINUTES` | Abuse controls |
-| `RECOVER_INTERRUPTED_RUNS` (default `true`), `SHUTDOWN_GRACE_SECONDS` (default `25`) | Restart behaviour (see RUNBOOK) |
+| `RATE_LIMIT_PER_MINUTE`, `GENERATION_RATE_LIMIT_PER_MINUTE`, `CHECKOUT_RATE_LIMIT_PER_MINUTE`, `DEPLOY_RATE_LIMIT_PER_MINUTE`, `BILLING_RATE_LIMIT_PER_MINUTE`, `MAX_DEPLOYMENTS_PER_DAY`, `CHECKOUT_RESERVATION_MINUTES` | Abuse controls |
+| `RECOVER_INTERRUPTED_RUNS` (default `true`), `RUN_LEASE_SECONDS` (default `60`), `SHUTDOWN_GRACE_SECONDS` (default `25`) | Restart and crash behaviour (see RUNBOOK) |
+| `RATE_LIMIT_STORE` (`memory` default, or `postgres`) | `postgres` shares request limits across API instances |
 
 ### Web (build-time, public)
 `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the legal details `NEXT_PUBLIC_LEGAL_COMPANY`, `_ADDRESS`, `_EMAIL`, `_GRIEVANCE_OFFICER`, `_JURISDICTION`, `_REFUND_DAYS`. Until every legal value is set, the policy pages show a visible "draft" banner and "[… to be completed]" placeholders.
@@ -66,7 +67,7 @@ Production-like stack: `docker compose -f infra/docker-compose.yml up --build` r
 
 ## Billing webhooks (platform)
 - **Razorpay:** Dashboard → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/razorpay`, with the secret = `RAZORPAY_WEBHOOK_SECRET`. Events: `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`, `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`.
-- **Stripe:** Developers → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/stripe`, then copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Events: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+- **Stripe:** Developers → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/stripe`, then copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Events: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`.
 - Only verified webhooks grant plans or credits. The browser can never change entitlements.
 
 ## Merchant payment setup (per store, in Stores → Settings)
@@ -85,4 +86,4 @@ eas submit -p android --profile production   # Play Console, internal track, as 
 Store approval is decided by Apple and Google. Nothing here publishes to the public stores automatically.
 
 ## Scaling note
-Generation runs, rate limits and the flag cache are in-process. Run **one API instance** until a shared queue and rate-limit store are added (see RUNBOOK → Scaling).
+Run **one API instance** on Render (its persistent disk attaches to a single instance). The API itself is safe to replicate; see RUNBOOK → Scaling for what a multi-instance setup needs.

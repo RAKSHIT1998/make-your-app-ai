@@ -1,8 +1,10 @@
 import { Module, type DynamicModule } from '@nestjs/common';
+import type { PrismaClient } from '@mya/db';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
 import { APP_CONFIG, type AppConfig } from './config.js';
-import { PrismaLifecycle, prismaProvider } from './prisma.service.js';
+import { PRISMA, PrismaLifecycle, prismaProvider } from './prisma.service.js';
+import { PostgresThrottlerStorage } from './common/postgres-throttler.storage.js';
 import { AuditService } from './audit/audit.service.js';
 import { TokenVerifier } from './auth/token-verifier.js';
 import { AuthService } from './auth/auth.service.js';
@@ -80,6 +82,7 @@ export class AppModule {
         ReferralsService,
         ModerationService,
         PlatformAdminGuard,
+        ...(config.RATE_LIMIT_STORE === 'postgres' ? [{ provide: ThrottlerStorage, useFactory: (prisma: PrismaClient) => new PostgresThrottlerStorage(prisma), inject: [PRISMA] }] : []),
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: AuthGuard },
         ...overrides,

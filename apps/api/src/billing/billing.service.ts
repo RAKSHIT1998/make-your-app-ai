@@ -253,6 +253,8 @@ export class BillingService {
         return this.endSubscription(evt);
       case 'topup.paid':
         return this.completeTopup(providerName, evt);
+      case 'payment.refunded':
+        return this.recordRefund(providerName, evt);
       default:
         return 'ignored';
     }
@@ -334,6 +336,45 @@ export class BillingService {
     });
     await this.audit.record({ action: `billing.subscription_${status}`, organizationId: sub.organizationId, targetType: 'subscription', targetId: sub.id });
     return status === 'halted' ? 'subscription_halted' : 'subscription_ended';
+  }
+
+  /**
+   * Mirrors a refund issued at the provider (verified webhook only). Records it on the invoice and, for credit top-ups,
+   * claws back the refunded share of the purchased credits that are still unspent. Subscription refunds are recorded but
+   * never change the plan; cancelling the subscription is a separate provider action that arrives as its own event.
+   */
+  private async recordRefund(providerName: PaymentProvider, evt: BillingEvent): Promise<string> {
+    const r = evt.refund;
+    if (!r) return 'ignored';
+    let invoice = await this.prisma.invoice.findFirst({ where: { provider: providerName, providerPaymentId: r.providerPaymentId } });
+    if (!invoice && r.paymentIntentId) {
+      const ref = await this.providers[providerName]?.resolveInvoicePaymentId?.(r.paymentIntentId);
+      if (ref) invoice = await this.prisma.invoice.findFirst({ where: { provider: providerName, providerPaymentId: ref } });
+    }
+    if (!invoice) return 'unknown_payment';
+    if (r.currency && r.currency !== invoice.currency) return 'currency_mismatch';
+    const total = Math.min(invoice.totalMinor, Math.max(0, r.refundedTotalMinor));
+    if (total <= invoice.refundedMinor) return 'already_recorded';
+    const delta = total - invoice.refundedMinor;
+    let clawedBack = 0;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${invoice.organizationId}))`;
+      const fresh = await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
+      if (total <= fresh.refundedMinor) return;
+      await tx.invoice.update({ where: { id: invoice.id }, data: { refundedMinor: total, status: total >= invoice.totalMinor ? 'refunded' : 'partially_refunded' } });
+      if (!invoice.checkoutId) return;
+      const checkout = await tx.billingCheckout.findUnique({ where: { id: invoice.checkoutId } });
+      const pack = checkout?.kind === 'topup' && checkout.creditPackId ? await tx.creditPack.findUnique({ where: { id: checkout.creditPackId } }) : null;
+      if (!pack) return;
+      const owed = Math.floor((pack.credits * (total - fresh.refundedMinor)) / invoice.totalMinor);
+      const { purchased } = await this.credits.balances(invoice.organizationId, tx);
+      clawedBack = Math.max(0, Math.min(owed, purchased));
+      if (clawedBack > 0) {
+        await tx.creditLedgerEntry.create({ data: { organizationId: invoice.organizationId, amount: -clawedBack, reason: 'refund', bucket: 'purchased', idempotencyKey: `refund:${invoice.id}:${total}`, referenceType: 'invoice', referenceId: invoice.id } });
+      }
+    });
+    await this.audit.record({ action: 'billing.payment_refunded', organizationId: invoice.organizationId, targetType: 'invoice', targetId: invoice.id, metadata: { refundedMinor: total, deltaMinor: delta, creditsClawedBack: clawedBack } });
+    return 'refund_recorded';
   }
 
   private async completeTopup(providerName: PaymentProvider, evt: BillingEvent): Promise<string> {

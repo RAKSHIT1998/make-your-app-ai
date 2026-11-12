@@ -41,6 +41,12 @@ export class ProjectsController {
     return this.projects.update(user, id, body, ip);
   }
 
+  @Post(':id/restore')
+  @HttpCode(200)
+  restore(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string, @Ip() ip: string) {
+    return this.projects.restore(user, id, ip);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   async remove(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string, @Ip() ip: string) {
