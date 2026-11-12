@@ -18,6 +18,11 @@ import { GenerationsService } from './generation/generations.service.js';
 import { GenerationsController } from './generation/generations.controller.js';
 import { aiProviders } from './ai/ai.providers.js';
 import { configureRateLimits } from './common/rate-limits.js';
+import { BillingService, billingProvidersFactory } from './billing/billing.service.js';
+import { BillingController, BillingWebhooksController } from './billing/billing.controllers.js';
+import { AdminService } from './admin/admin.service.js';
+import { AdminController } from './admin/admin.controller.js';
+import { PlatformAdminGuard } from './auth/platform-admin.guard.js';
 import { GatewayRegistry, gatewayFactoryProvider } from './commerce/gateways.js';
 import { MerchantService } from './commerce/merchant.service.js';
 import { StorefrontService } from './commerce/storefront.service.js';
@@ -30,7 +35,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: config.RATE_LIMIT_PER_MINUTE }])],
-      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController],
+      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         prismaProvider,
@@ -47,6 +52,10 @@ export class AppModule {
         GatewayRegistry,
         MerchantService,
         StorefrontService,
+        billingProvidersFactory,
+        BillingService,
+        AdminService,
+        PlatformAdminGuard,
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: AuthGuard },
         ...overrides,

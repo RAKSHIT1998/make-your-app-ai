@@ -70,6 +70,9 @@ model Organization {
   domains           Domain[]
   auditLogs         AuditLog[]
   stores            Store[]
+  entitlement       SubscriptionEntitlement?
+  billingCheckouts  BillingCheckout[]
+  invoices          Invoice[]
 }
 
 model OrganizationMembership {
@@ -88,11 +91,13 @@ model OrganizationMembership {
 // ───────────────────────── Billing ─────────────────────────
 
 enum SubscriptionStatus {
+  incomplete
   trialing
   active
   past_due
+  halted
   canceled
-  incomplete
+  expired
 }
 
 enum PaymentProvider {
@@ -100,39 +105,182 @@ enum PaymentProvider {
   razorpay
 }
 
-/// Plans are data, editable by admins — never hardcoded.
+enum BillingInterval {
+  monthly
+  yearly
+}
+
+/// Subscription plans are data (SubscriptionPlan in the spec). Owners edit them in the admin console — never in code.
 model Plan {
-  id                String         @id @default(uuid()) @db.Uuid
-  code              String         @unique // free | creator | pro | studio
-  name              String
-  priceMonthlyMinor Int // smallest currency unit
-  currency          String         @default("USD")
-  includedCredits   Int
-  maxProjects       Int
-  maxOrgs           Int            @default(1)
-  maxSeats          Int            @default(1)
-  features          Json           @default("{}")
-  active            Boolean        @default(true)
-  providerPriceIds  Json           @default("{}") // { stripe: "...", razorpay: "..." }
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  subscriptions     Subscription[]
+  id                  String                    @id @default(uuid()) @db.Uuid
+  code                String                    @unique // free | creator | pro | studio | ...
+  name                String
+  description         String                    @default("")
+  sortOrder           Int                       @default(0)
+  /// Monthly AI credit allowance (resets each billing period; unused allowance expires).
+  includedCredits     Int
+  /// Maximum active (non-archived) projects.
+  maxProjects         Int
+  maxOrgs             Int                       @default(1)
+  maxSeats            Int                       @default(1)
+  dailyCreditLimit    Int?
+  maxCreditsPerRun    Int                       @default(500)
+  monthlyBuildCredits Int                       @default(0)
+  /// Feature flags, e.g. website_generation, full_stack, mobile_builds, hosting, advanced_integrations, team_workspace.
+  featureFlags        String[]
+  /// Project types this plan may generate.
+  projectTypes        String[]
+  features            Json                      @default("{}")
+  active              Boolean                   @default(true)
+  public              Boolean                   @default(true)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  prices              PlanPrice[]
+  subscriptions       Subscription[]
+  entitlements        SubscriptionEntitlement[]
+}
+
+model PlanPrice {
+  id             String          @id @default(uuid()) @db.Uuid
+  planId         String          @db.Uuid
+  interval       BillingInterval
+  currency       String
+  amountMinor    Int
+  active         Boolean         @default(true)
+  /// Provider-side plan/price ids. Razorpay plans are created on demand; Stripe prices must be created in Stripe and pasted here.
+  razorpayPlanId String?         @unique
+  stripePriceId  String?         @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  plan           Plan            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  subscriptions  Subscription[]
+
+  @@unique([planId, interval, currency])
 }
 
 model Subscription {
   id                     String             @id @default(uuid()) @db.Uuid
   organizationId         String             @unique @db.Uuid
   planId                 String             @db.Uuid
-  status                 SubscriptionStatus @default(active)
+  priceId                String?            @db.Uuid
+  status                 SubscriptionStatus @default(incomplete)
   provider               PaymentProvider?
   providerSubscriptionId String?            @unique
+  providerCustomerId     String?
   currentPeriodStart     DateTime?
   currentPeriodEnd       DateTime?
   cancelAtPeriodEnd      Boolean            @default(false)
+  canceledAt             DateTime?
+  endedAt                DateTime?
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   plan                   Plan               @relation(fields: [planId], references: [id])
+  price                  PlanPrice?         @relation(fields: [priceId], references: [id])
+  invoices               Invoice[]
+}
+
+/// Effective entitlements for an organization, written ONLY by verified billing events (or the free-plan default).
+model SubscriptionEntitlement {
+  id                  String       @id @default(uuid()) @db.Uuid
+  organizationId      String       @unique @db.Uuid
+  planId              String       @db.Uuid
+  source              String // free | subscription | admin
+  monthlyCredits      Int
+  maxActiveProjects   Int
+  dailyCreditLimit    Int?
+  maxCreditsPerRun    Int
+  monthlyBuildCredits Int
+  teamSeats           Int
+  featureFlags        String[]
+  projectTypes        String[]
+  periodStart         DateTime
+  periodEnd           DateTime?
+  updatedAt           DateTime     @updatedAt
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                Plan         @relation(fields: [planId], references: [id])
+}
+
+enum CheckoutKind {
+  subscription
+  topup
+}
+
+enum CheckoutStatus {
+  created
+  completed
+  expired
+  failed
+}
+
+/// A checkout we started with a payment provider. Completing it requires a verified server-side event.
+model BillingCheckout {
+  id                     String          @id @default(uuid()) @db.Uuid
+  organizationId         String          @db.Uuid
+  createdById            String          @db.Uuid
+  kind                   CheckoutKind
+  provider               PaymentProvider
+  providerRef            String          @unique
+  /// Stripe: the subscription created by a completed Checkout Session (linked via webhook).
+  providerSubscriptionId String?         @unique
+  planPriceId            String?         @db.Uuid
+  creditPackId           String?         @db.Uuid
+  amountMinor            Int
+  currency               String
+  status                 CheckoutStatus  @default(created)
+  clientParams           Json            @default("{}")
+  createdAt              DateTime        @default(now())
+  completedAt            DateTime?
+  organization           Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model CreditPack {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  credits    Int
+  priceMinor Int
+  currency   String   @default("INR")
+  active     Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum InvoiceStatus {
+  paid
+  partially_refunded
+  refunded
+  void
+}
+
+/// Platform billing invoices (what customers pay Make Your App AI). Created only from verified payments.
+model Invoice {
+  id                String          @id @default(uuid()) @db.Uuid
+  organizationId    String          @db.Uuid
+  number            String          @unique
+  subscriptionId    String?         @db.Uuid
+  checkoutId        String?         @db.Uuid
+  description       String
+  currency          String
+  totalMinor        Int
+  /// Tax included in totalMinor (prices are tax-inclusive).
+  taxMinor          Int             @default(0)
+  /// Payment processor fee, when the provider reports it.
+  feeMinor          Int?
+  refundedMinor     Int             @default(0)
+  status            InvoiceStatus   @default(paid)
+  provider          PaymentProvider
+  providerPaymentId String          @unique
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  paidAt            DateTime
+  createdAt         DateTime        @default(now())
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription      Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, paidAt])
 }
 
 enum LedgerReason {
@@ -142,6 +290,12 @@ enum LedgerReason {
   infra_usage
   refund
   adjustment
+  expiry
+}
+
+enum CreditBucket {
+  allowance
+  purchased
 }
 
 /// Append-only. Balance = SUM(amount). Writes happen inside transactions with an idempotency key.
@@ -150,6 +304,8 @@ model CreditLedgerEntry {
   organizationId String       @db.Uuid
   amount         Int // + grant, − spend (credits, integer)
   reason         LedgerReason
+  /// allowance = monthly plan credits (expire at period end); purchased = top-ups (never expire).
+  bucket         CreditBucket @default(allowance)
   idempotencyKey String       @unique
   referenceType  String? // e.g. "ai_usage", "invoice"
   referenceId    String?
@@ -158,6 +314,7 @@ model CreditLedgerEntry {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, bucket])
 }
 
 // ───────────────────────── Projects ─────────────────────────

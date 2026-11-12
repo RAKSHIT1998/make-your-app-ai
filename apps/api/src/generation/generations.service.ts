@@ -38,10 +38,21 @@ export class GenerationsService {
     if (!supportsProjectType(project.type)) {
       throw new UnprocessableEntityException(`Generation for "${project.type}" projects is not available yet. Websites and business websites are supported today.`);
     }
+    const ent = await this.credits.entitlement(project.organizationId);
+    if (!ent.projectTypes.includes(project.type)) {
+      throw new HttpException({ message: `Your plan doesn't include generating ${project.type.replace('_', ' ')} projects. Upgrade to unlock it.`, code: 'plan_limit_type' }, HttpStatus.PAYMENT_REQUIRED);
+    }
+    const active = await this.credits.activeProjectCount(project.organizationId);
+    if (active > ent.maxActiveProjects) {
+      throw new HttpException({ message: `This workspace has ${active} active projects but the plan allows ${ent.maxActiveProjects}. Projects are kept safe and read-only for AI changes until you archive some or upgrade.`, code: 'plan_limit_projects' }, HttpStatus.PAYMENT_REQUIRED);
+    }
+    if (ent.dailyCreditLimit !== null && (await this.credits.spentToday(project.organizationId)) >= ent.dailyCreditLimit) {
+      throw new HttpException({ message: `You've reached today's AI usage limit for your plan (${ent.dailyCreditLimit} credits). It resets at midnight UTC.`, code: 'plan_limit_daily' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+    await this.credits.assertCanSpend(project.organizationId, MIN_CREDITS_TO_START);
     if (this.router.candidates('balanced').length === 0) {
       throw new HttpException('AI generation is not configured on this server (no AI provider key).', HttpStatus.SERVICE_UNAVAILABLE);
     }
-    await this.credits.assertCanSpend(project.organizationId, MIN_CREDITS_TO_START);
 
     const kind = project.headVersionId ? 'edit' : 'create';
     const run = await this.prisma.$transaction(async (tx) => {
@@ -100,9 +111,11 @@ export class GenerationsService {
         await tx.generationRun.update({ where: { id: runId }, data: { creditsUsed: { increment: credits } } });
       });
     };
+    const ent = await this.credits.entitlement(orgId);
+    const runCap = Math.min(this.config.MAX_CREDITS_PER_RUN, ent.maxCreditsPerRun);
     const checkBudget = async (worstMicros: number) => {
       const worst = this.credits.creditsForCost(worstMicros);
-      if (runCredits + worst > this.config.MAX_CREDITS_PER_RUN) throw new BudgetExceededError(`This run reached its limit of ${this.config.MAX_CREDITS_PER_RUN} credits.`);
+      if (runCredits + worst > runCap) throw new BudgetExceededError(`This run reached its limit of ${runCap} credits.`);
       const bal = await this.credits.balance(orgId);
       if (bal < worst) throw new BudgetExceededError(`Not enough credits to continue (balance ${bal}, next step may need up to ${worst}).`);
     };

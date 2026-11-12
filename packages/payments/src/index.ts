@@ -12,3 +12,4 @@ export const defaultGatewayFactory: GatewayFactory = (creds) =>
   creds.provider === 'razorpay'
     ? new RazorpayGateway({ keyId: creds.keyId, keySecret: creds.keySecret, webhookSecret: creds.webhookSecret })
     : new StripeGateway({ secretKey: creds.secretKey, publishableKey: creds.publishableKey, webhookSecret: creds.webhookSecret });
+export * from './billing.js';

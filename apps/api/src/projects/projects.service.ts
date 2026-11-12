@@ -1,10 +1,11 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { PrismaClient, Project } from '@mya/db';
 import type { CreateProjectInput, ProjectDto, UpdateProjectInput } from '@mya/shared';
 import { PRISMA } from '../prisma.service.js';
 import { OrgsService } from '../orgs/orgs.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
+import { CreditsService } from '../credits/credits.service.js';
 
 export function toProjectDto(p: Project): ProjectDto {
   return {
@@ -25,12 +26,16 @@ export class ProjectsService {
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(OrgsService) private readonly orgs: OrgsService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(CreditsService) private readonly credits: CreditsService,
   ) {}
 
   async create(user: AuthUser, input: CreateProjectInput, ip: string | null): Promise<ProjectDto> {
     const organizationId = input.organizationId ?? user.personalOrgId;
     await this.orgs.assertRole(user.id, organizationId, 'member');
-    // Plan limits (maxProjects) are enforced here once billing lands in Phase 6.
+    const ent = await this.credits.entitlement(organizationId);
+    if ((await this.credits.activeProjectCount(organizationId)) >= ent.maxActiveProjects) {
+      throw new HttpException({ message: `Your plan allows ${ent.maxActiveProjects} active project${ent.maxActiveProjects === 1 ? '' : 's'}. Archive a project or upgrade to create more.`, code: 'plan_limit_projects' }, HttpStatus.PAYMENT_REQUIRED);
+    }
     const project = await this.prisma.$transaction(async (tx) => {
       const p = await tx.project.create({
         data: {

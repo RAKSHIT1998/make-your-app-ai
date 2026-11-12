@@ -18,7 +18,7 @@ const EnvSchema = z
     CREDITS_PER_USD: z.coerce.number().positive().default(100),
     /** Hard cap on credits one generation run may consume. */
     MAX_CREDITS_PER_RUN: z.coerce.number().int().positive().default(500),
-    /** One-time credit grant for new workspaces (until billing plans are configured). */
+    /** Monthly credit allowance of the default Free plan when plans are first seeded. */
     /** Requests per minute per client (IP + user). In-memory store; switch to Redis storage when running >1 instance. */
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
     /** 32-byte key (base64) for encrypting customer integration credentials at rest. Required to connect payment gateways. */
@@ -29,6 +29,18 @@ const EnvSchema = z
     CHECKOUT_RESERVATION_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(30),
     CHECKOUT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(15),
     GENERATION_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
+    /** Comma-separated emails that are promoted to platform superadmin on sign-in (owner bootstrap). */
+    PLATFORM_OWNER_EMAILS: z.string().default(''),
+    /** The platform's OWN payment accounts (customers paying Make Your App AI). */
+    RAZORPAY_KEY_ID: z.string().optional(),
+    RAZORPAY_KEY_SECRET: z.string().optional(),
+    RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    /** Where customers return after checkout. */
+    WEB_APP_URL: z.string().default('http://localhost:3000'),
+    /** Optional USD→INR rate used ONLY for margin reports (AI costs are billed to us in USD). */
+    REPORTING_USD_INR: z.coerce.number().positive().optional(),
     FREE_PLAN_CREDITS: z.coerce.number().int().nonnegative().default(200),
   })
   .refine((e) => e.SUPABASE_URL || e.SUPABASE_JWT_SECRET, {

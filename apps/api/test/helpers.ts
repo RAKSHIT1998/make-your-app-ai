@@ -40,6 +40,16 @@ export function newIdentity(label: string) {
   return { id, email: `${label}-${id.slice(0, 6)}@example.test` };
 }
 
-export async function resetDb(prisma: PrismaClient) {
-  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "AuditLog", "AiProviderConfig", "PaymentWebhookEvent" CASCADE');
+/**
+ * Clean slate + a permissive Free plan so feature tests aren't constrained by plan limits.
+ * Billing tests override plans explicitly.
+ */
+export async function resetDb(prisma: PrismaClient, free: { includedCredits?: number; maxProjects?: number; dailyCreditLimit?: number | null; maxCreditsPerRun?: number; projectTypes?: string[] } = {}) {
+  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "CreditPack", "AuditLog", "AiProviderConfig", "PaymentWebhookEvent" CASCADE');
+  await prisma.plan.create({
+    data: {
+      code: 'free', name: 'Free', includedCredits: free.includedCredits ?? 200, maxProjects: free.maxProjects ?? 100, dailyCreditLimit: free.dailyCreditLimit ?? null,
+      maxCreditsPerRun: free.maxCreditsPerRun ?? 500, featureFlags: [], projectTypes: free.projectTypes ?? ['website', 'business_website'],
+    },
+  });
 }

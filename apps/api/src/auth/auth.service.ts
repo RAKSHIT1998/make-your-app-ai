@@ -4,6 +4,7 @@ import { PRISMA } from '../prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from './auth.types.js';
 import { CreditsService } from '../credits/credits.service.js';
+import { APP_CONFIG, type AppConfig } from '../config.js';
 import type { VerifiedClaims } from './token-verifier.js';
 
 @Injectable()
@@ -12,7 +13,20 @@ export class AuthService {
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(CreditsService) private readonly credits: CreditsService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  private isOwnerEmail(email: string) {
+    return this.config.PLATFORM_OWNER_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean).includes(email.toLowerCase());
+  }
+
+  /** Promotes configured owner emails to superadmin (never demotes). Requires a verified Supabase identity. */
+  private async bootstrapOwner(userId: string, email: string, role: string) {
+    if (role === 'superadmin' || !this.isOwnerEmail(email)) return role;
+    await this.prisma.user.update({ where: { id: userId }, data: { platformRole: 'superadmin' } });
+    await this.audit.record({ action: 'admin.owner_bootstrapped', actorId: userId, metadata: { email } });
+    return 'superadmin';
+  }
 
   /** Upserts the platform user for a verified Supabase identity and ensures a personal org exists. */
   async resolveUser(claims: VerifiedClaims, ip: string | null): Promise<AuthUser> {
@@ -24,10 +38,14 @@ export class AuthService {
     if (existing) {
       if (existing.status !== 'active') throw new ForbiddenException('Account is not active');
       const personalOrgId = existing.memberships[0]?.organizationId ?? (await this.createPersonalOrg(existing.id, existing.email));
+      if (!existing.lastSeenAt || Date.now() - existing.lastSeenAt.getTime() > 10 * 60_000) {
+        await this.prisma.user.update({ where: { id: existing.id }, data: { lastSeenAt: new Date() } });
+      }
       if (existing.email !== claims.email) {
         await this.prisma.user.update({ where: { id: existing.id }, data: { email: claims.email } });
       }
-      return { id: existing.id, email: claims.email, platformRole: existing.platformRole, personalOrgId };
+      const platformRole = (await this.bootstrapOwner(existing.id, claims.email, existing.platformRole)) as typeof existing.platformRole;
+      return { id: existing.id, email: claims.email, platformRole, personalOrgId };
     }
 
     // Idempotent under concurrency: a client's first page load fires several requests at once.
@@ -36,7 +54,8 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: claims.sub } });
     if (user.status !== 'active') throw new ForbiddenException('Account is not active');
     const personalOrgId = await this.createPersonalOrg(user.id, user.email);
-    return { id: user.id, email: user.email, platformRole: user.platformRole, personalOrgId };
+    const platformRole = (await this.bootstrapOwner(user.id, user.email, user.platformRole)) as typeof user.platformRole;
+    return { id: user.id, email: user.email, platformRole, personalOrgId };
   }
 
   private async createPersonalOrg(userId: string, email: string): Promise<string> {
@@ -53,7 +72,7 @@ export class AuthService {
       if ((e as { code?: string }).code !== 'P2002') throw e;
       orgId = (await this.prisma.organization.findUniqueOrThrow({ where: { slug } })).id;
     }
-    await this.credits.ensureInitialGrant(orgId);
+    await this.credits.ensureWorkspaceAllowance(orgId);
     return orgId;
   }
 }
