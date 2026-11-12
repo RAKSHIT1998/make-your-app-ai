@@ -37,6 +37,12 @@ const EnvSchema = z
     RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    /** Hosting: "vercel" needs VERCEL_TOKEN (platform account). "fake" is for local dev/tests only. */
+    HOSTING_PROVIDER: z.enum(['vercel', 'fake', 'none']).default('none'),
+    VERCEL_TOKEN: z.string().optional(),
+    VERCEL_TEAM_ID: z.string().optional(),
+    MAX_DEPLOYMENTS_PER_DAY: z.coerce.number().int().positive().default(30),
+    DEPLOY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
     /** Where customers return after checkout. */
     WEB_APP_URL: z.string().default('http://localhost:3000'),
     /** Optional USD→INR rate used ONLY for margin reports (AI costs are billed to us in USD). */
@@ -46,6 +52,8 @@ const EnvSchema = z
   .refine((e) => e.SUPABASE_URL || e.SUPABASE_JWT_SECRET, {
     message: 'Set SUPABASE_URL (JWKS verification) and/or SUPABASE_JWT_SECRET (legacy HS256).',
   })
+  .refine((e) => !(e.NODE_ENV === 'production' && e.HOSTING_PROVIDER === 'fake'), { message: 'HOSTING_PROVIDER=fake is for development only.', path: ['HOSTING_PROVIDER'] })
+  .refine((e) => e.HOSTING_PROVIDER !== 'vercel' || !!e.VERCEL_TOKEN, { message: 'HOSTING_PROVIDER=vercel needs VERCEL_TOKEN.', path: ['VERCEL_TOKEN'] })
   .refine((e) => !(e.NODE_ENV === 'production' && e.SANDBOX_PROVIDER === 'local'), {
     message: 'SANDBOX_PROVIDER=local is development-only; use docker (or a managed sandbox) in production.',
   });

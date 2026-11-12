@@ -32,6 +32,9 @@ importers:
       '@mya/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@mya/hosting':
+        specifier: workspace:*
+        version: link:../../packages/hosting
       '@mya/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -350,6 +353,18 @@ importers:
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
+
+  packages/hosting:
+    devDependencies:
+      '@mya/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@31.0.0(@noble/hashes@1.8.0))(vite@8.3.8(@types/node@22.20.5)(jiti@2.7.0)(terser@5.51.2))
 
   packages/payments:
     dependencies:

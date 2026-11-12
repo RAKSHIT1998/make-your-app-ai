@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer, Rocket } from 'lucide-react';
 import Link from 'next/link';
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -84,6 +84,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
           <div className="truncate text-xs text-subtle">{opt?.label}{runs.data?.[0] ? ` · last change ${timeAgo(runs.data[0].createdAt)}` : ''}</div>
         </div>
         {activeRun ? <Badge tone="accent" dot pulse>AI working</Badge> : project.data && <span className="hidden sm:inline-flex"><StatusBadge status={project.data.status} /></span>}
+        <Link href={`/hosting/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Rocket className="size-3.5" />Deploy</Button></Link>
         <Button size="sm" variant="secondary" onClick={() => setSharing(true)}><Share2 className="size-3.5" />Share</Button>
       </header>
       <Drawer open={sharing} onOpenChange={setSharing} title="Publish & share" side={desktop === false ? 'bottom' : 'right'}>

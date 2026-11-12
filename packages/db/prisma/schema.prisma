@@ -392,6 +392,8 @@ model Project {
   remixedFrom    Project?            @relation("Remixes", fields: [remixedFromId], references: [id], onDelete: SetNull)
   remixes        Project[]           @relation("Remixes")
   likes          ProjectLike[]
+  hostingSite    HostingSite?
+  envVars        ProjectEnvVar[]
   viewDays       ProjectViewDay[]
   reports        ProjectReport[]
   headVersion    ProjectVersion?     @relation("ProjectHead", fields: [headVersionId], references: [id])
@@ -632,7 +634,42 @@ model HostingDeployment {
   healthCheck Json? // last health-check result — "live" requires a passing check
   approvedBy  String?          @db.Uuid
   createdAt   DateTime         @default(now())
+  /// deploy | rollback (a rollback redeploys an earlier version's exact files as a new deployment)
+  kind          String         @default("deploy")
+  versionNumber Int            @default(0)
+  error         String?
+  createdById   String?        @db.Uuid
+  readyAt       DateTime?
+  lastSyncedAt  DateTime?
   project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+/// One hosted site per project at the provider (created on first deploy).
+model HostingSite {
+  projectId         String   @id @db.Uuid
+  provider          String
+  siteName          String   @unique
+  externalProjectId String
+  productionUrl     String?
+  liveDeploymentId  String?  @db.Uuid
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+/// Customer-defined environment variables. Values are AES-256-GCM encrypted and never returned to browsers.
+model ProjectEnvVar {
+  id             String   @id @default(uuid()) @db.Uuid
+  projectId      String   @db.Uuid
+  key            String
+  encryptedValue String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
 }
 
 model Integration {

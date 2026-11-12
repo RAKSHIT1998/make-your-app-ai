@@ -26,7 +26,7 @@ const STUDIOS: NavItem[] = [
   { href: '/stores', label: 'Business Studio', icon: ShoppingBag, live: true },
 ];
 const PLATFORM: NavItem[] = [
-  { href: '/hosting', label: 'Hosting', icon: Server, live: false },
+  { href: '/hosting', label: 'Hosting', icon: Server, live: true },
   { href: '/templates', label: 'Templates', icon: LayoutTemplate, live: false },
 ];
 const COMMUNITY: NavItem[] = [

@@ -232,7 +232,7 @@ export async function publicGet<T>(path: string): Promise<T | null> {
 
 // ───────── Platform flags, retention ─────────
 
-export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals';
+export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting';
 export const flags = {
   all: () => apiFetch<Record<FlagKey, boolean>>('/flags', {}, async () => null),
   admin: () => apiFetch<{ key: FlagKey; enabled: boolean; description: string; default: boolean; updatedAt: string | null }[]>('/admin/flags'),
@@ -247,4 +247,29 @@ export interface TimelineItem { id: string; action: string; label: string; at: s
 export const retention = {
   achievements: () => apiFetch<Achievements>('/me/achievements'),
   timeline: (projectId?: string, limit = 20) => apiFetch<TimelineItem[]>(`/timeline?limit=${limit}${projectId ? `&projectId=${projectId}` : ''}`),
+};
+
+// ───────── Cloud Studio (hosting) ─────────
+
+export type DeploymentStatus = 'queued' | 'building' | 'deployed_unverified' | 'live' | 'failed' | 'rolled_back';
+export interface Deployment { id: string; status: DeploymentStatus; kind: 'deploy' | 'rollback'; url: string | null; versionNumber: number; error: string | null; createdAt: string; readyAt: string | null; current: boolean; health: { ok: boolean; status: number | null; error: string | null } | null }
+export interface DnsRecord { type: string; name: string; value: string; reason: string }
+export interface HostedDomain { hostname: string; status: 'pending_verification' | 'verified' | 'active' | 'error'; sslStatus: string; records: DnsRecord[] }
+export interface HostingStatus {
+  configured: boolean; provider: string | null; entitlements: { canDeploy: boolean; canUseCustomDomains: boolean }; headVersion: number | null;
+  site: { productionUrl: string | null; siteName: string; liveDeploymentId: string | null } | null;
+  deployments: Deployment[]; env: { key: string; updatedAt: string; public: boolean }[]; domains: HostedDomain[];
+}
+export interface HostingSites { configured: boolean; provider: string | null; entitlements: { canDeploy: boolean; canUseCustomDomains: boolean }; sites: { projectId: string; name: string; type: ProjectType; hasVersion: boolean; productionUrl: string | null; lastDeployment: Deployment | null }[] }
+export const hostingApi = {
+  sites: () => apiFetch<HostingSites>('/hosting/sites'),
+  status: (projectId: string) => apiFetch<HostingStatus>(`/projects/${projectId}/hosting`),
+  deploy: (projectId: string) => apiFetch<Deployment>(`/projects/${projectId}/deployments`, { method: 'POST' }),
+  rollback: (projectId: string, deploymentId: string) => apiFetch<Deployment>(`/projects/${projectId}/deployments/${deploymentId}/rollback`, { method: 'POST' }),
+  logs: (projectId: string, deploymentId: string) => apiFetch<{ at: string; type: 'stdout' | 'stderr' | 'event'; text: string }[]>(`/projects/${projectId}/deployments/${deploymentId}/logs`),
+  setEnv: (projectId: string, key: string, value: string) => apiFetch<unknown>(`/projects/${projectId}/env`, { method: 'PUT', body: JSON.stringify({ key, value }) }),
+  deleteEnv: (projectId: string, key: string) => apiFetch<void>(`/projects/${projectId}/env/${key}`, { method: 'DELETE' }),
+  addDomain: (projectId: string, hostname: string) => apiFetch<HostedDomain>(`/projects/${projectId}/domains`, { method: 'POST', body: JSON.stringify({ hostname }) }),
+  checkDomain: (projectId: string, hostname: string) => apiFetch<HostedDomain>(`/projects/${projectId}/domains/${hostname}/check`, { method: 'POST' }),
+  removeDomain: (projectId: string, hostname: string) => apiFetch<void>(`/projects/${projectId}/domains/${hostname}`, { method: 'DELETE' }),
 };

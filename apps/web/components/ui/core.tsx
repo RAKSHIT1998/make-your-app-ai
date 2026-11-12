@@ -129,11 +129,13 @@ const STATUS: Record<string, [Tone, string]> = {
   paid: ['success', 'Paid'], pending_payment: ['neutral', 'Awaiting payment'], partially_refunded: ['warning', 'Part refunded'],
   refunded: ['neutral', 'Refunded'], cancelled: ['neutral', 'Cancelled'], expired: ['neutral', 'Expired'], fulfilled: ['success', 'Fulfilled'],
   unfulfilled: ['neutral', 'Unfulfilled'], past_due: ['warning', 'Past due'], halted: ['danger', 'Halted'], suspended: ['danger', 'Suspended'],
+  building: ['accent', 'Building'], live: ['success', 'Live'], deployed_unverified: ['warning', 'Deployed · not reachable'], rolled_back: ['neutral', 'Replaced'],
+  pending_verification: ['warning', 'Waiting for DNS'], verified: ['warning', 'Verified · DNS pending'],
 };
 
 export function StatusBadge({ status }: { status: string }) {
   const [tone, label] = STATUS[status] ?? (['neutral', status.replaceAll('_', ' ')] as [Tone, string]);
-  return <Badge tone={tone} dot pulse={status === 'running' || status === 'generating'}>{label}</Badge>;
+  return <Badge tone={tone} dot pulse={status === 'running' || status === 'generating' || status === 'building'}>{label}</Badge>;
 }
 
 export function Kbd({ children }: { children: ReactNode }) {
@@ -170,8 +172,8 @@ export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () =
   );
 }
 
-export function Notice({ tone = 'info', children, action }: { tone?: 'info' | 'warning' | 'success'; children: ReactNode; action?: ReactNode }) {
-  const t = tone === 'warning' ? 'border-warning/25 bg-warning-soft text-warning' : tone === 'success' ? 'border-success/25 bg-success-soft text-success' : 'border-border bg-surface-muted text-muted';
+export function Notice({ tone = 'info', children, action }: { tone?: 'info' | 'warning' | 'success' | 'danger'; children: ReactNode; action?: ReactNode }) {
+  const t = tone === 'danger' ? 'border-danger/25 bg-danger-soft text-danger' : tone === 'warning' ? 'border-warning/25 bg-warning-soft text-warning' : tone === 'success' ? 'border-success/25 bg-success-soft text-success' : 'border-border bg-surface-muted text-muted';
   return <div className={cx('flex items-center gap-3 rounded-[var(--radius-md)] border px-3.5 py-3 text-sm', t)}><div className="min-w-0 flex-1">{children}</div>{action}</div>;
 }
 
