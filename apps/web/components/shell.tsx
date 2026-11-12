@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Command } from 'cmdk';
-import { Compass, CreditCard, Gift, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Settings, Shield, ShoppingBag, Smartphone, Sun, type LucideIcon } from 'lucide-react';
+import { Compass, CreditCard, Gift, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Settings, Shield, ShoppingBag, Smartphone, Sun, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -11,6 +11,8 @@ import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { Logo, LogoMark } from './logo';
+import { WorkspaceSwitcher } from './workspace-switcher';
+import { useFlag } from '@/lib/flags';
 import { Button, cx, Drawer, Kbd, Menu, MenuItem, MenuLabel, MenuSeparator, SoonBadge, Tooltip } from './ui';
 
 interface NavItem { href: string; label: string; icon: LucideIcon; live: boolean; match?: (p: string) => boolean }
@@ -33,6 +35,7 @@ const COMMUNITY: NavItem[] = [
   { href: '/explore', label: 'Explore', icon: Compass, live: true },
   { href: '/invite', label: 'Invite & earn', icon: Gift, live: true },
 ];
+const TEAM: NavItem = { href: '/team', label: 'Team', icon: Users, live: true };
 const ACCOUNT: NavItem[] = [
   { href: '/billing', label: 'Billing', icon: CreditCard, live: true },
   { href: '/settings', label: 'Settings', icon: Settings, live: true },
@@ -170,6 +173,7 @@ function CommandPalette({ open, onOpenChange, owner }: { open: boolean; onOpenCh
 
 function MobileTabs({ path, owner, onCreate }: { path: string; owner: boolean; onCreate: () => void }) {
   const [sheet, setSheet] = useState<null | 'studios' | 'more'>(null);
+  const teams = useFlag('team_workspaces');
   const tab = (href: string, label: string, Icon: LucideIcon, active: boolean) => (
     <Link href={href} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', active ? 'text-fg' : 'text-subtle')} aria-current={active ? 'page' : undefined}>
       <Icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.8} aria-hidden />{label}
@@ -189,14 +193,14 @@ function MobileTabs({ path, owner, onCreate }: { path: string; owner: boolean; o
             <button onClick={onCreate} aria-label="Create project" className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-fg shadow-[var(--shadow-lg)] active:scale-95"><Plus className="size-6" /></button>
           </div>
           <button onClick={() => setSheet('studios')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', studiosActive ? 'text-fg' : 'text-subtle')}><LayoutGrid className="size-[22px]" strokeWidth={studiosActive ? 2.2 : 1.8} />Studios</button>
-          <button onClick={() => setSheet('more')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', [...COMMUNITY, ...ACCOUNT].some((a) => isActive(a, path)) || path.startsWith('/admin') ? 'text-fg' : 'text-subtle')}><Settings className="size-[22px]" strokeWidth={1.8} />More</button>
+          <button onClick={() => setSheet('more')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', [...COMMUNITY, TEAM, ...ACCOUNT].some((a) => isActive(a, path)) || path.startsWith('/admin') ? 'text-fg' : 'text-subtle')}><Settings className="size-[22px]" strokeWidth={1.8} />More</button>
         </div>
       </nav>
       <Drawer open={sheet === 'studios'} onOpenChange={(o) => !o && setSheet(null)} title="Studios" side="bottom">
         <div className="space-y-1">{[...STUDIOS, ...PLATFORM].map(sheetLink)}</div>
       </Drawer>
       <Drawer open={sheet === 'more'} onOpenChange={(o) => !o && setSheet(null)} title="Account" side="bottom">
-        <div className="space-y-1">{[...COMMUNITY, ...ACCOUNT, ...(owner ? [OWNER] : [])].map(sheetLink)}</div>
+        <div className="space-y-1">{[...COMMUNITY, ...(teams ? [TEAM] : []), ...ACCOUNT, ...(owner ? [OWNER] : [])].map(sheetLink)}</div>
         <MobileThemeRow />
       </Drawer>
     </>
@@ -223,6 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const me = useMe();
   const credits = useCredits();
   const owner = !!me.data && me.data.platformRole !== 'user';
+  const teams = useFlag('team_workspaces');
   const [collapsed, setCollapsed] = useState(false);
   const [palette, setPalette] = useState(false);
   const workspace = /^\/projects\/[^/]+/.test(path);
@@ -273,12 +278,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button onClick={() => setPalette(true)} className={cx('mb-2 flex h-8 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface px-2.5 text-[13px] text-subtle shadow-sm transition-colors hover:border-border-strong', isCollapsed && 'justify-center px-0')} aria-label="Search (⌘K)">
           <Search className="size-4" />{!isCollapsed && <><span className="flex-1 text-left">Search</span><Kbd>⌘K</Kbd></>}
         </button>
+        <WorkspaceSwitcher collapsed={isCollapsed} />
         <nav className="flex-1 overflow-y-auto" aria-label="Main">
           <NavGroup items={PRIMARY} collapsed={isCollapsed} path={path} />
           <NavGroup title="Studios" items={STUDIOS} collapsed={isCollapsed} path={path} />
           <NavGroup title="Platform" items={PLATFORM} collapsed={isCollapsed} path={path} />
           <NavGroup title="Community" items={COMMUNITY} collapsed={isCollapsed} path={path} />
-          <NavGroup title="Account" items={[...ACCOUNT, ...(owner ? [OWNER] : [])]} collapsed={isCollapsed} path={path} />
+          <NavGroup title="Account" items={[...(teams ? [TEAM] : []), ...ACCOUNT, ...(owner ? [OWNER] : [])]} collapsed={isCollapsed} path={path} />
         </nav>
         <div className="space-y-2 pt-2">
           {isCollapsed && !workspace && <Tooltip content="Expand sidebar" side="right"><Button variant="ghost" size="sm" iconOnly className="mx-auto flex" onClick={toggle} aria-label="Expand sidebar"><PanelLeft className="size-4" /></Button></Tooltip>}
@@ -290,8 +296,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {!workspace && (
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-bg/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
-            <Link href="/home" aria-label="Home"><Logo /></Link>
-            <Link href="/billing" className="ml-auto flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium tabular-nums shadow-sm"><span className="size-1.5 rounded-full bg-accent" />{credits.data?.balance.toLocaleString() ?? '—'}</Link>
+            <Link href="/home" aria-label="Home"><LogoMark className="size-8" /></Link>
+            <div className="ml-auto"><WorkspaceSwitcher compact align="end" /></div>
+            <Link href="/billing" className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium tabular-nums shadow-sm"><span className="size-1.5 rounded-full bg-accent" />{credits.data?.balance.toLocaleString() ?? '—'}</Link>
             <button onClick={() => setPalette(true)} className="flex size-9 items-center justify-center rounded-full text-muted" aria-label="Search"><Search className="size-[18px]" /></button>
           </header>
         )}

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
@@ -46,6 +47,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   );
 });
+
+/** A link that looks like a Button (navigation is a link, not a click handler). */
+export function LinkButton({ href, variant = 'primary', size = 'md', className, children }: { href: string; variant?: ButtonVariant; size?: ButtonSize; className?: string; children: ReactNode }) {
+  return <Link href={href} className={cx('inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-medium transition-colors duration-150', VARIANT[variant], SIZE[size], className)}>{children}</Link>;
+}
 
 const fieldBase = 'w-full rounded-[var(--radius-md)] border border-border bg-surface text-fg placeholder:text-subtle shadow-sm transition-colors hover:border-border-strong focus:border-fg focus:outline-none focus-visible:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-accent)_14%,transparent)] disabled:opacity-60';
 

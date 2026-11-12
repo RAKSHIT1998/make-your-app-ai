@@ -82,6 +82,7 @@ model Organization {
   entitlement       SubscriptionEntitlement?
   billingCheckouts  BillingCheckout[]
   invoices          Invoice[]
+  invitations       OrganizationInvitation[]
 }
 
 model OrganizationMembership {
@@ -95,6 +96,23 @@ model OrganizationMembership {
 
   @@unique([organizationId, userId])
   @@index([userId])
+}
+
+/// Pending invitation to join a workspace. The link token is shown once at creation; only its hash is stored.
+model OrganizationInvitation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  /// Lower-cased. Only the signed-in user with this email can accept.
+  email          String
+  role           OrgRole
+  tokenHash      String       @unique
+  invitedById    String       @db.Uuid
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
+  @@index([expiresAt])
 }
 
 // ───────────────────────── Billing ─────────────────────────

@@ -1,5 +1,6 @@
 import type { CreateProjectInput, ProjectDto, ProjectType } from '@mya/shared';
 import { supabase } from './supabase';
+import { withWorkspace } from './workspace';
 
 export const API_URL = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1`;
 
@@ -13,8 +14,9 @@ export type TokenSource = () => Promise<string | null>;
 
 const sessionToken: TokenSource = async () => (await supabase?.auth.getSession())?.data.session?.access_token ?? null;
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}, getToken: TokenSource = sessionToken): Promise<T> {
+export async function apiFetch<T>(rawPath: string, rawInit: RequestInit = {}, getToken: TokenSource = sessionToken): Promise<T> {
   const token = await getToken();
+  const { path, init } = withWorkspace(rawPath, rawInit);
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
@@ -234,7 +236,7 @@ export async function publicGet<T>(path: string): Promise<T | null> {
 
 // ───────── Platform flags, retention ─────────
 
-export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting' | 'templates';
+export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting' | 'templates' | 'team_workspaces';
 export const flags = {
   all: () => apiFetch<Record<FlagKey, boolean>>('/flags', {}, async () => null),
   admin: () => apiFetch<{ key: FlagKey; enabled: boolean; description: string; default: boolean; updatedAt: string | null }[]>('/admin/flags'),
@@ -322,3 +324,25 @@ export async function downloadSource(projectId: string) {
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5_000);
 }
+
+
+// ───────── Team workspaces ─────────
+export type OrgRole = 'owner' | 'admin' | 'member' | 'viewer';
+export interface TeamOverview { id: string; name: string; personal: boolean; role: OrgRole; seats: { used: number; pending: number; limit: number }; canInvite: boolean; canCreateWorkspace: boolean }
+export interface TeamMember { userId: string; email: string; displayName: string | null; role: OrgRole; joinedAt: string; you: boolean }
+export interface TeamInvitation { id: string; email: string; role: OrgRole; expiresAt: string; expired?: boolean; createdAt?: string }
+export interface InvitationPreview { organizationName: string; role: OrgRole; emailHint: string; expiresAt: string }
+const noAuth: TokenSource = async () => null;
+export const team = {
+  create: (name: string) => apiFetch<{ id: string; name: string }>('/orgs', { method: 'POST', body: JSON.stringify({ name }) }),
+  overview: (orgId: string) => apiFetch<TeamOverview>(`/orgs/${orgId}/team`),
+  rename: (orgId: string, name: string) => apiFetch<unknown>(`/orgs/${orgId}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  members: (orgId: string) => apiFetch<TeamMember[]>(`/orgs/${orgId}/members`),
+  setRole: (orgId: string, userId: string, role: OrgRole) => apiFetch<unknown>(`/orgs/${orgId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  remove: (orgId: string, userId: string) => apiFetch<void>(`/orgs/${orgId}/members/${userId}`, { method: 'DELETE' }),
+  invitations: (orgId: string) => apiFetch<TeamInvitation[]>(`/orgs/${orgId}/invitations`),
+  invite: (orgId: string, email: string, role: OrgRole) => apiFetch<TeamInvitation & { link: string }>(`/orgs/${orgId}/invitations`, { method: 'POST', body: JSON.stringify({ email, role }) }),
+  revoke: (orgId: string, invitationId: string) => apiFetch<void>(`/orgs/${orgId}/invitations/${invitationId}`, { method: 'DELETE' }),
+  preview: (token: string) => apiFetch<InvitationPreview>(`/invitations/${encodeURIComponent(token)}`, {}, noAuth),
+  accept: (token: string) => apiFetch<{ organizationId: string; name: string; role: OrgRole }>(`/invitations/${encodeURIComponent(token)}/accept`, { method: 'POST', body: '{}' }),
+};

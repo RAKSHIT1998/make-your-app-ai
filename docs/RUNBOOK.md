@@ -32,7 +32,7 @@ Operating Make Your App AI in production. Deploy steps live in `DEPLOYMENT.md`.
 
 ## Incidents
 1. **Confirm:** check the health endpoints, the Render metrics and the error rate in the logs.
-2. **Contain:** Admin → Platform → Flags turns off a failing area in seconds (`ai_generation`, `publishing`, `hosting`, `explore`, `remix`, `referrals`, `templates`, `voice_input`, `plan_first_builder`). Off means the API refuses those actions and the UI says why.
+2. **Contain:** Admin → Platform → Flags turns off a failing area in seconds (`ai_generation`, `publishing`, `hosting`, `explore`, `remix`, `referrals`, `templates`, `voice_input`, `plan_first_builder`, `team_workspaces`). Off means the API refuses those actions and the UI says why.
 3. **AI provider outage:** turn off `ai_generation`. Failed runs charge only for AI calls that completed.
 4. **Payment provider outage:** checkouts fail visibly. Entitlements change only through verified webhooks, and providers retry delivery, so nothing has to be granted by hand.
 5. **Abuse / bad public content:** Admin → Growth → reports queue → hide the project (the creator sees your note). Admin → Customers → suspend an account (needs a reason; audited).

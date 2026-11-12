@@ -13,6 +13,7 @@ export const FLAGS = {
   explore: { default: true, description: 'The public Explore gallery.' },
   remix: { default: true, description: 'Remix with AI on public projects.' },
   templates: { default: true, description: 'Template gallery, submissions and starting projects from templates.' },
+  team_workspaces: { default: true, description: 'Team workspaces: create shared workspaces and invite teammates.' },
   hosting: { default: true, description: 'Deployments, custom domains and environment variables (Cloud Studio).' },
   referrals: { default: true, description: 'Linking invite codes to new accounts. Reward amounts live in Growth settings.' },
 } as const;

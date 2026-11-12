@@ -86,8 +86,9 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 ## §9 Team collaboration
 | Item | Status | Notes |
 |---|---|---|
-| Workspaces, roles (server-enforced) | 🟡 | Org model + roles enforced; no invitations UI, no designer/developer roles |
-| Invitations, shared AI conversations, multiplayer editing, task assignment, team billing, agency client workspaces | ⬜ | Phase 4 |
+| Workspaces, roles (server-enforced) | ✅ | Team workspaces created from the Team page, plan-limited; owner/admin/member/viewer enforced on the server; workspace switcher scopes projects, credits, billing, hosting, stores, templates |
+| Invitations | ✅ | Single-use link tied to the invited email (hash stored, shown once), seat-checked against the workspace plan, revoke, role change, remove, leave. Email delivery is not wired: the admin copies the link and sends it themselves |
+| Shared AI conversations, multiplayer editing, task assignment, agency client workspaces | ⬜ | Phase 4 |
 
 ## §10 Cloud Studio
 | Item | Status | Notes |
