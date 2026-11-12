@@ -1,0 +1,23 @@
+import { nextjsSiteTemplate } from './nextjs-site.js';
+import type { ProjectTemplate } from './types.js';
+
+export * from './types.js';
+
+const TEMPLATES: ProjectTemplate[] = [nextjsSiteTemplate];
+
+export function templateKey(t: ProjectTemplate) {
+  return `${t.id}@${t.version}`;
+}
+
+export function getTemplate(key: string): ProjectTemplate | undefined {
+  return TEMPLATES.find((t) => templateKey(t) === key);
+}
+
+/** The template a new project of this type starts from. Types without a template yet return undefined. */
+export function templateForProjectType(type: string): ProjectTemplate | undefined {
+  return TEMPLATES.find((t) => t.projectTypes.includes(type));
+}
+
+export function treeFromTemplate(t: ProjectTemplate): Map<string, string> {
+  return new Map(Object.entries(t.files));
+}

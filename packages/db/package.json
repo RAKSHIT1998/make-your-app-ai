@@ -5,7 +5,12 @@
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
-  "exports": { ".": { "types": "./dist/src/index.d.ts", "default": "./dist/src/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
   "scripts": {
     "generate": "prisma generate",
     "build": "tsc -p tsconfig.json",
@@ -24,6 +29,7 @@
     "prisma": "7.10.1",
     "@mya/config": "workspace:*",
     "@types/pg": "8.23.1",
-    "dotenv": "18.0.10"
+    "dotenv": "18.0.10",
+    "@types/node": "22.20.5"
   }
 }

@@ -12,6 +12,7 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "types": ["node"],
     "forceConsistentCasingInFileNames": true
   }
 }
