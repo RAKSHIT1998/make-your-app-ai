@@ -1,0 +1,5 @@
+{
+  "extends": "@mya/config/tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "." },
+  "include": ["src", "generated"]
+}

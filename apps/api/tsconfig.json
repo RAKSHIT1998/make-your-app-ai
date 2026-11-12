@@ -1,0 +1,12 @@
+{
+  "extends": "@mya/config/tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": false,
+    "declaration": false
+  },
+  "include": ["src", "test"]
+}

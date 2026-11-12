@@ -1,0 +1,542 @@
+// Make Your App AI — core schema
+// Every tenant-owned table carries organizationId (directly or via project) for isolation + RLS.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Identity & tenancy ─────────────────────────
+
+enum PlatformRole {
+  user
+  support
+  admin
+  superadmin
+}
+
+enum OrgRole {
+  owner
+  admin
+  member
+  viewer
+}
+
+enum AccountStatus {
+  active
+  suspended
+  deleted
+}
+
+model User {
+  id           String        @id @db.Uuid // = Supabase auth.users.id
+  email        String        @unique
+  displayName  String?
+  avatarUrl    String?
+  platformRole PlatformRole  @default(user)
+  status       AccountStatus @default(active)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  lastSeenAt   DateTime?
+
+  memberships     OrganizationMembership[]
+  projectsCreated Project[]                @relation("ProjectCreator")
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  supportRequests SupportRequest[]
+  approvals       ApprovalRequest[]        @relation("ApprovalDecider")
+}
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  personal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships       OrganizationMembership[]
+  projects          Project[]
+  subscription      Subscription?
+  creditLedger      CreditLedgerEntry[]
+  aiUsage           AiUsage[]
+  integrations      Integration[]
+  developerAccounts DeveloperAccount[]
+  domains           Domain[]
+  auditLogs         AuditLog[]
+}
+
+model OrganizationMembership {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  userId         String       @db.Uuid
+  role           OrgRole      @default(member)
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+// ───────────────────────── Billing ─────────────────────────
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+  incomplete
+}
+
+enum PaymentProvider {
+  stripe
+  razorpay
+}
+
+/// Plans are data, editable by admins — never hardcoded.
+model Plan {
+  id                 String   @id @default(uuid()) @db.Uuid
+  code               String   @unique // free | creator | pro | studio
+  name               String
+  priceMonthlyMinor  Int // smallest currency unit
+  currency           String   @default("USD")
+  includedCredits    Int
+  maxProjects        Int
+  maxOrgs            Int      @default(1)
+  maxSeats           Int      @default(1)
+  features           Json     @default("{}")
+  active             Boolean  @default(true)
+  providerPriceIds   Json     @default("{}") // { stripe: "...", razorpay: "..." }
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  subscriptions      Subscription[]
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @unique @db.Uuid
+  planId                 String             @db.Uuid
+  status                 SubscriptionStatus @default(active)
+  provider               PaymentProvider?
+  providerSubscriptionId String?            @unique
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                   Plan               @relation(fields: [planId], references: [id])
+}
+
+enum LedgerReason {
+  plan_grant
+  purchase
+  ai_usage
+  infra_usage
+  refund
+  adjustment
+}
+
+/// Append-only. Balance = SUM(amount). Writes happen inside transactions with an idempotency key.
+model CreditLedgerEntry {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  amount         Int // + grant, − spend (credits, integer)
+  reason         LedgerReason
+  idempotencyKey String       @unique
+  referenceType  String? // e.g. "ai_usage", "invoice"
+  referenceId    String?
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+// ───────────────────────── Projects ─────────────────────────
+
+enum ProjectType {
+  mobile_app
+  website
+  ecommerce
+  business_website
+  saas
+  custom_software
+}
+
+enum ProjectStatus {
+  draft
+  generating
+  ready
+  error
+  archived
+}
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  createdById    String        @db.Uuid
+  name           String
+  description    String        @default("")
+  type           ProjectType
+  status         ProjectStatus @default(draft)
+  templateId     String? // versioned template key e.g. "nextjs-site@1"
+  spec           Json? // latest ProductSpec
+  designSpec     Json?
+  gitRepoPath    String? // storage key of the project's git repo
+  headVersionId  String?       @unique @db.Uuid
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User               @relation("ProjectCreator", fields: [createdById], references: [id])
+  headVersion     ProjectVersion?    @relation("ProjectHead", fields: [headVersionId], references: [id])
+  versions        ProjectVersion[]   @relation("ProjectVersions")
+  files           ProjectFile[]
+  generationRuns  GenerationRun[]
+  buildJobs       BuildJob[]
+  deployments     HostingDeployment[]
+  publishing      PublishingRecord[]
+  approvals       ApprovalRequest[]
+
+  @@index([organizationId, deletedAt])
+}
+
+/// Index of files at head (content lives in git; small text files are cached here for fast reads).
+model ProjectFile {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  path      String
+  sha256    String
+  sizeBytes Int
+  content   String? // cached when < 256 KB
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, path])
+}
+
+model ProjectVersion {
+  id              String         @id @default(uuid()) @db.Uuid
+  projectId       String         @db.Uuid
+  number          Int
+  commitSha       String
+  message         String
+  generationRunId String?        @unique @db.Uuid
+  createdAt       DateTime       @default(now())
+  project         Project        @relation("ProjectVersions", fields: [projectId], references: [id], onDelete: Cascade)
+  headOf          Project?       @relation("ProjectHead")
+  generationRun   GenerationRun? @relation(fields: [generationRunId], references: [id])
+
+  @@unique([projectId, number])
+}
+
+// ───────────────────────── AI engine ─────────────────────────
+
+enum RunStatus {
+  queued
+  running
+  awaiting_approval
+  succeeded
+  failed
+  canceled
+}
+
+enum RunKind {
+  create
+  edit
+  repair
+}
+
+model GenerationRun {
+  id          String          @id @default(uuid()) @db.Uuid
+  projectId   String          @db.Uuid
+  requestedBy String          @db.Uuid
+  kind        RunKind
+  prompt      String
+  status      RunStatus       @default(queued)
+  error       String?
+  creditsUsed Int             @default(0)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       AgentTask[]
+  events      AgentEvent[]
+  version     ProjectVersion?
+  aiUsage     AiUsage[]
+
+  @@index([projectId, createdAt])
+}
+
+enum AgentName {
+  architect
+  designer
+  frontend
+  backend
+  qa
+  release
+}
+
+model AgentTask {
+  id              String        @id @default(uuid()) @db.Uuid
+  generationRunId String        @db.Uuid
+  agent           AgentName
+  status          RunStatus     @default(queued)
+  attempt         Int           @default(1)
+  input           Json
+  output          Json?
+  error           String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  run             GenerationRun @relation(fields: [generationRunId], references: [id], onDelete: Cascade)
+
+  @@index([generationRunId])
+}
+
+model AgentEvent {
+  id              BigInt        @id @default(autoincrement())
+  generationRunId String        @db.Uuid
+  agent           AgentName?
+  type            String // step.started | step.completed | file.changed | check.failed | log ...
+  message         String
+  data            Json          @default("{}")
+  createdAt       DateTime      @default(now())
+  run             GenerationRun @relation(fields: [generationRunId], references: [id], onDelete: Cascade)
+
+  @@index([generationRunId, id])
+}
+
+model AiProviderConfig {
+  id           String   @id @default(uuid()) @db.Uuid
+  provider     String // anthropic | openai | gemini | ...
+  model        String
+  tier         String // fast | balanced | deep
+  enabled      Boolean  @default(true)
+  priority     Int      @default(100) // lower = preferred
+  inputCostPerMTokMicros  Int // USD micros per million input tokens
+  outputCostPerMTokMicros Int
+  capabilities Json     @default("{}") // { structuredOutput: true, tools: true, maxOutput: 32000 }
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([provider, model])
+}
+
+model AiUsage {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @db.Uuid
+  generationRunId String?        @db.Uuid
+  provider        String
+  model           String
+  agent           AgentName?
+  inputTokens     Int
+  outputTokens    Int
+  costMicros      BigInt // USD micros — infra cost to us
+  creditsCharged  Int // what the customer was charged
+  latencyMs       Int
+  success         Boolean
+  createdAt       DateTime       @default(now())
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run             GenerationRun? @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([provider, model, createdAt])
+}
+
+// ───────────────────────── Builds, hosting, publishing ─────────────────────────
+
+enum BuildTarget {
+  web
+  ios
+  android
+}
+
+model BuildJob {
+  id          String          @id @default(uuid()) @db.Uuid
+  projectId   String          @db.Uuid
+  versionId   String?         @db.Uuid
+  target      BuildTarget
+  profile     String          @default("preview") // development | preview | production
+  status      RunStatus       @default(queued)
+  provider    String // sandbox | eas
+  externalId  String?
+  logsKey     String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifacts   BuildArtifact[]
+}
+
+model BuildArtifact {
+  id         String   @id @default(uuid()) @db.Uuid
+  buildJobId String   @db.Uuid
+  kind       String // ipa | apk | aab | web-bundle
+  storageKey String
+  sizeBytes  BigInt
+  sha256     String
+  createdAt  DateTime @default(now())
+  buildJob   BuildJob @relation(fields: [buildJobId], references: [id], onDelete: Cascade)
+}
+
+enum DomainStatus {
+  pending_verification
+  verified
+  active
+  error
+}
+
+model Domain {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  projectId      String?      @db.Uuid
+  hostname       String       @unique
+  status         DomainStatus @default(pending_verification)
+  sslStatus      String       @default("pending")
+  dnsRecords     Json         @default("[]")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+enum DeploymentStatus {
+  queued
+  building
+  deployed_unverified
+  live
+  failed
+  rolled_back
+}
+
+model HostingDeployment {
+  id          String           @id @default(uuid()) @db.Uuid
+  projectId   String           @db.Uuid
+  versionId   String           @db.Uuid
+  provider    String // vercel | cloudflare
+  externalId  String?
+  url         String?
+  status      DeploymentStatus @default(queued)
+  healthCheck Json? // last health-check result — "live" requires a passing check
+  approvedBy  String?          @db.Uuid
+  createdAt   DateTime         @default(now())
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Integration {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  provider       String // stripe | razorpay | resend | ...
+  status         String       @default("disconnected") // disconnected | connected | error
+  scopes         String[]
+  credentialRef  String? // reference to encrypted secret (never plaintext)
+  encryptedCreds String? // AES-256-GCM payload
+  lastTestedAt   DateTime?
+  lastTestResult Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+}
+
+model DeveloperAccount {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  platform       String // apple | google_play | expo
+  displayName    String
+  encryptedCreds String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model PublishingRecord {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  platform   String // app_store | google_play | web
+  status     String // prepared | submitted_by_customer | ...
+  metadata   Json     @default("{}")
+  approvedBy String?  @db.Uuid
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+enum ApprovalAction {
+  publish
+  domain_change
+  payment_activation
+  destructive_change
+  paid_upgrade
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  expired
+}
+
+model ApprovalRequest {
+  id          String         @id @default(uuid()) @db.Uuid
+  projectId   String         @db.Uuid
+  action      ApprovalAction
+  status      ApprovalStatus @default(pending)
+  summary     String
+  payload     Json
+  decidedById String?        @db.Uuid
+  decidedAt   DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime       @default(now())
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  decidedBy   User?          @relation("ApprovalDecider", fields: [decidedById], references: [id])
+}
+
+// ───────────────────────── Ops ─────────────────────────
+
+model AuditLog {
+  id             BigInt        @id @default(autoincrement())
+  organizationId String?       @db.Uuid
+  actorId        String?       @db.Uuid
+  action         String // project.created, auth.login, admin.user.suspended ...
+  targetType     String?
+  targetId       String?
+  ip             String?
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor          User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  type      String
+  title     String
+  body      String
+  data      Json      @default("{}")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model SupportRequest {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  subject   String
+  body      String
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
