@@ -19,7 +19,7 @@ const FEATURE_LABELS: Record<string, string> = {
 /** What is actually shipped today. Everything else is labelled "soon" so we never sell unbuilt features. */
 const LIVE_FEATURES = new Set(['website_generation']);
 const LIVE_TYPES = new Set(['website', 'business_website']);
-const TYPE_LABELS: Record<string, string> = { website: 'Websites', business_website: 'Business websites', ecommerce: 'Online stores', mobile_app: 'Mobile apps', saas: 'SaaS', custom_software: 'Custom software' };
+const TYPE_LABELS: Record<string, string> = { website: 'Websites', business_website: 'Business websites', ecommerce: 'Online stores', mobile_app: 'Mobile apps', saas: 'SaaS', custom_software: 'Web apps', game: 'Games' };
 
 export function PlanCards({ catalogue, currentCode, onChoose, busyPriceId }: { catalogue: Catalogue; currentCode?: string; onChoose: (price: PlanPrice) => void; busyPriceId?: string | null }) {
   const [interval, setInterval] = useState<'monthly' | 'yearly'>('monthly');

@@ -18,7 +18,8 @@ const EXAMPLES: Record<string, string[]> = {
   ecommerce: ['A premium dry fruit store with packaging sizes, coupons and Razorpay checkout'],
   mobile_app: ['A fitness app with workout plans, a progress log and an exercise library', 'A café app with our menu, opening hours and a table-booking request form'],
   saas: ['A CRM for small agencies with clients, deals and a sales pipeline'],
-  custom_software: ['An inventory tool for a pharmacy with stock alerts and supplier orders'],
+  custom_software: ['A budget planner that tracks monthly expenses by category and saves in the browser', 'A pomodoro study timer with a daily streak and session history'],
+  game: ['A neon snake game with levels, power-ups and a saved high score', 'A breakout game with multi-hit bricks, power-ups and touch controls'],
 };
 
 const STRUCTURE = `\n\nWho it's for: \nPages / sections: \nStyle: \nMust-haves: `;

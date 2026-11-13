@@ -374,6 +374,7 @@ enum ProjectType {
   business_website
   saas
   custom_software
+  game
 }
 
 enum ProjectStatus {

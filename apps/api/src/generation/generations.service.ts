@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, type OnApplicationBootstrap, ty
 import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecord } from '@mya/ai';
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
 import { auditProject, type FilePatch, type FileTree, type GitProjectStore } from '@mya/codegen';
+import { buildPreviewDocument } from '@mya/shared';
 import type { GenerationRun, Prisma, PrismaClient, Project } from '@mya/db';
 import { createHash, randomUUID } from 'node:crypto';
 import { PRISMA } from '../prisma.service.js';
@@ -343,6 +344,18 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
   async listFiles(user: AuthUser, projectId: string) {
     await this.projects.getAuthorized(user, projectId, 'viewer');
     return this.prisma.projectFile.findMany({ where: { projectId }, orderBy: { path: 'asc' }, select: { path: true, sizeBytes: true, sha256: true } });
+  }
+
+  /**
+   * Self-contained HTML for the sandboxed Preview iframe (static HTML/CSS/JS projects only).
+   * The document is only built here; it runs in the customer's browser inside a sandboxed iframe, never in the API.
+   */
+  async preview(user: AuthUser, projectId: string) {
+    await this.projects.getAuthorized(user, projectId, 'viewer');
+    const tree = await this.store.readTree(projectId);
+    const r = buildPreviewDocument(tree);
+    if (!r.ok) throw new UnprocessableEntityException(r.reason);
+    return { html: r.html, warnings: r.warnings };
   }
 
   /** Static review of the project's current files (SEO, accessibility, performance, security). No AI, no credits. */

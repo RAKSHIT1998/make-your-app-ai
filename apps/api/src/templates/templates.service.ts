@@ -19,7 +19,7 @@ export const SubmitTemplateSchema = z.object({
 });
 export const TemplatesQuerySchema = z.object({
   q: z.string().trim().max(80).optional(),
-  type: z.enum(['mobile_app', 'website', 'ecommerce', 'business_website', 'saas', 'custom_software']).optional(),
+  type: z.enum(['mobile_app', 'website', 'ecommerce', 'business_website', 'saas', 'custom_software', 'game']).optional(),
   category: z.enum(CATEGORIES).optional(),
   sort: z.enum(['popular', 'new', 'featured']).default('popular'),
 });

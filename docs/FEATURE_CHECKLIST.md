@@ -40,7 +40,8 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Clarifying questions + project plan before build | ✅ (this session) | Plan-first mode (default on): architect drafts spec + ≤5 questions + assumptions, metered; user answers (optional), revises by chat, or builds. Building from an approved plan skips re-planning; answers trigger a targeted revision. Only for projects without code; plans can't be used across projects |
 | Generate frontend | ✅ | Next.js websites |
 | Generate backend, database models, auth, integrations | ⛔ | Needs backend agent + sandbox runtime to verify |
-| Run project, test workflows, working preview | ⛔ | Needs Docker host / hosting |
+| Run project, working preview | 🟡 | Games and browser apps (static HTML/JS) run in a sandboxed Preview tab today. Next.js sites and Expo apps still need a Docker host / hosting |
+| Test workflows | ⛔ | Needs Docker host |
 | Incremental edits | ✅ | Patch-based edits, versioned |
 | Screenshot-to-app | ⛔ | Needs object storage (R2) + vision-capable key |
 | Voice-to-app (voice-to-text, spoken edits, confirmation) | ✅ (this session) | Browser speech recognition in Create and workspace chat; dictation only fills text — generation still needs Generate + confirmation. Hidden when unsupported or switched off. Server-side transcription (Whisper-style) not added |
@@ -54,6 +55,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Item | Status | Notes |
 |---|---|---|
 | E-commerce stores | 🟡 | Full commerce engine + Business Studio (real orders/payments); storefront generator not yet |
+| Games (HTML5) and browser-only apps (calculators, planners, trackers) | ✅ (session 11) | `game` / Web app types, `web-play@1`, validated, repaired, previewed in a sandbox. No backend or accounts |
 | CRM, ERP, HR, inventory, restaurant, hotel, booking, marketplace, LMS, membership, SaaS, portals, dashboards, PM, finance | ⛔ | Need full-stack generation + sandbox; templates not started |
 
 ## §5 Explore & template marketplace

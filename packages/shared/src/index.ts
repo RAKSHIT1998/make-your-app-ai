@@ -8,6 +8,7 @@ export const ProjectTypeSchema = z.enum([
   'business_website',
   'saas',
   'custom_software',
+  'game',
 ]);
 export type ProjectType = z.infer<typeof ProjectTypeSchema>;
 
@@ -66,7 +67,8 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   ecommerce: 'E-commerce store',
   business_website: 'Business website',
   saas: 'SaaS application',
-  custom_software: 'Custom software',
+  custom_software: 'Web app',
+  game: 'Game',
 };
 
 export interface ApiError {
@@ -76,3 +78,4 @@ export interface ApiError {
   details?: unknown;
 }
 export * from './commerce.js';
+export * from './preview.js';

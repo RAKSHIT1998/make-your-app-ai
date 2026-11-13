@@ -1,5 +1,6 @@
 import { builtinModules } from 'node:module';
 import path from 'node:path';
+import vm from 'node:vm';
 import type { FileTree } from './patch.js';
 
 export interface ValidationIssue {
@@ -35,6 +36,7 @@ function readAliases(tree: FileTree): [string, string][] {
  */
 export function validateTree(tree: FileTree): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  if (tree.has('index.html')) issues.push(...validateStaticWeb(tree));
   let deps = new Set<string>();
   const pkgRaw = tree.get('package.json');
   if (!pkgRaw) issues.push({ file: 'package.json', message: 'Missing package.json' });
@@ -79,6 +81,51 @@ export function validateTree(tree: FileTree): ValidationIssue[] {
       if (spec.startsWith('node:') || BUILTINS.has(spec) || BUILTINS.has(packageName(spec))) continue;
       if (!deps.has(packageName(spec))) issues.push({ file, message: `Package "${packageName(spec)}" is imported but not declared in package.json` });
     }
+  }
+  return issues;
+}
+
+const NETWORK_API = /\b(fetch\s*\(|XMLHttpRequest|WebSocket\s*\(|EventSource\s*\(|navigator\.sendBeacon|importScripts\s*\()/;
+const ES_MODULE_SYNTAX = /^\s*(import\s+[\w*{'"]|export\s+(default|const|function|class|let|var|\{))/m;
+
+/**
+ * Checks for static HTML/CSS/JS projects (games and small web apps) that run in a sandboxed preview:
+ * local references resolve, nothing is loaded from the network, scripts are classic scripts that compile.
+ */
+export function validateStaticWeb(tree: FileTree): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const html = tree.get('index.html') ?? '';
+  const resolve = (ref: string) => ref.split(/[?#]/)[0]!.replace(/^\.\//, '').replace(/^\/+/, '');
+  const isRemote = (ref: string) => /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(ref) && !/^(data|blob):/i.test(ref);
+  const scriptFiles: string[] = [];
+
+  for (const m of html.matchAll(/<(script|link|img|source|audio|video)\b([^>]*)>/gi)) {
+    const tag = m[1]!.toLowerCase();
+    const attrs = m[2]!;
+    const ref = (tag === 'link' ? /href\s*=\s*["']([^"']+)["']/i : /src\s*=\s*["']([^"']+)["']/i).exec(attrs)?.[1];
+    if (tag === 'link' && !/rel\s*=\s*["']?(stylesheet|icon)/i.test(attrs)) continue;
+    if (tag === 'script' && /type\s*=\s*["']module["']/i.test(attrs)) issues.push({ file: 'index.html', message: 'Use classic <script src="app.js"></script> tags, not type="module" (the preview inlines scripts).' });
+    if (!ref) continue;
+    if (isRemote(ref)) { issues.push({ file: 'index.html', message: `"${ref}" loads from the network. The preview blocks network access; inline it or use a data: URI.` }); continue; }
+    if (/^(data|blob):/i.test(ref)) continue;
+    const target = resolve(ref);
+    if (!tree.has(target)) issues.push({ file: 'index.html', message: `References "${ref}" but no such file exists.` });
+    else if (tag === 'script') scriptFiles.push(target);
+  }
+  if (!/<meta[^>]+name\s*=\s*["']viewport["']/i.test(html)) issues.push({ file: 'index.html', message: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> so it works on phones.' });
+
+  const sources: [string, string][] = scriptFiles.map((f) => [f, tree.get(f)!]);
+  html.replace(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi, (_m, code: string) => { if (code.trim()) sources.push(['index.html', code]); return ''; });
+  for (const [file, code] of sources) {
+    if (ES_MODULE_SYNTAX.test(code)) issues.push({ file, message: 'Uses import/export. Put everything in classic scripts that share globals, loaded in order.' });
+    try {
+      new vm.Script(code, { filename: file }); // compiles only; never executed
+    } catch (e) {
+      issues.push({ file, message: `Syntax error: ${(e as Error).message}` });
+    }
+    const stripped = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const net = NETWORK_API.exec(stripped);
+    if (net) issues.push({ file, message: `Uses ${net[1]!.replace(/\s*\($/, '')}, which is blocked in the sandboxed preview. Keep state in memory or localStorage.` });
   }
   return issues;
 }

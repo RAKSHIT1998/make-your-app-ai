@@ -12,10 +12,11 @@ import { Badge, Button, cx, Drawer, EmptyState, ErrorNotice, Kbd, Skeleton, Soon
 import { api, ApiError, downloadSource, type PlanDraft, type Run, type RunEvent } from '@/lib/api';
 import { VoiceButton } from '@/components/voice-button';
 import { HealthView } from '@/components/health-view';
+import { PreviewView } from '@/components/preview-view';
 
 const ACTIVE = new Set(['queued', 'running']);
 type Center = 'code' | 'versions' | 'health' | 'logs' | 'preview';
-type MobileTab = 'chat' | 'files' | 'code' | 'versions' | 'health';
+type MobileTab = 'chat' | 'files' | 'code' | 'versions' | 'health' | 'preview';
 
 /** Polls a run's event stream (cursor = last event id) while the run is live. */
 function useRunEvents(runId: string, live: boolean) {
@@ -48,6 +49,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   const project = useQuery({ queryKey: ['project', id], queryFn: () => api.project(id) });
   const runs = useQuery({ queryKey: ['runs', id], queryFn: () => api.runs(id), refetchInterval: (q) => (q.state.data?.some((r) => ACTIVE.has(r.status)) ? 2000 : false) });
   const files = useQuery({ queryKey: ['files', id], queryFn: () => api.files(id) });
+  const canPreview = !!files.data?.some((f) => f.path === 'index.html');
+  const previewStamp = (files.data ?? []).map((f) => `${f.path}:${f.sizeBytes}`).join('|');
   const activeRun = runs.data?.find((r) => ACTIVE.has(r.status));
   const [center, setCenter] = useState<Center>('code');
   const [file, setFile] = useState<string | null>(null);
@@ -112,10 +115,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
                   { value: 'versions', label: <><History className="size-3.5" />Versions</> },
                   { value: 'health', label: <><HeartPulse className="size-3.5" />Health</> },
                   { value: 'logs', label: <><ScrollText className="size-3.5" />Logs</> },
-                  { value: 'preview', label: <><Eye className="size-3.5" />Preview</>, disabled: true, badge: <SoonBadge /> },
+                  { value: 'preview', label: <><Eye className="size-3.5" />Preview</>, disabled: !canPreview, badge: canPreview ? undefined : <SoonBadge /> },
                 ]} />
               </div>
-              <div className="min-h-0 flex-1">{center === 'code' ? <CodeView projectId={id} path={current} /> : center === 'versions' ? <Versions projectId={id} busy={!!activeRun} /> : center === 'health' ? <HealthView projectId={id} hasFiles={!!files.data?.length} onOpenFile={(p) => { setFile(p); setCenter('code'); }} /> : <Logs runs={runs.data} />}</div>
+              <div className="min-h-0 flex-1">{center === 'code' ? <CodeView projectId={id} path={current} /> : center === 'versions' ? <Versions projectId={id} busy={!!activeRun} /> : center === 'health' ? <HealthView projectId={id} hasFiles={!!files.data?.length} onOpenFile={(p) => { setFile(p); setCenter('code'); }} /> : center === 'preview' ? <PreviewView projectId={id} stamp={previewStamp} /> : <Logs runs={runs.data} />}</div>
             </section>
           </Panel>
           <Separator className="w-px bg-border outline-none transition-colors hover:bg-accent data-[separator=active]:bg-accent" />
@@ -134,6 +137,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
             { value: 'code', label: <><Code2 className="size-3.5" />Code</> },
             { value: 'versions', label: <><History className="size-3.5" />Versions</> },
             { value: 'health', label: <><HeartPulse className="size-3.5" />Health</> },
+            ...(canPreview ? [{ value: 'preview', label: <><Eye className="size-3.5" />Play</> }] : []),
           ]} />
         </div>
         <div className="min-h-0 flex-1">
@@ -141,6 +145,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
             : mobileTab === 'files' ? <div className="h-full overflow-y-auto p-2"><FileTree files={files.data} loading={files.isLoading} selected={current} onSelect={(p) => { setFile(p); setMobileTab('code'); }} /></div>
             : mobileTab === 'code' ? <CodeView projectId={id} path={current} />
             : mobileTab === 'health' ? <HealthView projectId={id} hasFiles={!!files.data?.length} onOpenFile={(p) => { setFile(p); setMobileTab('code'); }} />
+            : mobileTab === 'preview' ? <PreviewView projectId={id} stamp={previewStamp} />
             : <Versions projectId={id} busy={!!activeRun} />}
         </div>
       </div>}

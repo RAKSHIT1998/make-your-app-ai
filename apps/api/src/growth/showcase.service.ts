@@ -26,7 +26,7 @@ export type PublishInput = z.infer<typeof PublishSchema>;
 
 export const ExploreQuerySchema = z.object({
   q: z.string().trim().max(80).optional(),
-  type: z.enum(['mobile_app', 'website', 'ecommerce', 'business_website', 'saas', 'custom_software']).optional(),
+  type: z.enum(['mobile_app', 'website', 'ecommerce', 'business_website', 'saas', 'custom_software', 'game']).optional(),
   category: z.enum(CATEGORIES).optional(),
   sort: z.enum(['trending', 'recent', 'popular', 'featured']).default('trending'),
   page: z.coerce.number().int().min(1).max(50).default(1),

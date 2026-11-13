@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { buildPreviewDocument } from '@mya/shared';
+import { BREAKOUT } from './fixtures/breakout.js';
 import { GitProjectStore, PatchError, applyPatches, getTemplate, safePath, templateForProjectType, treeFromTemplate, validateTree } from '../src/index.js';
 
 describe('safePath', () => {
@@ -81,5 +83,53 @@ describe('GitProjectStore', () => {
   it('looks up templates by versioned key', () => {
     expect(getTemplate('nextjs-site@1')?.id).toBe('nextjs-site');
     expect(getTemplate('nextjs-site@99')).toBeUndefined();
+  });
+});
+
+describe('static web projects (games and browser apps)', () => {
+  const play = getTemplate('web-play@1')!;
+  const game = () => new Map<string, string>([...treeFromTemplate(play), ...Object.entries(BREAKOUT)]);
+
+  it('is the template for games and browser apps', () => {
+    expect(templateForProjectType('game')?.id).toBe('web-play');
+    expect(templateForProjectType('custom_software')?.id).toBe('web-play');
+    expect(validateTree(treeFromTemplate(play))).toEqual([]);
+  });
+  it('accepts a real playable game', () => {
+    expect(validateTree(game())).toEqual([]);
+  });
+  it('rejects missing files, network loads, modules, syntax errors and network APIs', () => {
+    const t = game();
+    t.set('index.html', t.get('index.html')!.replace('</body>', '<script src="https://cdn.example.com/phaser.js"></script><script src="missing.js"></script><script type="module" src="app.js"></script></body>'));
+    t.set('app.js', `${t.get('app.js')!}\nfetch('/api/score');`);
+    const msgs = validateTree(t).map((i) => i.message).join('\n');
+    expect(msgs).toContain('loads from the network');
+    expect(msgs).toContain('no such file exists');
+    expect(msgs).toContain('type="module"');
+    expect(msgs).toContain('fetch');
+    const broken = game();
+    broken.set('app.js', 'function (');
+    expect(validateTree(broken).some((i) => i.message.startsWith('Syntax error'))).toBe(true);
+    const mod = game();
+    mod.set('app.js', `import x from './y.js';\n${mod.get('app.js')!}`);
+    expect(validateTree(mod).some((i) => i.message.includes('import/export'))).toBe(true);
+  });
+  it('builds a sandboxed preview document with inlined assets and a strict CSP', () => {
+    const r = buildPreviewDocument(game());
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.html).toContain('Content-Security-Policy');
+    expect(r.html).toContain("connect-src 'none'");
+    expect(r.html).toContain('<style>');
+    expect(r.html).not.toContain('src="app.js"');
+    expect(r.html).toContain('requestAnimationFrame');
+    expect(r.warnings).toEqual([]);
+    expect(buildPreviewDocument(new Map([['a.txt', 'x']]))).toMatchObject({ ok: false });
+  });
+  it('cannot be broken out of by script text in the project', () => {
+    const t = game();
+    t.set('app.js', 'document.title = "</script><img src=x onerror=alert(1)>";');
+    const r = buildPreviewDocument(t);
+    expect(r.ok && r.html.includes('</script><img')).toBe(false);
   });
 });

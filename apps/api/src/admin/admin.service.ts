@@ -20,7 +20,7 @@ export const PlanInput = z.object({
   maxCreditsPerRun: z.number().int().min(1).max(1_000_000).default(500),
   monthlyBuildCredits: z.number().int().min(0).default(0),
   featureFlags: z.array(z.string().regex(/^[a-z0-9_]{2,40}$/)).max(50).default([]),
-  projectTypes: z.array(z.enum(['mobile_app', 'website', 'ecommerce', 'business_website', 'saas', 'custom_software'])).default([]),
+  projectTypes: z.array(z.enum(['mobile_app', 'website', 'ecommerce', 'business_website', 'saas', 'custom_software', 'game'])).default([]),
   active: z.boolean().default(true),
   public: z.boolean().default(true),
 });

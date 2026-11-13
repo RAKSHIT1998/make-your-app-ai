@@ -14,6 +14,7 @@ const TYPES: { type: ProjectType; available: boolean }[] = [
   { type: 'ecommerce', available: false },
   { type: 'saas', available: false },
   { type: 'custom_software', available: false },
+  { type: 'game', available: false },
 ];
 
 export default function Create() {

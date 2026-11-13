@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neon Breakout</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app">
+    <header class="hud" aria-live="polite">
+      <span>Score <strong id="score">0</strong></span>
+      <span>Best <strong id="best">0</strong></span>
+      <span>Lives <strong id="lives">3</strong></span>
+    </header>
+    <canvas id="stage" width="480" height="640" aria-label="Breakout game area" tabindex="0"></canvas>
+    <p id="hint">Move with the mouse, touch or ← → keys. Press Space or tap to launch. P pauses.</p>
+    <button id="restart" type="button">Restart</button>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

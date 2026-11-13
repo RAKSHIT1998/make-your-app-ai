@@ -73,6 +73,7 @@ export const api = {
   events: (runId: string, after = '0') => apiFetch<RunEvent[]>(`/generations/${runId}/events?after=${after}`),
   files: (projectId: string) => apiFetch<{ path: string; sizeBytes: number }[]>(`/projects/${projectId}/files`),
   file: (projectId: string, path: string) => apiFetch<{ path: string; content: string | null }>(`/projects/${projectId}/file?path=${encodeURIComponent(path)}`),
+  preview: (projectId: string) => apiFetch<{ html: string; warnings: string[] }>(`/projects/${projectId}/preview`),
   versions: (projectId: string) => apiFetch<Version[]>(`/projects/${projectId}/versions`),
   restore: (projectId: string, versionId: string) => apiFetch<Version[]>(`/projects/${projectId}/versions/${versionId}/restore`, { method: 'POST' }),
   approvals: (projectId: string) => apiFetch<Approval[]>(`/projects/${projectId}/approvals`),

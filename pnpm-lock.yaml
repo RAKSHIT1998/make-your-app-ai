@@ -308,6 +308,9 @@ importers:
       '@mya/config':
         specifier: workspace:*
         version: link:../config
+      '@mya/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5

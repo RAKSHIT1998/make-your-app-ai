@@ -49,7 +49,7 @@ export async function resetDb(prisma: PrismaClient, free: { includedCredits?: nu
   await prisma.plan.create({
     data: {
       code: 'free', name: 'Free', includedCredits: free.includedCredits ?? 200, maxProjects: free.maxProjects ?? 100, dailyCreditLimit: free.dailyCreditLimit ?? null,
-      maxCreditsPerRun: free.maxCreditsPerRun ?? 500, featureFlags: [], projectTypes: free.projectTypes ?? ['website', 'business_website'],
+      maxCreditsPerRun: free.maxCreditsPerRun ?? 500, featureFlags: [], projectTypes: free.projectTypes ?? ['website', 'business_website', 'game', 'custom_software'],
     },
   });
 }

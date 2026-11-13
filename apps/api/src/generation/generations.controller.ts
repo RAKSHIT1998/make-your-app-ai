@@ -92,6 +92,11 @@ export class GenerationsController {
     return this.gen.fileContent(user, id, q.path);
   }
 
+  @Get('projects/:id/preview')
+  preview(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.gen.preview(user, id);
+  }
+
   @Get('projects/:id/health')
   health(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.gen.health(user, id);
