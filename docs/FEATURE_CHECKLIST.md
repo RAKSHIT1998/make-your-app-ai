@@ -1,6 +1,6 @@
 # Feature Implementation Checklist — "Viral AI Software-Building Ecosystem" spec
 
-_Audit date: 2026-11-13 (sessions 7–14). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
+_Audit date: 2026-11-13 (sessions 7–15). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
 Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 partial · ⛔ blocked (needs credentials/infrastructure) · ⬜ not started
 
 ## Architecture audit (spec §1)
@@ -15,13 +15,14 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Codegen | Git-backed project store, patch validation, static checks, approvals for destructive changes |
 | Sandbox | Provider interface with Docker + local implementations; never runs inside the API process |
 | Hosting/deploy | `@mya/hosting` provider adapters (Vercel implemented, fake for dev); deployments, rollback, env vars, domains (session 8) |
-| Known limitations | Generation executes in the accepting instance (lease-based recovery; shared rate limits via Postgres); no live preview; only website/business_website generation |
+| App backends | Platform-hosted declarative backend for generated full-stack apps (`/appdata`, `App` SDK, preview/live environments) |
+| Known limitations | Generation executes in the accepting instance (lease-based recovery; shared rate limits via Postgres); no live preview for Next.js sites and Expo apps |
 
 ## §2 Viral growth engine
 | Item | Status | Notes |
 |---|---|---|
 | Public project pages, title/description, category, creator, likes, views | ✅ | `/p/:slug`, frozen published snapshot |
-| Screenshots and live previews | 🟡 | Games and browser apps are playable on their public page (sandboxed, published version only). Websites and mobile apps still show the palette preview until hosting exists |
+| Screenshots and live previews | 🟡 | Games, browser apps and full-stack apps (with live accounts and data) are usable on their public page (sandboxed, published version only). Websites and mobile apps still show the palette preview until hosting exists |
 | Search, filters, trending, recent, featured | ✅ | |
 | Shareable links, public/private controls | ✅ | |
 | Remix with AI + lineage + attribution, no secrets | ✅ | Published version only; secret-like files stripped |
@@ -39,8 +40,8 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Natural-language project creation | ✅ | |
 | Clarifying questions + project plan before build | ✅ (this session) | Plan-first mode (default on): architect drafts spec + ≤5 questions + assumptions, metered; user answers (optional), revises by chat, or builds. Building from an approved plan skips re-planning; answers trigger a targeted revision. Only for projects without code; plans can't be used across projects |
 | Generate frontend | ✅ | Next.js websites |
-| Generate backend, database models, auth, integrations | ⛔ | Needs backend agent + sandbox runtime to verify |
-| Run project, working preview | 🟡 | Games and browser apps (static HTML/JS) run in a sandboxed Preview tab today. Next.js sites and Expo apps still need a Docker host / hosting |
+| Generate backend, database models, auth, integrations | 🟡 (session 15) | Full-stack App type: platform-hosted declarative backend (collections, access rules, end-user accounts) with preview/live environments and a Data tab. Custom server code still needs a Docker host |
+| Run project, working preview | 🟡 | Games, browser apps and full-stack apps (with working sign-in and data) run in a sandboxed Preview tab. Next.js sites and Expo apps still need a Docker host / hosting |
 | Test workflows | ⛔ | Needs Docker host |
 | Incremental edits | ✅ | Patch-based edits, versioned |
 | Ask mode (discuss without changing code) | ✅ (session 13) | Fast tier, answers from the project's files, optional suggested change request |
@@ -58,7 +59,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | E-commerce stores | 🟡 | Full commerce engine + Business Studio (real orders/payments); storefront generator not yet |
 | Store extensions (payments: Razorpay, Stripe; delivery: Shiprocket rates, booking, labels, tracking) | ✅ (session 14) | Merchant's own accounts, verified on connect, encrypted. Shiprocket tested against an emulated API only; prepaid India shipments |
 | Games (HTML5) and browser-only apps (calculators, planners, trackers) | ✅ (session 11) | `game` / Web app types, `web-play@1`, validated, repaired, previewed in a sandbox. No backend or accounts |
-| CRM, ERP, HR, inventory, restaurant, hotel, booking, marketplace, LMS, membership, SaaS, portals, dashboards, PM, finance | ⛔ | Need full-stack generation + sandbox; templates not started |
+| CRM, ERP, HR, inventory, restaurant, hotel, booking, marketplace, LMS, membership, SaaS, portals, dashboards, PM, finance | 🟡 | Buildable as Full-stack Apps where the declarative backend fits (accounts, own/shared records); no payments, roles, file uploads or server logic inside generated apps yet |
 
 ## §5 Explore & template marketplace
 | Item | Status | Notes |
@@ -146,7 +147,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Users, MRR/ARR, revenue, AI cost, margin, subscriptions, plans, credits, audit log, moderation, referrals | ✅ |
 | AI routing console (tier rates, routes, health, margin; audited) | ✅ |
 | Analytics tab: daily revenue, sign-ups, projects, builds, credits; project mix; customer-store sales and parcels; extensions in use; top workspaces | ✅ (session 14) |
-| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, refund_failed_builds), enforced by the API (503 `feature_disabled`), audited, owner console tab |
+| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, refund_failed_builds, app_backends), enforced by the API (503 `feature_disabled`), audited, owner console tab |
 | Churn, conversion, ARPU, cost per project, completion time, deployment rate, fraud signals, system health | 🟡 partial / ⬜ |
 
 ## §15 Onboarding
