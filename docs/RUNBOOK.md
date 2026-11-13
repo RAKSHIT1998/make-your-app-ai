@@ -48,6 +48,9 @@ The API is safe to replicate when you provide the two shared pieces:
 
 Everything else is already instance-safe: run ownership uses leases, stock-hold release locks each order, webhooks are deduplicated in the database, and the flag cache refreshes every 5 seconds. Generation still executes in the instance that accepted the request (there is no separate queue); a crash is recovered by the lease sweep. Use a load balancer with no special affinity.
 
+## Store extensions
+Merchants connect their own Razorpay, Stripe and Shiprocket accounts in Business Studio → Extensions. Shiprocket failures come back to the merchant with Shiprocket's own reason (wrong API user, pickup location name not found, empty wallet); a failed booking can simply be retried and never creates a second shipment. If Shiprocket is down, bookings return 503 and nothing is left half-done. Provider calls share `DEPLOY_RATE_LIMIT_PER_MINUTE`. Adoption and parcel counts are in Owner console → Analytics.
+
 ## AI routing
 Owner console → AI routing shows each route's health (ok / open breaker / paused / capped / no key), 24 h cost, revenue and margin. A route that keeps failing opens its breaker automatically (60 s, doubling to 10 min); a 401/403/404 pauses it for 10 min, so rotate that provider's key. To stop using a provider immediately, toggle its route off or delete it. Customers are always billed the tier rate, so switching routes never changes their price. Breaker and schema-validity state is per instance; usage caps and success rates are shared via the database.
 

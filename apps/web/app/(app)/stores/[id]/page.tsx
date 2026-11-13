@@ -1,14 +1,15 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BarChart3, Boxes, Check, CircleDashed, CreditCard, LayoutGrid, Megaphone, MoreHorizontal, Package, Percent, Plus, Search, Settings2, ShoppingCart, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, BarChart3, Boxes, Check, CircleDashed, CreditCard, LayoutGrid, Megaphone, Puzzle, MoreHorizontal, Package, Percent, Plus, Search, Settings2, ShoppingCart, Trash2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { use, useDeferredValue, useState, type ReactNode } from 'react';
 import { Badge, Button, Card, cx, Dialog, Drawer, EmptyState, ErrorNotice, Field, Input, Menu, MenuItem, Notice, Segmented, Select, Skeleton, SoonBadge, Stat, StatusBadge, toast, useConfirm } from '@/components/ui';
 import { DataTable } from '@/components/ui/table';
+import { DeliveryPanel, Extensions } from '@/components/store-extensions';
 import { commerce, money, type Order, type Product, type Store } from '@/lib/api';
 
-type Section = 'overview' | 'orders' | 'products' | 'inventory' | 'customers' | 'discounts' | 'marketing' | 'payments' | 'analytics' | 'settings';
+type Section = 'overview' | 'orders' | 'products' | 'inventory' | 'customers' | 'discounts' | 'marketing' | 'payments' | 'extensions' | 'analytics' | 'settings';
 const SECTIONS: { id: Section; label: string; icon: typeof LayoutGrid; soon?: boolean }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
   { id: 'orders', label: 'Orders', icon: ShoppingCart },
@@ -18,6 +19,7 @@ const SECTIONS: { id: Section; label: string; icon: typeof LayoutGrid; soon?: bo
   { id: 'discounts', label: 'Discounts', icon: Percent },
   { id: 'marketing', label: 'Marketing', icon: Megaphone, soon: true },
   { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'extensions', label: 'Extensions', icon: Puzzle },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
@@ -69,6 +71,7 @@ export default function StorePage({ params }: { params: Promise<{ id: string }> 
             discounts: <Discounts store={s} />,
             marketing: <Marketing />,
             payments: <Payments store={s} />,
+            extensions: <Extensions store={s} onOpenPayments={() => setSection('payments')} />,
             analytics: <Analytics store={s} />,
             settings: <Settings store={s} />,
           }[section]}
@@ -193,13 +196,13 @@ function Orders({ store }: { store: Store }) {
         />
       )}
       <Drawer open={!!open} onOpenChange={(o) => !o && setOpen(null)} title="Order details">
-        {open && <OrderDetail key={open} storeId={store.id} orderId={open} />}
+        {open && <OrderDetail key={open} storeId={store.id} orderId={open} shipping={!!store.shippingProvider} />}
       </Drawer>
     </div>
   );
 }
 
-function OrderDetail({ storeId, orderId }: { storeId: string; orderId: string }) {
+function OrderDetail({ storeId, orderId, shipping }: { storeId: string; orderId: string; shipping: boolean }) {
   const qc = useQueryClient();
   const confirm = useConfirm();
   const order = useQuery({ queryKey: ['order', storeId, orderId], queryFn: () => commerce.order(storeId, orderId) });
@@ -234,9 +237,10 @@ function OrderDetail({ storeId, orderId }: { storeId: string; orderId: string })
         {([['Subtotal', o.subtotalMinor], ['Discount', -o.discountMinor], ['Shipping', o.shippingMinor], ['Tax (included)', o.taxMinor], ['Refunded', -o.refundedMinor]] as const).filter(([, v]) => v !== 0).map(([k, v]) => <div key={k} className="flex justify-between text-muted"><dt>{k}</dt><dd className="tabular-nums">{m(v)}</dd></div>)}
         <div className="flex justify-between border-t border-border pt-2 font-semibold"><dt>Total</dt><dd className="tabular-nums">{m(o.totalMinor)}</dd></div>
       </dl>
+      {shipping && (canAct || o.fulfillmentStatus !== 'unfulfilled') && <DeliveryPanel storeId={storeId} order={o} onChanged={refresh} />}
       {canAct && o.fulfillmentStatus === 'unfulfilled' && (
         <div className="space-y-2 border-t border-border pt-4">
-          <div className="font-medium">Fulfil</div>
+          <div className="font-medium">{shipping ? 'Or fulfil it yourself' : 'Fulfil'}</div>
           <div className="flex gap-2"><Input placeholder="Tracking number (optional)" value={tracking} onChange={(e) => setTracking(e.target.value)} /><Button onClick={() => fulfill.mutate()} loading={fulfill.isPending}>Mark fulfilled</Button></div>
         </div>
       )}

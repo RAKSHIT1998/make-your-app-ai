@@ -1,6 +1,6 @@
 # Feature Implementation Checklist — "Viral AI Software-Building Ecosystem" spec
 
-_Audit date: 2026-11-13 (sessions 7–13). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
+_Audit date: 2026-11-13 (sessions 7–14). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
 Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 partial · ⛔ blocked (needs credentials/infrastructure) · ⬜ not started
 
 ## Architecture audit (spec §1)
@@ -56,6 +56,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Item | Status | Notes |
 |---|---|---|
 | E-commerce stores | 🟡 | Full commerce engine + Business Studio (real orders/payments); storefront generator not yet |
+| Store extensions (payments: Razorpay, Stripe; delivery: Shiprocket rates, booking, labels, tracking) | ✅ (session 14) | Merchant's own accounts, verified on connect, encrypted. Shiprocket tested against an emulated API only; prepaid India shipments |
 | Games (HTML5) and browser-only apps (calculators, planners, trackers) | ✅ (session 11) | `game` / Web app types, `web-play@1`, validated, repaired, previewed in a sandbox. No backend or accounts |
 | CRM, ERP, HR, inventory, restaurant, hotel, booking, marketplace, LMS, membership, SaaS, portals, dashboards, PM, finance | ⛔ | Need full-stack generation + sandbox; templates not started |
 
@@ -144,8 +145,9 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 |---|---|
 | Users, MRR/ARR, revenue, AI cost, margin, subscriptions, plans, credits, audit log, moderation, referrals | ✅ |
 | AI routing console (tier rates, routes, health, margin; audited) | ✅ |
+| Analytics tab: daily revenue, sign-ups, projects, builds, credits; project mix; customer-store sales and parcels; extensions in use; top workspaces | ✅ (session 14) |
 | Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, refund_failed_builds), enforced by the API (503 `feature_disabled`), audited, owner console tab |
-| Churn, conversion, ARPU, model distribution, cost per project, completion time, deployment rate, template approvals, fraud signals, system health | 🟡 partial / ⬜ |
+| Churn, conversion, ARPU, cost per project, completion time, deployment rate, fraud signals, system health | 🟡 partial / ⬜ |
 
 ## §15 Onboarding
 | Item | Status | Notes |

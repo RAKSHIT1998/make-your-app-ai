@@ -19,6 +19,7 @@ const Uuid = new ParseUUIDPipe();
 export class AdminController {
   constructor(@Inject(AdminService) private readonly a: AdminService, @Inject(AiRoutingService) private readonly ai: AiRoutingService) {}
 
+  @Get('analytics') analytics(@Query(new ZodPipe(Days)) q: z.infer<typeof Days>) { return this.a.analytics(q.days); }
   @Get('overview') overview(@Query(new ZodPipe(Days)) q: z.infer<typeof Days>) { return this.a.overview(q.days); }
   @Get('users') users(@Query(new ZodPipe(UsersQ)) q: z.infer<typeof UsersQ>) { return this.a.users(q.q, q.limit); }
   @Get('audit-log') audit(@Query(new ZodPipe(UsersQ)) q: z.infer<typeof UsersQ>) { return this.a.auditLog(q.limit); }

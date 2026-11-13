@@ -33,6 +33,7 @@ import { IdeasController } from './ideas/ideas.controller.js';
 import { PlatformAdminGuard } from './auth/platform-admin.guard.js';
 import { GatewayRegistry, gatewayFactoryProvider } from './commerce/gateways.js';
 import { MerchantService } from './commerce/merchant.service.js';
+import { ShippingService, shippingFactoryProvider } from './commerce/shipping.service.js';
 import { StorefrontService } from './commerce/storefront.service.js';
 import { HostingService, healthCheckProvider, hostingProviderFactory } from './hosting/hosting.service.js';
 import { HostingController } from './hosting/hosting.controller.js';
@@ -73,6 +74,8 @@ export class AppModule {
         gatewayFactoryProvider,
         GatewayRegistry,
         MerchantService,
+        shippingFactoryProvider,
+        ShippingService,
         StorefrontService,
         billingProvidersFactory,
         BillingService,

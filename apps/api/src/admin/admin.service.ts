@@ -87,6 +87,55 @@ export class AdminService {
     };
   }
 
+  /**
+   * Trends and breakdowns for the owner console. Everything is counted from real rows; days with no activity are
+   * returned as zeros so charts have no gaps. Customer-store sales are the merchants' money, not platform revenue.
+   */
+  async analytics(days: number) {
+    const since = new Date(Date.now() - (days - 1) * 864e5);
+    since.setUTCHours(0, 0, 0, 0);
+    type Row = { day: Date; n: bigint };
+    const daily = (rows: Row[]) => {
+      const m = new Map(rows.map((r) => [r.day.toISOString().slice(0, 10), Number(r.n)]));
+      return Array.from({ length: days }, (_, i) => { const d = new Date(since.getTime() + i * 864e5).toISOString().slice(0, 10); return { day: d, value: m.get(d) ?? 0 }; });
+    };
+    const [signups, projects, runsOk, runsFailed, credits, revenue, byType, storeSales, stores, shipments, extensions, refunds, top, published] = await Promise.all([
+      this.prisma.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::bigint AS n FROM "User" WHERE "createdAt" >= ${since} GROUP BY 1`,
+      this.prisma.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::bigint AS n FROM "Project" WHERE "createdAt" >= ${since} GROUP BY 1`,
+      this.prisma.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::bigint AS n FROM "GenerationRun" WHERE "createdAt" >= ${since} AND "status" = 'succeeded' GROUP BY 1`,
+      this.prisma.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt") AS day, COUNT(*)::bigint AS n FROM "GenerationRun" WHERE "createdAt" >= ${since} AND "status" = 'failed' GROUP BY 1`,
+      this.prisma.$queryRaw<Row[]>`SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("creditsCharged"), 0)::bigint AS n FROM "AiUsage" WHERE "createdAt" >= ${since} GROUP BY 1`,
+      this.prisma.$queryRaw<(Row & { currency: string })[]>`SELECT date_trunc('day', "paidAt") AS day, "currency", COALESCE(SUM("totalMinor" - "refundedMinor"), 0)::bigint AS n FROM "Invoice" WHERE "paidAt" >= ${since} GROUP BY 1, 2`,
+      this.prisma.project.groupBy({ by: ['type'], where: { deletedAt: null }, _count: true }),
+      this.prisma.order.groupBy({ by: ['currency'], where: { paidAt: { gte: since } }, _sum: { totalMinor: true, refundedMinor: true }, _count: true }),
+      this.prisma.store.groupBy({ by: ['status'], where: { deletedAt: null }, _count: true }),
+      this.prisma.shipment.groupBy({ by: ['state'], where: { createdAt: { gte: since }, state: { notIn: ['booking'] } }, _count: true }),
+      this.prisma.integration.groupBy({ by: ['provider'], where: { status: 'connected' }, _count: true }),
+      this.prisma.generationRun.aggregate({ where: { finishedAt: { gte: since }, creditsRefunded: { gt: 0 } }, _sum: { creditsRefunded: true }, _count: true }),
+      this.prisma.$queryRaw<{ id: string; name: string; owner: string | null; credits: bigint; costMicros: bigint }[]>`
+        SELECT o."id", o."name", (SELECT usr."email" FROM "OrganizationMembership" m JOIN "User" usr ON usr."id" = m."userId" WHERE m."organizationId" = o."id" AND m."role" = 'owner' ORDER BY m."createdAt" LIMIT 1) AS owner, COALESCE(SUM(u."creditsCharged"), 0)::bigint AS credits, COALESCE(SUM(u."costMicros"), 0)::bigint AS "costMicros"
+        FROM "AiUsage" u JOIN "Organization" o ON o."id" = u."organizationId"
+        WHERE u."createdAt" >= ${since} GROUP BY o."id", o."name" ORDER BY credits DESC LIMIT 8`,
+      this.prisma.project.count({ where: { deletedAt: null, publishedAt: { not: null } } }),
+    ]);
+    const currencies = [...new Set(revenue.map((r) => r.currency))].sort();
+    return {
+      days,
+      series: { signups: daily(signups), projects: daily(projects), buildsSucceeded: daily(runsOk), buildsFailed: daily(runsFailed), creditsSpent: daily(credits) },
+      revenue: currencies.map((c) => ({ currency: c, daily: daily(revenue.filter((r) => r.currency === c)) })),
+      projectsByType: byType.map((t) => ({ type: t.type, count: t._count })).sort((x, y) => y.count - x.count),
+      publishedProjects: published,
+      customerStores: {
+        byStatus: Object.fromEntries(stores.map((s) => [s.status, s._count])),
+        sales: storeSales.map((s) => ({ currency: s.currency, grossMinor: s._sum.totalMinor ?? 0, refundedMinor: s._sum.refundedMinor ?? 0, orders: s._count })),
+        shipments: Object.fromEntries(shipments.map((s) => [s.state, s._count])),
+      },
+      extensions: extensions.map((e) => ({ provider: e.provider, workspaces: e._count })).sort((x, y) => y.workspaces - x.workspaces),
+      failedBuildRefunds: { runs: refunds._count, credits: refunds._sum.creditsRefunded ?? 0 },
+      topWorkspaces: top.map((t) => ({ id: t.id, name: t.name, owner: t.owner, credits: Number(t.credits), aiCostUsd: Math.round(Number(t.costMicros) / 1e4) / 100 })),
+    };
+  }
+
   // ───────── Plans & pricing ─────────
 
   async plans() {

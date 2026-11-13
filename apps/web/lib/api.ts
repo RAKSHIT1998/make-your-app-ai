@@ -81,7 +81,7 @@ export const api = {
 };
 
 // ───────── Commerce ─────────
-export interface Store { id: string; name: string; slug: string; currency: string; status: 'draft' | 'active' | 'paused'; taxRateBps: number; pricesIncludeTax: boolean; paymentProvider: 'razorpay' | 'stripe' | null; createdAt: string; payments?: { provider: string | null; status: string; webhookUrl: string | null; lastTestedAt: string | null } }
+export interface Store { id: string; name: string; slug: string; currency: string; status: 'draft' | 'active' | 'paused'; taxRateBps: number; pricesIncludeTax: boolean; paymentProvider: 'razorpay' | 'stripe' | null; shippingProvider?: string | null; createdAt: string; payments?: { provider: string | null; status: string; webhookUrl: string | null; lastTestedAt: string | null } }
 export interface Variant { id: string; title: string; sku: string | null; priceMinor: number; inventory: { onHand: number; reserved: number; tracked: boolean; lowStockThreshold: number } | null }
 export interface Product { id: string; title: string; handle: string; status: 'draft' | 'active' | 'archived'; digital: boolean; variants: Variant[] }
 export interface OrderItem { id: string; productTitle: string; variantTitle: string; quantity: number; unitPriceMinor: number; totalMinor: number }
@@ -91,7 +91,31 @@ export interface Shipping { id: string; name: string; rateMinor: number; freeOve
 export interface Discount { id: string; code: string; type: string; value: number; usageCount: number; usageLimit: number | null; active: boolean }
 
 const j = (b: unknown) => ({ body: JSON.stringify(b) });
+export interface Parcel { weightGrams: number; lengthCm: number; breadthCm: number; heightCm: number }
+export interface Extension { key: 'razorpay' | 'stripe' | 'shiprocket'; category: 'payments' | 'delivery'; name: string; summary: string; needs: string[]; site: string; status: 'connected' | 'available'; lastTestedAt: string | null; settings: { email: string; pickupLocation: string; pickupPostcode: string; parcel: Parcel } | null }
+export interface CourierQuote { courierId: string; name: string; rateMinor: number; etaDays: number | null }
+export interface Shipment { id: string; provider: string; state: 'created' | 'awb_assigned' | 'pickup_scheduled' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'returned' | 'cancelled' | 'exception'; providerStatus: string | null; awb: string | null; courierName: string | null; pickupScheduledFor: string | null; trackingUrl: string | null; estimatedDelivery: string | null; events: { at: string; text: string; location: string | null }[]; lastError: string | null; parcel: Parcel; lastSyncedAt: string | null; createdAt: string }
+export interface AdminAnalytics {
+  days: number;
+  series: Record<'signups' | 'projects' | 'buildsSucceeded' | 'buildsFailed' | 'creditsSpent', { day: string; value: number }[]>;
+  revenue: { currency: string; daily: { day: string; value: number }[] }[];
+  projectsByType: { type: string; count: number }[]; publishedProjects: number;
+  customerStores: { byStatus: Record<string, number>; sales: { currency: string; grossMinor: number; refundedMinor: number; orders: number }[]; shipments: Record<string, number> };
+  extensions: { provider: string; workspaces: number }[];
+  failedBuildRefunds: { runs: number; credits: number };
+  topWorkspaces: { id: string; name: string; owner: string | null; credits: number; aiCostUsd: number }[];
+}
+
 export const commerce = {
+  extensions: (id: string) => apiFetch<Extension[]>(`/stores/${id}/extensions`),
+  connectShiprocket: (id: string, b: { email: string; password?: string; pickupLocation: string; pickupPostcode: string; parcel: Parcel }) => apiFetch<Extension[]>(`/stores/${id}/extensions/shiprocket`, { method: 'PUT', ...j(b) }),
+  disconnectShiprocket: (id: string) => apiFetch<Extension[]>(`/stores/${id}/extensions/shiprocket`, { method: 'DELETE' }),
+  shippingRates: (id: string, oid: string) => apiFetch<{ weightGrams: number; parcel: Parcel; couriers: CourierQuote[] }>(`/stores/${id}/orders/${oid}/shipping/rates`),
+  shipment: (id: string, oid: string) => apiFetch<Shipment | null>(`/stores/${id}/orders/${oid}/shipment`),
+  bookShipment: (id: string, oid: string, b: { courierId?: string }) => apiFetch<Shipment>(`/stores/${id}/orders/${oid}/shipment`, { method: 'POST', ...j(b) }),
+  syncShipment: (id: string, oid: string) => apiFetch<Shipment>(`/stores/${id}/orders/${oid}/shipment/sync`, { method: 'POST' }),
+  shipmentLabel: (id: string, oid: string) => apiFetch<{ url: string }>(`/stores/${id}/orders/${oid}/shipment/label`),
+  cancelShipment: (id: string, oid: string) => apiFetch<Shipment>(`/stores/${id}/orders/${oid}/shipment/cancel`, { method: 'POST' }),
   stores: () => apiFetch<Store[]>('/stores'),
   createStore: (b: { name: string; currency: string; taxRateBps: number; pricesIncludeTax: boolean }) => apiFetch<Store>('/stores', { method: 'POST', ...j(b) }),
   store: (id: string) => apiFetch<Store>(`/stores/${id}`),
@@ -152,6 +176,7 @@ export interface AdminUser { id: string; email: string; displayName: string | nu
 
 export const admin = {
   overview: (days = 30) => apiFetch<AdminOverview>(`/admin/overview?days=${days}`),
+  analytics: (days = 30) => apiFetch<AdminAnalytics>(`/admin/analytics?days=${days}`),
   plans: () => apiFetch<AdminPlan[]>('/admin/plans'),
   updatePlan: (id: string, b: Partial<AdminPlan>) => apiFetch<AdminPlan>(`/admin/plans/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
   updatePrice: (id: string, b: { active?: boolean; stripePriceId?: string | null }) => apiFetch<unknown>(`/admin/prices/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),

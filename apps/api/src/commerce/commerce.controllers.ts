@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, type RawBodyRequest } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
-  CheckoutSchema, ConnectPaymentsSchema, CreateDiscountSchema, CreateProductSchema, CreateShippingSchema, CreateStoreSchema, FulfillSchema,
+  BookShipmentSchema, CheckoutSchema, ConnectPaymentsSchema, ConnectShiprocketSchema, CreateDiscountSchema, CreateProductSchema, CreateShippingSchema, CreateStoreSchema, FulfillSchema,
   InventoryAdjustSchema, QuoteSchema, RefundSchema, UpdateProductSchema, UpdateStoreSchema, UpdateVariantSchema,
 } from '@mya/shared';
 import type { Request } from 'express';
@@ -12,6 +12,7 @@ import { ZodPipe } from '../common/zod.pipe.js';
 import { rateLimits } from '../common/rate-limits.js';
 import { MerchantService } from './merchant.service.js';
 import { StorefrontService } from './storefront.service.js';
+import { ShippingService } from './shipping.service.js';
 
 const Uuid = new ParseUUIDPipe();
 const OrgQuery = z.object({ organizationId: z.uuid().optional() });
@@ -19,19 +20,31 @@ const OrdersQuery = z.object({ status: z.enum(['pending_payment', 'paid', 'parti
 const DaysQuery = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
 const ActiveBody = z.object({ active: z.boolean() });
 const ProductsQuery = z.object({ q: z.string().max(100).optional(), collection: z.string().max(80).optional() });
+const RatesQuery = z.object({ weightGrams: z.coerce.number().int().min(10).max(50_000).optional() });
 const TokenQuery = z.object({ token: z.string().min(10).max(200) });
 const RazorpayConfirm = z.object({ accessToken: z.string().min(10), razorpayOrderId: z.string().min(1), razorpayPaymentId: z.string().min(1), razorpaySignature: z.string().min(1) });
 
 /** Merchant APIs (authenticated, org-role checked). */
 @Controller('stores')
 export class MerchantController {
-  constructor(@Inject(MerchantService) private readonly m: MerchantService) {}
+  constructor(@Inject(MerchantService) private readonly m: MerchantService, @Inject(ShippingService) private readonly ship: ShippingService) {}
 
   @Post() create(@CurrentUser() u: AuthUser, @Body(new ZodPipe(CreateStoreSchema)) b: z.infer<typeof CreateStoreSchema>) { return this.m.createStore(u, b); }
   @Get() list(@CurrentUser() u: AuthUser, @Query(new ZodPipe(OrgQuery)) q: z.infer<typeof OrgQuery>) { return this.m.listStores(u, q.organizationId); }
   @Get(':storeId') get(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string) { return this.m.getStore(u, id); }
   @Patch(':storeId') update(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Body(new ZodPipe(UpdateStoreSchema)) b: z.infer<typeof UpdateStoreSchema>) { return this.m.updateStore(u, id, b); }
   @Put(':storeId/payments') payments(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Body(new ZodPipe(ConnectPaymentsSchema)) b: z.infer<typeof ConnectPaymentsSchema>) { return this.m.connectPayments(u, id, b); }
+
+  // Extensions (payments connect above; delivery here). Provider calls share the deploy rate limit (DEPLOY_RATE_LIMIT_PER_MINUTE).
+  @Get(':storeId/extensions') extensions(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string) { return this.ship.extensions(u, id); }
+  @Put(':storeId/extensions/shiprocket') @Throttle({ default: { limit: () => rateLimits.deploy, ttl: 60_000 } }) connectShiprocket(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Body(new ZodPipe(ConnectShiprocketSchema)) b: z.infer<typeof ConnectShiprocketSchema>) { return this.ship.connectShiprocket(u, id, b); }
+  @Delete(':storeId/extensions/shiprocket') disconnectShiprocket(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string) { return this.ship.disconnectShipping(u, id); }
+  @Get(':storeId/orders/:orderId/shipping/rates') @Throttle({ default: { limit: () => rateLimits.deploy * 3, ttl: 60_000 } }) rates(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string, @Query(new ZodPipe(RatesQuery)) q: z.infer<typeof RatesQuery>) { return this.ship.rates(u, id, oid, q.weightGrams); }
+  @Get(':storeId/orders/:orderId/shipment') shipment(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string) { return this.ship.get(u, id, oid); }
+  @Post(':storeId/orders/:orderId/shipment') @HttpCode(200) @Throttle({ default: { limit: () => rateLimits.deploy * 2, ttl: 60_000 } }) book(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string, @Body(new ZodPipe(BookShipmentSchema)) b: z.infer<typeof BookShipmentSchema>) { return this.ship.book(u, id, oid, b); }
+  @Post(':storeId/orders/:orderId/shipment/sync') @HttpCode(200) @Throttle({ default: { limit: () => rateLimits.deploy * 3, ttl: 60_000 } }) syncShipment(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string) { return this.ship.sync(u, id, oid); }
+  @Get(':storeId/orders/:orderId/shipment/label') @Throttle({ default: { limit: () => rateLimits.deploy * 3, ttl: 60_000 } }) label(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string) { return this.ship.label(u, id, oid); }
+  @Post(':storeId/orders/:orderId/shipment/cancel') @HttpCode(200) cancelShipment(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Param('orderId', Uuid) oid: string) { return this.ship.cancel(u, id, oid); }
 
   @Post(':storeId/products') createProduct(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string, @Body(new ZodPipe(CreateProductSchema)) b: z.infer<typeof CreateProductSchema>) { return this.m.createProduct(u, id, b); }
   @Get(':storeId/products') products(@CurrentUser() u: AuthUser, @Param('storeId', Uuid) id: string) { return this.m.listProducts(u, id); }

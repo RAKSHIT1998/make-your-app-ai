@@ -20,6 +20,7 @@
     "@mya/db": "workspace:*",
     "@mya/hosting": "workspace:*",
     "@mya/payments": "workspace:*",
+    "@mya/shipping": "workspace:*",
     "@mya/sandbox": "workspace:*",
     "@mya/shared": "workspace:*",
     "@nestjs/common": "12.5.0",

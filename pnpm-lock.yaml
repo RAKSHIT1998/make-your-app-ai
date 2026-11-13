@@ -44,6 +44,9 @@ importers:
       '@mya/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@mya/shipping':
+        specifier: workspace:*
+        version: link:../../packages/shipping
       '@nestjs/common':
         specifier: 12.5.0
         version: 12.5.0(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -413,6 +416,18 @@ importers:
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
+
+  packages/shipping:
+    devDependencies:
+      '@mya/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(jsdom@31.0.0(@noble/hashes@1.8.0))(vite@8.3.8(@types/node@22.20.5)(jiti@2.7.0)(terser@5.51.2))
 
 packages:
 

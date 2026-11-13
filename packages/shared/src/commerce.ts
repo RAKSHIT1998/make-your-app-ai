@@ -115,3 +115,22 @@ export const RefundSchema = z.object({
 });
 
 export const FulfillSchema = z.object({ trackingNumber: z.string().trim().max(100).optional() });
+
+// ───────── Extensions ─────────
+export const ParcelSchema = z.object({
+  weightGrams: z.number().int().min(10).max(50_000),
+  lengthCm: z.number().min(1).max(200),
+  breadthCm: z.number().min(1).max(200),
+  heightCm: z.number().min(1).max(200),
+});
+export type ParcelInput = z.infer<typeof ParcelSchema>;
+
+/** Password is optional when the extension is already connected and only settings change. */
+export const ConnectShiprocketSchema = z.object({
+  email: z.string().trim().email().max(200),
+  password: z.string().min(1).max(200).optional(),
+  pickupLocation: z.string().trim().min(1).max(100),
+  pickupPostcode: z.string().trim().regex(/^[1-9][0-9]{5}$/, 'Enter a 6-digit Indian PIN code'),
+  parcel: ParcelSchema,
+});
+export const BookShipmentSchema = z.object({ courierId: z.string().trim().min(1).max(40).optional(), parcel: ParcelSchema.optional() });

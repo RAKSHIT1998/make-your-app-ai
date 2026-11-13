@@ -873,6 +873,10 @@ model Store {
   taxRateBps       Int                     @default(0)
   pricesIncludeTax Boolean                 @default(true)
   paymentProvider  PaymentProvider?
+  /// Delivery extension in use (e.g. "shiprocket"). Credentials live encrypted in Integration.
+  shippingProvider String?
+  /// Non-secret delivery settings: pickup location name, pickup postcode, default parcel size.
+  shippingSettings Json                    @default("{}")
   nextOrderNumber  Int                     @default(1001)
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
@@ -885,6 +889,7 @@ model Store {
   orders           Order[]
   discounts        Discount[]
   shippingConfigs  ShippingConfiguration[]
+  shipments        Shipment[]
 
   @@index([organizationId])
 }
@@ -1039,6 +1044,7 @@ model Order {
   items                OrderItem[]
   payments             Payment[]
   refunds              Refund[]
+  shipment             Shipment?
 
   @@unique([storeId, number])
   @@index([storeId, status, createdAt])
@@ -1134,6 +1140,37 @@ model Discount {
   store            Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, code])
+}
+
+/// A parcel booked with a delivery extension. One per order; each booking step is recorded so a failed step can be resumed.
+model Shipment {
+  id                 String    @id @default(uuid()) @db.Uuid
+  storeId            String    @db.Uuid
+  orderId            String    @unique @db.Uuid
+  provider           String
+  /// created | awb_assigned | pickup_scheduled | in_transit | out_for_delivery | delivered | returned | cancelled | exception
+  state              String    @default("created")
+  providerStatus     String?
+  providerOrderId    String
+  providerShipmentId String
+  awb                String?
+  courierName        String?
+  pickupScheduledFor String?
+  trackingUrl        String?
+  estimatedDelivery  String?
+  events             Json      @default("[]")
+  /// Why the last booking step failed, shown to the merchant (never contains credentials).
+  lastError          String?
+  parcel             Json      @default("{}")
+  /// Bumped when a cancelled shipment is booked again, so the provider sees a fresh reference.
+  attempt            Int       @default(1)
+  lastSyncedAt       DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  store              Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order              Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, state])
 }
 
 model ShippingConfiguration {
