@@ -10,7 +10,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Backend | NestJS 12 API `/api/v1`, zod validation on every body/query, ThrottlerGuard, audit log |
 | Database | Postgres 16 + Prisma 7, RLS (deny-by-default for direct clients), 7 migrations |
 | Auth | Supabase JWT (JWKS or HS256), personal workspace per user, org roles owner/admin/member/viewer, platform roles user/support/admin/superadmin |
-| AI | Provider adapters behind `ProviderRouter` (Anthropic implemented; tiers fast/balanced/deep; admin-editable routes in `AiProviderConfig`); orchestrator architect → designer → frontend → QA repair; per-run credit caps |
+| AI | Provider adapters behind `ProviderRouter` (Anthropic plus an OpenAI-compatible adapter for OpenAI, Groq, OpenRouter, Gemini, DeepSeek, Mistral, Together and a custom endpoint; margin-first routing; tiers fast/balanced/deep; admin-editable routes in `AiProviderConfig`); orchestrator architect → designer → frontend → QA repair; per-run credit caps |
 | Payments | Platform billing: Razorpay + Stripe adapters, verified webhooks only. Merchant payments: Razorpay + Stripe gateways per store |
 | Codegen | Git-backed project store, patch validation, static checks, approvals for destructive changes |
 | Sandbox | Provider interface with Docker + local implementations; never runs inside the API process |

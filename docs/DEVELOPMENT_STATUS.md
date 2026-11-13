@@ -1,6 +1,6 @@
 # Development Status
 
-_Last updated: 2026-11-13, session 10 (gaps closed). Launch steps: **LAUNCH_CHECKLIST.md**, operations: **RUNBOOK.md**, deploy: **DEPLOYMENT.md**. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
+_Last updated: 2026-11-13, session 12 (smart AI routing). Launch steps: **LAUNCH_CHECKLIST.md**, operations: **RUNBOOK.md**, deploy: **DEPLOYMENT.md**. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
 _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue from "Next tasks"._
 
 ## Current phase
@@ -25,7 +25,7 @@ _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue f
 | New read-only endpoints backing the redesign: `GET /activity`, `GET /generations/estimate`, `GET /billing/usage`, `GET /stores/:id/customers?q=` | 2 new API e2e tests (incl. tenant isolation) |
 | Earlier sessions: AI engine + website generation, commerce engine + merchant dashboard, web and mobile apps | see git history; all tests green |
 
-**Test totals (this run):** api 110, hosting 2, codegen 27, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 31/31. `pnpm audit --prod`: 1 moderate (minimatch inside Expo's build tooling), 0 high. Mobile typecheck OK. `next build` OK. **0 failing.**
+**Test totals (this run):** api 115, hosting 2, codegen 27, ai 26, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 31/31. `pnpm audit --prod`: 1 moderate (minimatch inside Expo's build tooling), 0 high. Mobile typecheck OK. `next build` OK. **0 failing.**
 
 ## In progress
 None. The session ended at a clean commit.
@@ -64,7 +64,7 @@ Supabase (URL, anon key, DB URLs, JWT secret if legacy) · `ANTHROPIC_API_KEY` �
 ## Next tasks (in spec order)
 0. **Launch:** work through LAUNCH_CHECKLIST.md (accounts, legal details, Render deploy, webhooks, production smoke test).
 1. With live keys: run the Phase 2 acceptance with a ₹1 test plan, then verify webhooks from the provider dashboards.
-2. Phase 3 completion: Inngest durable runs, OpenAI and Gemini adapters, backend agent, Docker sandbox verification.
+2. Phase 3 completion: Inngest durable runs, a live-provider check of the OpenAI-compatible adapter (needs keys), backend agent, Docker sandbox verification.
 3. Error tracking (Sentry) and uptime alerts.
 4. Phase 5: live preview + visual editor (Website Studio). The workspace Preview tab and the Studio's editor UI slot in once a sandboxed preview exists.
 6. Growth G2: challenges, voting, leaderboards, badges (GROWTH.md). Then G3: plan-first builder and voice input.
