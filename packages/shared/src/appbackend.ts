@@ -177,6 +177,11 @@ export const APP_SDK_SOURCE = `(function () {
           });
         }
       }),
+      weather: function (lat, lon, options) {
+        if (typeof lat !== 'number' || typeof lon !== 'number' || !isFinite(lat) || !isFinite(lon)) return Promise.reject(AppError('Latitude and longitude must be numbers.', 400, 'invalid_location'));
+        var tz = (options && options.timezone) || (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return 'UTC'; } })();
+        return req('GET', '/services/weather?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&timezone=' + encodeURIComponent(tz || 'UTC'));
+      },
       countries: function (lang) { return req('GET', '/services/countries' + (lang ? '?lang=' + encodeURIComponent(lang) : '')); }
     }),
     db: Object.freeze({

@@ -139,7 +139,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Usage alerts, admin credit pricing | 🟡 / ✅ | Credit packs configurable; alerts not yet |
 | Unlimited usage never promised | ✅ | |
 | Failed-build guarantee (automatic credit refund for failed runs) | ✅ (session 13) | `refund_failed_builds` flag, daily cap per workspace, idempotent, excluded from route revenue |
-| Free services inside full-stack apps: exchange rates (ECB via Frankfurter), country lists (built-in) | ✅ (session 16) | Platform-proxied, cached, `app_services` kill switch. Holidays left out (Nager.Date's public API needs paid sponsorship for commercial use) |
+| Free services inside full-stack apps: exchange rates (ECB via Frankfurter), country lists (built-in), weather forecasts (MET Norway) | ✅ (session 16) | Platform-proxied, cached, `app_services` kill switch, MET credit shown in apps. Left out on licensing terms: Nager.Date holidays (commercial use needs paid sponsorship), Open-Meteo (free API non-commercial) |
 | Free AI provider catalogue (Groq, Cerebras, OpenRouter free, Gemini, Cloudflare Workers AI): live model discovery, one-click $0 routes, real-call test | ✅ (session 16) | Needs your free keys; discovery and probes tested against emulated APIs only |
 | Multi-provider AI routing with free/cheap routes, customer billed at the standard tier rate, margin-first selection, quality floors, daily caps, circuit breaker, per-route margin | ✅ | Owner console → AI routing. Needs provider keys + route data from you; adapter not yet run against live providers |
 

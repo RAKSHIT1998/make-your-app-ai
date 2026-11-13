@@ -30,6 +30,10 @@ export class AppDataController {
     await this.s.resolve(key);
     return this.svc.latestRates(String(base ?? 'EUR'), typeof symbols === 'string' && symbols ? symbols.split(',').map((x) => x.trim()) : undefined);
   }
+  @Get('services/weather') @Throttle(data) async weather(@Param('key', Key) key: string, @Query('lat') lat?: string, @Query('lon') lon?: string, @Query('timezone') tz?: string) {
+    await this.s.resolve(key);
+    return this.svc.weather(Number(lat ?? NaN), Number(lon ?? NaN), typeof tz === 'string' && tz && tz.length <= 64 ? tz : 'UTC');
+  }
   @Get('services/countries') @Throttle(data) async countries(@Param('key', Key) key: string, @Query('lang') lang?: string) {
     await this.s.resolve(key);
     return this.svc.countries(typeof lang === 'string' && lang.length <= 20 ? lang : 'en');

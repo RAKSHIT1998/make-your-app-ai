@@ -7,14 +7,33 @@ import type { PrismaClient } from '@mya/db';
 import { AI_ROUTER } from '../src/ai/ai.providers.js';
 import { GenerationsService } from '../src/generation/generations.service.js';
 import { FlagsService } from '../src/flags/flags.service.js';
-import { SERVICES_FETCH } from '../src/appdata/app-services.service.js';
+import { AppServicesService, SERVICES_FETCH, describeSymbol } from '../src/appdata/app-services.service.js';
+import { APP_CONFIG, type AppConfig } from '../src/config.js';
 
 /** Emulated Frankfurter API (no internet in tests); the platform code calling it is real. */
 const upstream: string[] = [];
 let ratesDown = false;
-const servicesFetch = (async (url: string | URL | Request) => {
+const metHeaders: Headers[] = [];
+let metDown = false;
+let metStatus = 200;
+/** Emulated MET Norway Locationforecast compact: hourly for 60 h, then 6-hourly, like the real product. */
+function metDoc() {
+  const start = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+  const timeseries = [];
+  for (let h = 0; h < 60; h++) timeseries.push({ time: new Date(start + h * 3_600_000).toISOString(), data: { instant: { details: { air_temperature: 20 + (h % 24) / 2, relative_humidity: 60, wind_speed: 3.1, wind_from_direction: 200, cloud_area_fraction: 40 } }, next_1_hours: { summary: { symbol_code: h % 2 ? 'lightrainshowers_day' : 'partlycloudy_night' }, details: { precipitation_amount: 0.5 } }, next_6_hours: { summary: { symbol_code: 'rain' }, details: { precipitation_amount: 3 } } } });
+  for (let h = 60; h < 216; h += 6) timeseries.push({ time: new Date(start + h * 3_600_000).toISOString(), data: { instant: { details: { air_temperature: 15 } }, next_6_hours: { summary: { symbol_code: 'heavysnowandthunder' }, details: { precipitation_amount: 2 } } } });
+  return { type: 'Feature', properties: { meta: { updated_at: new Date(start).toISOString(), units: {} }, timeseries } };
+}
+const servicesFetch = (async (url: string | URL | Request, init?: RequestInit) => {
   const u = new URL(String(url));
   upstream.push(u.toString());
+  if (u.host === 'api.met.no') {
+    metHeaders.push(new Headers(init?.headers));
+    if (metDown) throw new TypeError('fetch failed');
+    if (new Headers(init?.headers).get('if-modified-since')) return new Response(null, { status: 304, headers: { Expires: new Date(Date.now() + 1_800_000).toUTCString() } });
+    if (metStatus !== 200) return new Response('{}', { status: metStatus });
+    return Response.json(metDoc(), { headers: { Expires: new Date(Date.now() + 1_800_000).toUTCString(), 'Last-Modified': 'Fri, 13 Nov 2026 09:00:00 GMT' } });
+  }
   if (ratesDown) throw new TypeError('fetch failed');
   if (u.host !== 'api.frankfurter.dev' || u.pathname !== '/v1/latest') return new Response('{}', { status: 404 });
   const base = u.searchParams.get('base');
@@ -46,7 +65,7 @@ let gen: GenerationsService;
 const http = () => request(app.getHttpServer());
 
 beforeAll(async () => {
-  ({ app, prisma } = await createTestApp({ env: { APP_DATA_RATE_LIMIT_PER_MINUTE: '100000', APP_AUTH_RATE_LIMIT_PER_MINUTE: '100000', APP_DATA_MAX_RECORDS: '25' }, overrides: [{ provide: SERVICES_FETCH, useValue: servicesFetch }, { provide: AI_ROUTER, useValue: router }] }));
+  ({ app, prisma } = await createTestApp({ env: { APP_DATA_RATE_LIMIT_PER_MINUTE: '100000', APP_AUTH_RATE_LIMIT_PER_MINUTE: '100000', APP_DATA_MAX_RECORDS: '25', WEATHER_CONTACT: 'ops@example.com' }, overrides: [{ provide: SERVICES_FETCH, useValue: servicesFetch }, { provide: AI_ROUTER, useValue: router }] }));
   gen = app.get(GenerationsService);
 });
 afterAll(async () => { await app.close(); await prisma.$disconnect(); });
@@ -295,5 +314,66 @@ describe('free services for full-stack apps', () => {
     (app.get(FlagsService) as unknown as { cache: unknown }).cache = null;
     await http().get(`${base}/services/countries`).expect(503);
     (app.get(FlagsService) as unknown as { cache: unknown }).cache = null;
+  });
+
+  it('serves MET Norway forecasts by the provider\'s terms: identified, cached, rounded, credited', async () => {
+    const { base } = await fullstack('wx1');
+    upstream.length = 0; metHeaders.length = 0; metDown = false; metStatus = 200;
+    const w = (await http().get(`${base}/services/weather?lat=28.61394&lon=77.20902&timezone=Asia/Kolkata`).expect(200)).body;
+    expect(upstream).toEqual(['https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=28.61&lon=77.21']); // ~1 km, never the exact spot
+    expect(metHeaders[0]!.get('user-agent')).toBe('MakeYourAppAI/1.0 ops@example.com');
+    expect(w).toMatchObject({ latitude: 28.61, longitude: 77.21, timezone: 'Asia/Kolkata', units: { temperature: '°C' }, attribution: { text: 'Based on data from MET Norway', licenceUrl: 'https://creativecommons.org/licenses/by/4.0/' } });
+    expect(w.current).toMatchObject({ temperature: expect.any(Number), humidity: 60, windSpeed: 3.1, precipitationNextHour: 0.5, summary: expect.any(String) });
+    expect(w.hourly).toHaveLength(24);
+    expect(w.hourly[1].precipitation).toBe(0.5);
+    expect(w.daily.length).toBe(7);
+    // Daily totals never double count: hourly steps use the 1 h amount, 6-hourly steps the 6 h amount.
+    const later = w.daily[w.daily.length - 1];
+    expect(later).toMatchObject({ min: 15, max: 15, precipitation: 8, summary: 'Heavy snow and thunder', emoji: '⛈️' });
+
+    // Nearby users share one forecast; a second app too.
+    await http().get(`${base}/services/weather?lat=28.612&lon=77.214`).expect(200);
+    const other = (await fullstack('wx2')).base;
+    await http().get(`${other}/services/weather?lat=28.61&lon=77.21`).expect(200);
+    expect(upstream).toHaveLength(1);
+
+    // After Expires: a conditional request; 304 keeps the cached forecast.
+    const svc = app.get(AppServicesService) as unknown as { forecasts: Map<string, { expires: number }> };
+    svc.forecasts.get('28.61,77.21')!.expires = 0;
+    await http().get(`${base}/services/weather?lat=28.61&lon=77.21`).expect(200);
+    expect(metHeaders[1]!.get('if-modified-since')).toBe('Fri, 13 Nov 2026 09:00:00 GMT');
+
+    // Outages: stale forecast if we have one, otherwise a clear 503.
+    svc.forecasts.get('28.61,77.21')!.expires = 0;
+    metDown = true;
+    await http().get(`${base}/services/weather?lat=28.61&lon=77.21`).expect(200);
+    expect((await http().get(`${base}/services/weather?lat=51.5&lon=-0.12`).expect(503)).body.message).toMatch(/unavailable right now/);
+    metDown = false; metStatus = 403;
+    await http().get(`${base}/services/weather?lat=40.7&lon=-74`).expect(503);
+    metStatus = 200;
+
+    // Bad input is explained.
+    await http().get(`${base}/services/weather?lat=91&lon=0`).expect(400);
+    await http().get(`${base}/services/weather?lat=abc&lon=0`).expect(400);
+    await http().get(`${base}/services/weather`).expect(400);
+    expect((await http().get(`${base}/services/weather?lat=1&lon=1&timezone=Mars/Base`).expect(400)).body.code).toBe('invalid_timezone');
+    await http().get(`${V}/appdata/pv_${'y'.repeat(32)}/services/weather?lat=1&lon=1`).expect(404);
+
+    // No real contact for MET Norway → refuse rather than send an anonymous User-Agent.
+    const cfg = app.get(APP_CONFIG) as AppConfig;
+    const saved = cfg.WEATHER_CONTACT;
+    cfg.WEATHER_CONTACT = undefined;
+    upstream.length = 0;
+    expect((await http().get(`${base}/services/weather?lat=10&lon=10`).expect(503)).body.code).toBe('service_not_configured');
+    expect(upstream).toHaveLength(0);
+    cfg.WEATHER_CONTACT = saved;
+  });
+
+  it('describes MET symbol codes in plain words', () => {
+    expect(describeSymbol('clearsky_day')).toMatchObject({ summary: 'Clear sky', emoji: '☀️' });
+    expect(describeSymbol('lightrainshowersandthunder_night').summary).toBe('Light rain showers and thunder');
+    expect(describeSymbol('sleet').summary).toBe('Sleet');
+    expect(describeSymbol('heavysnow').summary).toBe('Heavy snow');
+    expect(describeSymbol(undefined).summary).toBeNull();
   });
 });

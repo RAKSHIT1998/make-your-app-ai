@@ -42,6 +42,8 @@ const EnvSchema = z
     APP_AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
     APP_DATA_MAX_RECORDS: z.coerce.number().int().positive().default(10_000),
     APP_DATA_MAX_USERS: z.coerce.number().int().positive().default(5_000),
+    /** Contact (website or email) sent to MET Norway with weather requests, as their terms require. Defaults to WEB_APP_URL when that is a public https address. */
+    WEATHER_CONTACT: z.string().max(200).optional(),
     FAILED_RUN_REFUNDS_PER_DAY: z.coerce.number().int().min(0).default(5),
     /** Monthly credit allowance of the default Free plan when plans are first seeded. */
     /** Requests per minute per client (IP + user). In-memory store; switch to Redis storage when running >1 instance. */
