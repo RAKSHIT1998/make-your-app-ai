@@ -71,12 +71,15 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | First project / first published / first customer / launch badges | ✅ (this session) | 9 badges computed on read from real records (projects, runs, publishes, likes, remixes, stores, paid orders, rewarded referrals, 7-day streak) — nothing stored, so nothing can be faked |
 | Version history + one-click rollback | ✅ | Restore creates a new version |
 | Build activity timeline | ✅ (this session) | Workspace timeline from the audit log (whitelisted actions) + run status; tenant-scoped |
-| Project health score, AI recommendations, roadmap, weekly report | ⬜ | Next |
+| Project health score | ✅ | Health tab: 0–100 score from a static review of the project's latest files (SEO, accessibility, performance, security, mobile config), each finding naming its files and a fix. Says it is not a live measurement |
+| AI recommendations, roadmap, weekly report | ⬜ | Next |
 
 ## §7 AI business intelligence
 | Item | Status |
 |---|---|
-| Idea validator, Business-in-a-Box, SEO agent, security auditor, bug fixer, integration finder | ⬜ (idea validator & SEO agent are buildable now with the AI key; bug fixer partially exists as QA repair loop) |
+| Idea validator | ✅ | Idea check page: credit-metered AI assessment (verdict, risks, MVP scope, build brief), saved per workspace, hands the brief to Create. Labelled as general-knowledge judgement, no market data |
+| SEO checks, security checks | ✅ | Part of the Health audit (secret scan, client-side secret use, raw HTML/eval) |
+| Business-in-a-Box, bug fixer, integration finder | ⬜ (bug fixer partially exists as QA repair loop) |
 
 ## §8 AI business agent (post-launch)
 | Item | Status | Notes |

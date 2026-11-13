@@ -26,6 +26,8 @@ import { AdminService } from './admin/admin.service.js';
 import { AdminController } from './admin/admin.controller.js';
 import { TeamsService } from './teams/teams.service.js';
 import { TeamsController } from './teams/teams.controller.js';
+import { IdeasService } from './ideas/ideas.service.js';
+import { IdeasController } from './ideas/ideas.controller.js';
 import { PlatformAdminGuard } from './auth/platform-admin.guard.js';
 import { GatewayRegistry, gatewayFactoryProvider } from './commerce/gateways.js';
 import { MerchantService } from './commerce/merchant.service.js';
@@ -53,7 +55,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: config.RATE_LIMIT_PER_MINUTE }])],
-      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController, TemplatesController, AppStudioController, TeamsController],
+      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController, TemplatesController, AppStudioController, TeamsController, IdeasController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         prismaProvider,
@@ -81,6 +83,7 @@ export class AppModule {
         TemplatesService,
         AppStudioService,
         TeamsService,
+        IdeasService,
         ShowcaseService,
         ReferralsService,
         ModerationService,

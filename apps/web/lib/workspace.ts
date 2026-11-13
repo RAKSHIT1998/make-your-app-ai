@@ -34,8 +34,8 @@ export function subscribeActiveOrg(l: () => void) {
   return () => void listeners.delete(l);
 }
 
-const GET_ORG_PATHS = /^\/(activity|generations\/estimate|credits|timeline|hosting\/sites|stores|billing\/overview|billing\/usage|projects)$/;
-const POST_ORG_PATHS = /^\/(projects|stores|billing\/checkout\/subscription|billing\/checkout\/topup|billing\/subscription\/cancel|templates\/[^/]+\/use|showcase\/[^/]+\/remix)$/;
+const GET_ORG_PATHS = /^\/(ideas|activity|generations\/estimate|credits|timeline|hosting\/sites|stores|billing\/overview|billing\/usage|projects)$/;
+const POST_ORG_PATHS = /^\/(projects|ideas\/validate|stores|billing\/checkout\/subscription|billing\/checkout\/topup|billing\/subscription\/cancel|templates\/[^/]+\/use|showcase\/[^/]+\/remix)$/;
 
 /** Adds the active workspace to the org-aware requests that don't already name one. */
 export function withWorkspace(path: string, init: RequestInit): { path: string; init: RequestInit } {

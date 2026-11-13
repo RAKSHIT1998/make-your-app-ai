@@ -83,6 +83,7 @@ model Organization {
   billingCheckouts  BillingCheckout[]
   invoices          Invoice[]
   invitations       OrganizationInvitation[]
+  ideaValidations   IdeaValidation[]
 }
 
 model OrganizationMembership {
@@ -113,6 +114,20 @@ model OrganizationInvitation {
 
   @@unique([organizationId, email])
   @@index([expiresAt])
+}
+
+/// A saved AI assessment of a product idea. The report is the model's judgement from general knowledge, not market data.
+model IdeaValidation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  userId         String       @db.Uuid
+  idea           String
+  report         Json
+  creditsCharged Int
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
 }
 
 // ───────────────────────── Billing ─────────────────────────

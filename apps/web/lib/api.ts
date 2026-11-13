@@ -346,3 +346,18 @@ export const team = {
   preview: (token: string) => apiFetch<InvitationPreview>(`/invitations/${encodeURIComponent(token)}`, {}, noAuth),
   accept: (token: string) => apiFetch<{ organizationId: string; name: string; role: OrgRole }>(`/invitations/${encodeURIComponent(token)}/accept`, { method: 'POST', body: '{}' }),
 };
+
+// ───────── Project health & idea validation ─────────
+export type AuditSeverity = 'pass' | 'warn' | 'fail';
+export interface AuditCheck { id: string; category: 'seo' | 'accessibility' | 'performance' | 'security' | 'mobile'; severity: AuditSeverity; title: string; detail: string; files: string[]; fix?: string }
+export interface HealthReport { kind: 'web' | 'mobile' | 'unknown'; score: number; filesScanned: number; checks: AuditCheck[]; summary: Record<AuditSeverity, number>; checkedAt: string }
+export interface IdeaReport {
+  oneLiner: string; verdict: 'promising' | 'needs_focus' | 'risky'; verdictReason: string; targetUsers: string[]; problem: string; strengths: string[]; risks: string[];
+  alternativesToResearch: string[]; mvpFeatures: string[]; monetization: string[]; firstWeekSteps: string[]; recommendedType: string; buildPrompt: string;
+}
+export interface IdeaValidation { id: string; idea: string; report: IdeaReport; creditsCharged: number; createdAt: string; disclaimer: string }
+export const insights = {
+  health: (projectId: string) => apiFetch<HealthReport>(`/projects/${projectId}/health`),
+  validateIdea: (idea: string) => apiFetch<IdeaValidation>('/ideas/validate', { method: 'POST', body: JSON.stringify({ idea }) }),
+  ideas: () => apiFetch<IdeaValidation[]>('/ideas'),
+};

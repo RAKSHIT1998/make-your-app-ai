@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, type OnApplicationBootstrap, type OnApplicationShutdown, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecord } from '@mya/ai';
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
-import type { FilePatch, FileTree, GitProjectStore } from '@mya/codegen';
+import { auditProject, type FilePatch, type FileTree, type GitProjectStore } from '@mya/codegen';
 import type { GenerationRun, Prisma, PrismaClient, Project } from '@mya/db';
 import { createHash, randomUUID } from 'node:crypto';
 import { PRISMA } from '../prisma.service.js';
@@ -343,6 +343,13 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
   async listFiles(user: AuthUser, projectId: string) {
     await this.projects.getAuthorized(user, projectId, 'viewer');
     return this.prisma.projectFile.findMany({ where: { projectId }, orderBy: { path: 'asc' }, select: { path: true, sizeBytes: true, sha256: true } });
+  }
+
+  /** Static review of the project's current files (SEO, accessibility, performance, security). No AI, no credits. */
+  async health(user: AuthUser, projectId: string) {
+    await this.projects.getAuthorized(user, projectId, 'viewer');
+    const tree = await this.store.readTree(projectId);
+    return { ...auditProject(tree), checkedAt: new Date().toISOString() };
   }
 
   async fileContent(user: AuthUser, projectId: string, path: string) {

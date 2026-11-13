@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Command } from 'cmdk';
-import { Compass, CreditCard, Gift, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Settings, Shield, ShoppingBag, Smartphone, Sun, Users, type LucideIcon } from 'lucide-react';
+import { Compass, CreditCard, Gift, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Lightbulb, Settings, Shield, ShoppingBag, Smartphone, Sun, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -20,8 +20,10 @@ interface NavItem { href: string; label: string; icon: LucideIcon; live: boolean
 const PRIMARY: NavItem[] = [
   { href: '/home', label: 'Home', icon: Home, live: true },
   { href: '/create', label: 'Create', icon: Plus, live: true },
+  { href: '/ideas', label: 'Idea check', icon: Lightbulb, live: true },
   { href: '/projects', label: 'Projects', icon: FolderKanban, live: true },
 ];
+const IDEAS = PRIMARY.find((p) => p.href === '/ideas')!;
 const STUDIOS: NavItem[] = [
   { href: '/studio/app', label: 'App Studio', icon: Smartphone, live: true },
   { href: '/studio/website', label: 'Website Studio', icon: Globe, live: true },
@@ -188,19 +190,19 @@ function MobileTabs({ path, owner, onCreate }: { path: string; owner: boolean; o
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="Main">
         <div className="flex h-16 items-stretch">
           {tab('/home', 'Home', Home, isActive(PRIMARY[0]!, path))}
-          {tab('/projects', 'Projects', FolderKanban, isActive(PRIMARY[2]!, path))}
+          {tab('/projects', 'Projects', FolderKanban, isActive(PRIMARY.find((p) => p.href === '/projects')!, path))}
           <div className="flex flex-1 items-center justify-center">
             <button onClick={onCreate} aria-label="Create project" className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-fg shadow-[var(--shadow-lg)] active:scale-95"><Plus className="size-6" /></button>
           </div>
           <button onClick={() => setSheet('studios')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', studiosActive ? 'text-fg' : 'text-subtle')}><LayoutGrid className="size-[22px]" strokeWidth={studiosActive ? 2.2 : 1.8} />Studios</button>
-          <button onClick={() => setSheet('more')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', [...COMMUNITY, TEAM, ...ACCOUNT].some((a) => isActive(a, path)) || path.startsWith('/admin') ? 'text-fg' : 'text-subtle')}><Settings className="size-[22px]" strokeWidth={1.8} />More</button>
+          <button onClick={() => setSheet('more')} className={cx('flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium', [IDEAS, ...COMMUNITY, TEAM, ...ACCOUNT].some((a) => isActive(a, path)) || path.startsWith('/admin') ? 'text-fg' : 'text-subtle')}><Settings className="size-[22px]" strokeWidth={1.8} />More</button>
         </div>
       </nav>
       <Drawer open={sheet === 'studios'} onOpenChange={(o) => !o && setSheet(null)} title="Studios" side="bottom">
         <div className="space-y-1">{[...STUDIOS, ...PLATFORM].map(sheetLink)}</div>
       </Drawer>
       <Drawer open={sheet === 'more'} onOpenChange={(o) => !o && setSheet(null)} title="Account" side="bottom">
-        <div className="space-y-1">{[...COMMUNITY, ...(teams ? [TEAM] : []), ...ACCOUNT, ...(owner ? [OWNER] : [])].map(sheetLink)}</div>
+        <div className="space-y-1">{[IDEAS, ...COMMUNITY, ...(teams ? [TEAM] : []), ...ACCOUNT, ...(owner ? [OWNER] : [])].map(sheetLink)}</div>
         <MobileThemeRow />
       </Drawer>
     </>
