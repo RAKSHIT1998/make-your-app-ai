@@ -84,7 +84,7 @@ Respond with a single JSON object. No prose, no markdown fences.`;
               if (bal < worst) throw new BudgetExceededError(`Not enough credits (balance ${bal}).`);
             },
             onUsage: async (u) => {
-              const credits = this.credits.creditsForCost(u.costMicros);
+              const credits = this.credits.creditsForCost(u.chargeMicros);
               charged += credits;
               await this.prisma.$transaction(async (tx) => {
                 const usage = await tx.aiUsage.create({ data: { organizationId, provider: u.provider, model: u.model, agent: 'architect', inputTokens: u.inputTokens, outputTokens: u.outputTokens, costMicros: BigInt(u.costMicros), creditsCharged: credits, latencyMs: u.latencyMs, success: u.success } });

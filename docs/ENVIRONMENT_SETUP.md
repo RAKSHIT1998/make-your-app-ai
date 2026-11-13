@@ -11,6 +11,7 @@ Copy `.env.example` to `.env`. **Never commit `.env`.** Values marked *secret* m
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_URL` | mobile | yes | Sign-in, API |
 | `NEXT_PUBLIC_API_URL` | web | yes | API base (the `/api/v1` suffix is added by the client) |
 | `ANTHROPIC_API_KEY` *secret* | api | for generation | AI provider |
+| `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CUSTOM_AI_*` *secret* | api | optional | Extra routes for smart routing (see Owner console → AI routing) |
 | `ENCRYPTION_KEY` *secret* | api | for merchant payments | `openssl rand -base64 32`. Encrypts stored integration credentials |
 | `PLATFORM_OWNER_EMAILS` | api | yes | Comma list, promoted to superadmin on sign-in |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` *secret*, `RAZORPAY_WEBHOOK_SECRET` *secret* | api | for INR billing | Platform's own Razorpay account (Subscriptions enabled). Webhook URL: `/api/v1/webhooks/billing/razorpay` |

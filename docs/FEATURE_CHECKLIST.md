@@ -135,11 +135,13 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Per-project limits, concurrency limits | 🟡 | One active run per project enforced; per-project budget not yet |
 | Usage alerts, admin credit pricing | 🟡 / ✅ | Credit packs configurable; alerts not yet |
 | Unlimited usage never promised | ✅ | |
+| Multi-provider AI routing with free/cheap routes, customer billed at the standard tier rate, margin-first selection, quality floors, daily caps, circuit breaker, per-route margin | ✅ | Owner console → AI routing. Needs provider keys + route data from you; adapter not yet run against live providers |
 
 ## §14 Owner admin
 | Item | Status |
 |---|---|
 | Users, MRR/ARR, revenue, AI cost, margin, subscriptions, plans, credits, audit log, moderation, referrals | ✅ |
+| AI routing console (tier rates, routes, health, margin; audited) | ✅ |
 | Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments), enforced by the API (503 `feature_disabled`), audited, owner console tab |
 | Churn, conversion, ARPU, model distribution, cost per project, completion time, deployment rate, template approvals, fraud signals, system health | 🟡 partial / ⬜ |
 

@@ -9,6 +9,20 @@ const EnvSchema = z
     SUPABASE_JWT_SECRET: z.string().min(16).optional(),
     WEB_ORIGIN: z.string().default('http://localhost:3000'),
     ANTHROPIC_API_KEY: z.string().optional(),
+    /** Extra model providers (OpenAI-compatible APIs). Each is used only if its key is set; add routes in Owner console -> AI routing. */
+    OPENAI_API_KEY: z.string().optional(),
+    GROQ_API_KEY: z.string().optional(),
+    OPENROUTER_API_KEY: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
+    DEEPSEEK_API_KEY: z.string().optional(),
+    MISTRAL_API_KEY: z.string().optional(),
+    TOGETHER_API_KEY: z.string().optional(),
+    /** Any other OpenAI-compatible endpoint, such as a self-hosted Ollama or vLLM. */
+    CUSTOM_AI_NAME: z.string().regex(/^[a-z0-9_-]{2,30}$/).optional(),
+    CUSTOM_AI_BASE_URL: z.url().optional(),
+    CUSTOM_AI_API_KEY: z.string().optional(),
+    /** margin = cheapest reliable route that meets the tier's quality floor; priority = admin order only. */
+    AI_ROUTING_STRATEGY: z.enum(['margin', 'priority']).default('margin'),
     /** Persistent directory holding one git repository per project. */
     STORAGE_DIR: z.string().default('./.data/projects'),
     SANDBOX_PROVIDER: z.enum(['local', 'docker', 'none']).default('local'),

@@ -4,3 +4,4 @@ export * from './anthropic.js';
 export * from './catalog.js';
 export * from './json.js';
 export * from './fake.js';
+export * from './openai-compatible.js';

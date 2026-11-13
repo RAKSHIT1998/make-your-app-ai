@@ -580,10 +580,23 @@ model AiProviderConfig {
   inputCostPerMTokMicros  Int // USD micros per million input tokens
   outputCostPerMTokMicros Int
   capabilities            Json     @default("{}") // { structuredOutput: true, tools: true, maxOutput: 32000 }
+  /// 0-100. A tier only routes to models at or above its minimum quality.
+  quality                 Int      @default(100)
+  /// Provider free-tier / spend caps per UTC day; the router stops using a route that reaches them.
+  dailyRequestLimit       Int?
+  dailyTokenLimit         Int?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
   @@unique([provider, model])
+}
+
+/// What customers are charged per million tokens for each tier, whichever model serves the request.
+model AiTierRate {
+  tier                    String   @id // fast | balanced | deep
+  inputCostPerMTokMicros  Int
+  outputCostPerMTokMicros Int
+  updatedAt               DateTime @updatedAt
 }
 
 model AiUsage {

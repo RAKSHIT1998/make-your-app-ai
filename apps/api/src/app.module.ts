@@ -23,6 +23,7 @@ import { configureRateLimits } from './common/rate-limits.js';
 import { BillingService, billingProvidersFactory } from './billing/billing.service.js';
 import { BillingController, BillingWebhooksController } from './billing/billing.controllers.js';
 import { AdminService } from './admin/admin.service.js';
+import { AiRoutingService } from './admin/ai-routing.service.js';
 import { AdminController } from './admin/admin.controller.js';
 import { CommunityService } from './growth/community.service.js';
 import { TeamsService } from './teams/teams.service.js';
@@ -76,6 +77,7 @@ export class AppModule {
         billingProvidersFactory,
         BillingService,
         AdminService,
+        AiRoutingService,
         FlagsService,
         RetentionService,
         hostingProviderFactory,

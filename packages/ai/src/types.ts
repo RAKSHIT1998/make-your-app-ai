@@ -43,6 +43,25 @@ export interface ModelRoute {
   inputCostPerMTokMicros: number;
   outputCostPerMTokMicros: number;
   enabled: boolean;
+  /** 0-100. Admin-set quality prior; a tier only uses routes at or above its minimum quality. Defaults to 100. */
+  quality?: number;
+  /** Provider free-tier / spend caps per UTC day. The router stops using a route that has reached them. */
+  dailyRequestLimit?: number | null;
+  dailyTokenLimit?: number | null;
+}
+
+/** What the customer is charged per million tokens for a tier, independent of which model actually served it. */
+export interface TierRate {
+  inputCostPerMTokMicros: number;
+  outputCostPerMTokMicros: number;
+}
+
+/** Rolling usage for one route, read from the metering table so every API instance sees the same picture. */
+export interface RouteWindowStats {
+  requests24h: number;
+  successes24h: number;
+  requestsToday: number;
+  tokensToday: number;
 }
 
 export class ProviderError extends Error {

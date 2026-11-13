@@ -182,7 +182,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
     const orgId = project.organizationId;
 
     const onUsage = async (u: UsageRecord) => {
-      const credits = this.credits.creditsForCost(u.costMicros);
+      const credits = this.credits.creditsForCost(u.chargeMicros);
       runCredits += credits;
       await this.prisma.$transaction(async (tx) => {
         const usage = await tx.aiUsage.create({

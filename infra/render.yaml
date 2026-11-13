@@ -24,6 +24,9 @@ services:
       - { key: SUPABASE_JWT_SECRET, sync: false }
       - { key: ENCRYPTION_KEY, sync: false }
       - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: GROQ_API_KEY, sync: false }
+      - { key: GEMINI_API_KEY, sync: false }
+      - { key: OPENROUTER_API_KEY, sync: false }
       - { key: PLATFORM_OWNER_EMAILS, sync: false }
       - { key: WEB_ORIGIN, sync: false }
       - { key: WEB_APP_URL, sync: false }

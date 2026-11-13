@@ -48,6 +48,7 @@ export async function runAgent<T>(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const taskId = await ctx.reporter.taskStarted(args.agent, { tier: args.tier, chars: args.content.length }, attempt);
     let raw = '';
+    let served: { provider: string; model: string } | null = null;
     try {
       const res = await ctx.router.complete(
         { system, messages, maxOutputTokens: args.maxOutputTokens, jsonSchema },
@@ -62,8 +63,10 @@ export async function runAgent<T>(
         },
       );
       raw = res.text;
+      served = { provider: res.provider, model: res.routeModel };
       if (res.stopReason === 'max_tokens') throw new AgentOutputError(args.agent, 'response was cut off at the output token limit');
       const parsed = args.schema.safeParse(extractJson(raw));
+      ctx.router.reportOutput(res.provider, res.routeModel, parsed.success);
       if (parsed.success) {
         await ctx.reporter.taskFinished(taskId, true, parsed.data);
         return parsed.data;
@@ -75,6 +78,7 @@ export async function runAgent<T>(
       const msg = e instanceof Error ? e.message : String(e);
       await ctx.reporter.taskFinished(taskId, false, msg);
       if (!(e instanceof SyntaxError)) throw e;
+      if (served) ctx.router.reportOutput(served.provider, served.model, false);
       messages.push({ role: 'assistant', content: raw.slice(0, 20_000) || '(empty)' }, { role: 'user', content: 'That was not valid JSON. Return only the JSON object.' });
     }
   }

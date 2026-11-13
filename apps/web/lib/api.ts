@@ -159,7 +159,16 @@ export const admin = {
   setStatus: (id: string, suspend: boolean, reason: string) => apiFetch<unknown>(`/admin/users/${id}/${suspend ? 'suspend' : 'restore'}`, { method: 'POST', body: JSON.stringify({ reason }) }),
   credits: (orgId: string, amount: number, reason: string) => apiFetch<unknown>(`/admin/organizations/${orgId}/credits`, { method: 'POST', body: JSON.stringify({ amount, reason, bucket: 'purchased', idempotencyKey: crypto.randomUUID() }) }),
   audit: () => apiFetch<{ id: string; action: string; actor: string | null; targetType: string | null; createdAt: string }[]>('/admin/audit-log?limit=50'),
+  aiRouting: () => apiFetch<AiRouting>('/admin/ai/routing'),
+  saveRoute: (b: AiRouteInput) => apiFetch<AiRouting>('/admin/ai/routes', { method: 'PUT', body: JSON.stringify(b) }),
+  deleteRoute: (id: string) => apiFetch<AiRouting>(`/admin/ai/routes/${id}`, { method: 'DELETE' }),
+  setTierRate: (tier: AiTier, b: { inputCostPerMTokMicros: number; outputCostPerMTokMicros: number }) => apiFetch<AiRouting>(`/admin/ai/tier-rates/${tier}`, { method: 'PUT', body: JSON.stringify(b) }),
 };
+
+export type AiTier = 'fast' | 'balanced' | 'deep';
+export interface AiRouteInput { provider: string; model: string; tier: AiTier; priority: number; enabled: boolean; inputCostPerMTokMicros: number; outputCostPerMTokMicros: number; quality: number; dailyRequestLimit: number | null; dailyTokenLimit: number | null }
+export interface AiRoute extends AiRouteInput { id: string; providerConfigured: boolean; circuitOpenUntil: string | null; validity: number; requests24h: number; successes24h: number; requestsToday: number; tokensToday: number; costUsd24h: number; revenueUsd24h: number; marginUsd24h: number }
+export interface AiRouting { strategy: 'margin' | 'priority'; creditsPerUsd: number; providers: { name: string; configured: boolean }[]; tierRates: { tier: AiTier; inputCostPerMTokMicros: number; outputCostPerMTokMicros: number }[]; routes: AiRoute[]; totals: { costUsd24h: number; revenueUsd24h: number; marginUsd24h: number } }
 
 // ───────── Growth: showcase, remix, referrals ─────────
 
