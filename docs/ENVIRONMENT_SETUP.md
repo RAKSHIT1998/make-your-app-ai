@@ -10,7 +10,7 @@ Copy `.env.example` to `.env`. **Never commit `.env`.** Values marked *secret* m
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web | yes | Sign-in |
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_URL` | mobile | yes | Sign-in, API |
 | `NEXT_PUBLIC_API_URL` | web | yes | API base (the `/api/v1` suffix is added by the client) |
-| `ANTHROPIC_API_KEY` *secret* | api | for generation | AI provider. Create it at console.anthropic.com → API Keys (starts with `sk-ant-api`; needs API credit, separate from a Claude subscription). A Claude account sign-in token (`sk-ant-usr…`, `sk-ant-oat…`) is refused at startup |
+| `ANTHROPIC_API_KEY` *secret* | api | for generation | AI provider |
 | `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CEREBRAS_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CUSTOM_AI_*` *secret* | api | optional | Extra routes for smart routing (see Owner console → AI routing) |
 | `WEATHER_CONTACT` | api | optional | Real email or website identifying us to MET Norway for the free weather service. Without it, `WEB_APP_URL` is used if it is a public https address; otherwise weather says it isn't set up |
 | `ENCRYPTION_KEY` *secret* | api | for merchant payments | `openssl rand -base64 32`. Encrypts stored integration credentials |

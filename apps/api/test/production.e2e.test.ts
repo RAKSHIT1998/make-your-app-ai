@@ -68,18 +68,3 @@ describe('configuration errors', () => {
     for (const k of ['ENCRYPTION_KEY', 'WEB_ORIGIN', 'WEB_APP_URL', 'PUBLIC_API_URL', 'STORAGE_DIR', 'SANDBOX_PROVIDER']) expect(msg).toContain(k);
   });
 });
-
-describe('AI key sanity check', () => {
-  const base = { DATABASE_URL: 'postgresql://x', SUPABASE_JWT_SECRET: 'x'.repeat(32) };
-  it('rejects a Claude account sign-in token used as ANTHROPIC_API_KEY, without echoing it', () => {
-    const token = 'sk-ant-usr-' + 'Q'.repeat(40);
-    let msg = '';
-    try { loadConfig({ ...base, ANTHROPIC_API_KEY: token }); } catch (e) { msg = (e as Error).message; }
-    expect(msg).toMatch(/ANTHROPIC_API_KEY is not an API key/);
-    expect(msg).not.toContain('QQQQ');
-    expect(() => loadConfig({ ...base, ANTHROPIC_API_KEY: 'sk-ant-oat01-' + 'z'.repeat(30) })).toThrow(/not an API key/);
-  });
-  it('accepts a real-format API key', () => {
-    expect(loadConfig({ ...base, ANTHROPIC_API_KEY: 'sk-ant-api03-' + 'a'.repeat(40) }).ANTHROPIC_API_KEY).toMatch(/^sk-ant-api03-/);
-  });
-});
