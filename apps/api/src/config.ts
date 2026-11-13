@@ -92,6 +92,9 @@ const EnvSchema = z
     const bad = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
     const prod = e.NODE_ENV === 'production';
     if (!e.SUPABASE_URL && !e.SUPABASE_JWT_SECRET) bad('SUPABASE_URL', 'Set SUPABASE_URL (JWKS verification) and/or SUPABASE_JWT_SECRET (legacy HS256).');
+    // Common mix-up: a Claude account sign-in token (sk-ant-usr…, sk-ant-oat…) is not an API key and must never be used as one.
+    const ak = e.ANTHROPIC_API_KEY?.trim();
+    if (ak && (/^sk-ant-(usr|oat|sid|ort)/.test(ak) || (ak.startsWith('sk-ant-') && !ak.startsWith('sk-ant-api')))) bad('ANTHROPIC_API_KEY', 'ANTHROPIC_API_KEY is not an API key (it looks like a Claude account sign-in token). Create one at console.anthropic.com -> API Keys; it starts with sk-ant-api.');
     if (e.HOSTING_PROVIDER === 'vercel' && !e.VERCEL_TOKEN) bad('VERCEL_TOKEN', 'HOSTING_PROVIDER=vercel needs VERCEL_TOKEN.');
     if (prod && e.HOSTING_PROVIDER === 'fake') bad('HOSTING_PROVIDER', 'HOSTING_PROVIDER=fake is for development only.');
     if (prod && e.SANDBOX_PROVIDER === 'local') bad('SANDBOX_PROVIDER', 'SANDBOX_PROVIDER=local is development-only; use docker (or a managed sandbox) in production.');
