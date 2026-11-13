@@ -1,6 +1,6 @@
 # Development Status
 
-_Last updated: 2026-11-13, session 9 (launch readiness). Launch steps: **LAUNCH_CHECKLIST.md**, operations: **RUNBOOK.md**, deploy: **DEPLOYMENT.md**. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
+_Last updated: 2026-11-13, session 10 (gaps closed). Launch steps: **LAUNCH_CHECKLIST.md**, operations: **RUNBOOK.md**, deploy: **DEPLOYMENT.md**. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
 _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue from "Next tasks"._
 
 ## Current phase
@@ -23,7 +23,7 @@ _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue f
 | New read-only endpoints backing the redesign: `GET /activity`, `GET /generations/estimate`, `GET /billing/usage`, `GET /stores/:id/customers?q=` | 2 new API e2e tests (incl. tenant isolation) |
 | Earlier sessions: AI engine + website generation, commerce engine + merchant dashboard, web and mobile apps | see git history; all tests green |
 
-**Test totals (this run):** api 78, hosting 2, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 31/31. `pnpm audit --prod`: 1 moderate (minimatch inside Expo's build tooling), 0 high. Mobile typecheck OK. `next build` OK. **0 failing.**
+**Test totals (this run):** api 105, hosting 2, codegen 19, ai 10, agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 31/31. `pnpm audit --prod`: 1 moderate (minimatch inside Expo's build tooling), 0 high. Mobile typecheck OK. `next build` OK. **0 failing.**
 
 ## In progress
 None. The session ended at a clean commit.
@@ -51,7 +51,6 @@ None.
 - Commerce: no storefront generator, customer accounts, wishlist, reviews, returns or PayPal.
 - Mobile app has no billing or owner screens yet (web only). It compiles against the new tokens (brand aliases) but has not been visually redesigned.
 - Redesign items shown as **"soon"** because no backend exists yet (never faked): workspace Preview, Database, Integrations, Testing and Builds tabs; the Website Studio visual editor (canvas, component tree, properties, undo/redo, publish); Hosting and Templates; Marketing in Business Studio; app build credits and hosting usage in Billing; App Studio generation. File attachment on Create is omitted (no upload API).
-- Archiving a project can't be undone from the UI yet (API has no unarchive).
 - Growth: no live previews/screenshots on public pages (needs hosting); the "Made with" badge is shown on public pages but can't be injected into deployed sites until hosting exists; trending is computed per request (fine at current scale; cache it when Explore grows).
 - Growth spec received only up to §3F; challenges, voting and badges remain phase G2 (comments, follows, collections are done).
 

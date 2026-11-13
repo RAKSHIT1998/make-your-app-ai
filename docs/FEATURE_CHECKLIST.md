@@ -1,6 +1,6 @@
 # Feature Implementation Checklist — "Viral AI Software-Building Ecosystem" spec
 
-_Audit date: 2026-11-13 (session 7). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
+_Audit date: 2026-11-13 (sessions 7–10). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
 Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 partial · ⛔ blocked (needs credentials/infrastructure) · ⬜ not started
 
 ## Architecture audit (spec §1)
@@ -15,7 +15,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Codegen | Git-backed project store, patch validation, static checks, approvals for destructive changes |
 | Sandbox | Provider interface with Docker + local implementations; never runs inside the API process |
 | Hosting/deploy | `@mya/hosting` provider adapters (Vercel implemented, fake for dev); deployments, rollback, env vars, domains (session 8) |
-| Known limitations | Generation runs in-process (needs Inngest/Redis for multi-instance); no live preview; only website/business_website generation |
+| Known limitations | Generation executes in the accepting instance (lease-based recovery; shared rate limits via Postgres); no live preview; only website/business_website generation |
 
 ## §2 Viral growth engine
 | Item | Status | Notes |
@@ -60,7 +60,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Item | Status | Notes |
 |---|---|---|
 | Trending, new, popular, by type, featured | ✅ | Sorts + type/category filters |
-| Popular this week as a named section; creator collections | 🟡 / ⬜ | Trending = 7-day window; collections not started |
+| Popular this week as a named section; creator collections | 🟡 / ✅ | Trending = 7-day window; public collections done |
 | Template gallery: submit published project → owner approval → listed; search, category, popular/new/featured; use (clone) without exposing later edits | ✅ (session 8) | Frozen to the published version; secrets stripped; owner review queue |
 | Paid templates, reviews/ratings, purchase flow, creator earnings, commission, refunds | ⬜ | Needs creator payouts (Razorpay Route / Stripe Connect) |
 
@@ -138,7 +138,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Item | Status |
 |---|---|
 | Users, MRR/ARR, revenue, AI cost, margin, subscriptions, plans, credits, audit log, moderation, referrals | ✅ |
-| Feature flags (kill switches) | ✅ (this session) | 7 platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals), enforced by the API (503 `feature_disabled`), audited, owner console tab |
+| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments), enforced by the API (503 `feature_disabled`), audited, owner console tab |
 | Churn, conversion, ARPU, model distribution, cost per project, completion time, deployment rate, template approvals, fraud signals, system health | 🟡 partial / ⬜ |
 
 ## §15 Onboarding
@@ -163,7 +163,7 @@ Design system v2 ✅ · AI adapters ✅ · sandbox isolation ✅ (no generated c
 | Stripe price ids in Owner console | ✅ | Razorpay plans auto-created |
 | Mobile store prep (icons, app.json 1.0.0, eas.json) | ✅ | Needs `eas init` + store accounts |
 | Launch checklist, runbook, deployment guide | ✅ | docs/ |
-| Error tracking (Sentry), platform refund sync | ⬜ | post-launch |
+| Error tracking (Sentry) | ⬜ | post-launch (platform refund sync is done) |
 
 ## Credentials / infrastructure still needed
 Anthropic key (live AI) · Supabase project · live Razorpay + Stripe keys · Docker host for sandbox · hosting provider (Vercel/Cloudflare/Render) · Cloudflare R2 (uploads/screenshots) · Expo EAS token · Inngest + Upstash Redis · Sentry.
