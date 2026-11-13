@@ -13,10 +13,10 @@ services:
     region: singapore
     numInstances: 1
     healthCheckPath: /api/v1/health
-    # Free services have no pre-deploy step, so migrations run at start-up.
-    dockerCommand: sh -c "cd /migrate && npx prisma migrate deploy && cd /app && exec node dist/main.js"
+    dockerCommand: sh /app/start.sh
     envVars:
       - { key: NODE_ENV, value: production }
+      - { key: RUN_MIGRATIONS_ON_START, value: "true" } # free services have no pre-deploy step
       - { key: NODE_OPTIONS, value: --max-old-space-size=384 }
       - { key: TRUST_PROXY, value: "1" }
       - { key: STORAGE_DIR, value: /tmp/projects }
