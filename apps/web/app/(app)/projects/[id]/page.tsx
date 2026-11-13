@@ -65,7 +65,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
       for (const k of ['project', 'files', 'versions', 'approvals', 'file']) void qc.invalidateQueries({ queryKey: [k, id] });
       for (const k of ['credits', 'billing', 'activity', 'projects', 'estimate', 'achievements', 'timeline']) void qc.invalidateQueries({ queryKey: [k] });
       const last = runs.data?.[0];
-      if (last?.status === 'succeeded' && last.kind === 'plan') toast.success('Your plan is ready — review it in the chat', { id: `run-${id}` });
+      if (last?.kind === 'ask') { /* the answer is in the chat */ }
+      else if (last?.status === 'succeeded' && last.kind === 'plan') toast.success('Your plan is ready — review it in the chat', { id: `run-${id}` });
       else if (last?.status === 'succeeded') toast.success('Changes saved as a new version', { id: `run-${id}` });
       else if (last?.status === 'failed') toast.error('The AI run failed — details are in the chat', { id: `run-${id}` });
       else if (last?.status === 'awaiting_approval') toast.warning('A change needs your approval', { id: `run-${id}` });
@@ -313,18 +314,19 @@ function RunLog({ run }: { run: Run }) {
 function Chat({ projectId, runs, activeRun, hasFiles }: { projectId: string; runs?: Run[]; activeRun?: Run; hasFiles: boolean }) {
   const qc = useQueryClient();
   const [prompt, setPrompt] = useState('');
+  const [mode, setMode] = useState<'build' | 'ask'>('build');
   const scroller = useRef<HTMLDivElement>(null);
-  const latestPlan = !hasFiles ? runs?.find((r) => r.kind === 'plan' && r.status === 'succeeded' && r.plan) : undefined;
+  const latestPlan = !hasFiles ? (runs?.find((r) => r.kind === 'plan' && r.status === 'succeeded' && r.plan && 'spec' in r.plan) as (Run & { plan: PlanDraft }) | undefined) : undefined;
   const send = useMutation({
     // Before any code exists, a message after a plan revises the plan; otherwise it builds or edits.
-    mutationFn: () => latestPlan ? api.generate(projectId, `${latestPlan.prompt}\n\nChanges to the plan: ${prompt.trim()}`.slice(0, 8000), { mode: 'plan' }) : api.generate(projectId, prompt.trim()),
+    mutationFn: () => mode === 'ask' ? api.generate(projectId, prompt.trim(), { mode: 'ask' }) : latestPlan ? api.generate(projectId, `${latestPlan.prompt}\n\nChanges to the plan: ${prompt.trim()}`.slice(0, 8000), { mode: 'plan' }) : api.generate(projectId, prompt.trim()),
     onSuccess: () => { setPrompt(''); void qc.invalidateQueries({ queryKey: ['runs', projectId] }); },
     onError: (e) => toast.error(e instanceof ApiError && e.status === 402 ? `${e.message} — see Billing to top up or upgrade.` : (e as Error).message),
   });
   const ordered = useMemo(() => [...(runs ?? [])].reverse(), [runs]);
   useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' }); }, [ordered.length]);
   const canSend = !activeRun && prompt.trim().length >= 3 && !send.isPending;
-  const hasVersion = hasFiles || runs?.some((r) => r.status === 'succeeded' && r.kind !== 'plan');
+  const hasVersion = hasFiles || runs?.some((r) => r.status === 'succeeded' && r.kind !== 'plan' && r.kind !== 'ask');
 
   return (
     <section className="flex h-full flex-col bg-bg" aria-label="AI chat">
@@ -333,7 +335,7 @@ function Chat({ projectId, runs, activeRun, hasFiles }: { projectId: string; run
           hasVersion
             ? <EmptyState icon={<MessageSquare className="size-5" />} title="Your project is ready to edit" body="Ask for changes in plain language — “Change the hero to our own headline”, “Add a contact page”. Each change is saved as a new version." />
             : <EmptyState icon={<MessageSquare className="size-5" />} title="Describe what to build" body="Your first message generates the project. After that, ask for changes in plain language." />
-        ) : ordered.map((r) => <RunTurn key={r.id} run={r} live={r.id === activeRun?.id} actionable={r.id === latestPlan?.id && !activeRun} />)}
+        ) : ordered.map((r) => <RunTurn key={r.id} run={r} live={r.id === activeRun?.id} actionable={r.id === latestPlan?.id && !activeRun} onUse={(t) => { setMode('build'); setPrompt(t); }} />)}
         <Approvals projectId={projectId} />
       </div>
       <form className="shrink-0 border-t border-border bg-bg p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onSubmit={(e) => { e.preventDefault(); if (canSend) send.mutate(); }}>
@@ -345,12 +347,19 @@ function Chat({ projectId, runs, activeRun, hasFiles }: { projectId: string; run
             rows={2}
             disabled={!!activeRun}
             aria-label="Message the AI"
-            placeholder={activeRun ? 'AI is working on your last request…' : hasVersion ? 'Ask for a change — "Make the hero more premium"' : latestPlan ? 'Suggest changes to the plan…' : 'Describe your project'}
+            placeholder={activeRun ? 'AI is working on your last request…' : mode === 'ask' ? 'Ask anything about this project. Nothing will be changed.' : hasVersion ? 'Ask for a change — "Make the hero more premium"' : latestPlan ? 'Suggest changes to the plan…' : 'Describe your project'}
             className="block w-full resize-none bg-transparent px-3.5 pt-3 text-sm outline-none placeholder:text-subtle disabled:opacity-60"
           />
           <div className="flex items-center gap-2 px-2.5 pb-2.5">
+            <div role="radiogroup" aria-label="Message type" className="flex shrink-0 rounded-[var(--radius-md)] bg-surface-muted p-0.5 text-xs font-medium">
+              {(['build', 'ask'] as const).map((m) => (
+                <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={cx('rounded-[calc(var(--radius-md)-2px)] px-2.5 py-1 transition-colors', mode === m ? 'bg-surface text-fg shadow-sm' : 'text-muted hover:text-fg')}>
+                  {m === 'build' ? (hasVersion ? 'Change' : 'Build') : 'Ask'}
+                </button>
+              ))}
+            </div>
             <VoiceButton size="xs" onText={(t) => setPrompt((v) => (v.trim() ? `${v.trimEnd()} ${t}` : t))} />
-            <span className="hidden text-xs text-subtle sm:inline"><Kbd>↵</Kbd> send · <Kbd>⇧↵</Kbd> new line</span>
+            <span className="hidden min-w-0 truncate text-xs text-subtle sm:inline">{mode === 'ask' ? 'Answers only. No code is changed.' : <><Kbd>↵</Kbd> send · <Kbd>⇧↵</Kbd> new line</>}</span>
             <Button type="submit" size="sm" iconOnly className="ml-auto" disabled={!canSend} loading={send.isPending} aria-label="Send"><ArrowUp className="size-4" /></Button>
           </div>
         </div>
@@ -387,9 +396,42 @@ function summarize(events: RunEvent[]) {
   };
 }
 
-function RunTurn({ run, live, actionable = false }: { run: Run; live: boolean; actionable?: boolean }) {
+function Refunded({ run }: { run: Run }) {
+  if (!run.creditsRefunded) return null;
+  return <p className="mt-3 flex items-start gap-1.5 rounded-[var(--radius-md)] bg-success-soft px-3 py-2 text-[13px] text-fg"><Check className="mt-0.5 size-3.5 shrink-0 text-success" />This run failed, so its {run.creditsRefunded} credit{run.creditsRefunded === 1 ? '' : 's'} went back to your balance.</p>;
+}
+
+function AskTurn({ run, live, onUse }: { run: Run; live: boolean; onUse?: (prompt: string) => void }) {
+  const suggested = run.plan && 'suggestedPrompt' in run.plan ? run.plan.suggestedPrompt : null;
+  return (
+    <div className="animate-fade-in space-y-2.5">
+      <div className="ml-auto w-fit max-w-[88%] whitespace-pre-wrap break-words rounded-[var(--radius-lg)] rounded-br-[4px] bg-primary px-3.5 py-2.5 text-sm text-primary-fg shadow-sm">{run.prompt}</div>
+      <div className="rounded-[var(--radius-lg)] border border-border bg-surface p-3.5 shadow-sm">
+        <div className="flex items-start gap-2">
+          <span className="mt-0.5 shrink-0">{live ? <Loader2 className="size-4 animate-spin text-accent" /> : run.status === 'failed' ? <X className="size-4 text-danger" /> : <MessageSquare className="size-4 text-muted" />}</span>
+          <span className="min-w-0 flex-1 text-sm font-medium">{live ? 'Reading your project…' : run.status === 'failed' ? 'Couldn’t answer that' : 'Answer'}</span>
+          {run.creditsUsed > 0 && <span className="shrink-0 text-xs tabular-nums text-subtle">{run.creditsUsed} credit{run.creditsUsed === 1 ? '' : 's'}</span>}
+        </div>
+        {run.answer && <p className="mt-2.5 whitespace-pre-wrap break-words text-sm text-fg">{run.answer}</p>}
+        {run.answer && <p className="mt-2 text-xs text-subtle">No code was changed.</p>}
+        {suggested && onUse && (
+          <div className="mt-3 rounded-[var(--radius-md)] bg-surface-muted/70 p-3">
+            <p className="text-xs font-medium text-muted">Suggested change</p>
+            <p className="mt-1 break-words text-[13px]">{suggested}</p>
+            <Button size="sm" variant="secondary" className="mt-2.5" onClick={() => onUse(suggested)}>Use this request</Button>
+          </div>
+        )}
+        {run.error && <p className="mt-3 whitespace-pre-wrap break-words text-[13px] text-danger">{run.error}</p>}
+        <Refunded run={run} />
+      </div>
+    </div>
+  );
+}
+
+function RunTurn({ run, live, actionable = false, onUse }: { run: Run; live: boolean; actionable?: boolean; onUse?: (prompt: string) => void }) {
   const events = useRunEvents(run.id, live);
-  if (run.kind === 'plan' && run.plan && !live) return <PlanTurn run={run} plan={run.plan} actionable={actionable} />;
+  if (run.kind === 'ask') return <AskTurn run={run} live={live} {...(onUse ? { onUse } : {})} />;
+  if (run.kind === 'plan' && run.plan && 'spec' in run.plan && !live) return <PlanTurn run={run} plan={run.plan} actionable={actionable} />;
   const s = summarize(events);
   const changed = s.changes.created.length + s.changes.updated.length + s.changes.deleted.length;
   const headline = live ? (s.steps.at(-1)?.message ?? 'Starting…') : run.status === 'succeeded' ? (s.summary ?? 'Done') : run.status === 'awaiting_approval' ? 'Waiting for your approval' : run.status === 'failed' ? 'This run failed' : 'Queued';
@@ -400,7 +442,7 @@ function RunTurn({ run, live, actionable = false }: { run: Run; live: boolean; a
         <div className="flex items-start gap-2">
           <span className="mt-0.5 shrink-0">{live ? <Loader2 className="size-4 animate-spin text-accent" /> : run.status === 'succeeded' ? <Check className="size-4 text-success" /> : run.status === 'awaiting_approval' ? <AlertTriangle className="size-4 text-warning" /> : run.status === 'failed' ? <X className="size-4 text-danger" /> : <CircleDashed className="size-4 text-subtle" />}</span>
           <span className="min-w-0 flex-1 text-sm font-medium">{headline}</span>
-          {run.creditsUsed > 0 && <span className="shrink-0 text-xs tabular-nums text-subtle">{run.creditsUsed} credits</span>}
+          {run.creditsUsed > 0 && <span className="shrink-0 text-xs tabular-nums text-subtle">{run.creditsRefunded ? <><s>{run.creditsUsed}</s> 0 credits</> : `${run.creditsUsed} credits`}</span>}
         </div>
 
         {s.steps.length > 0 && (
@@ -434,6 +476,7 @@ function RunTurn({ run, live, actionable = false }: { run: Run; live: boolean; a
           </div>
         )}
         {run.error && <p className="mt-3 whitespace-pre-wrap break-words text-[13px] text-danger">{run.error}</p>}
+        <Refunded run={run} />
       </div>
     </div>
   );

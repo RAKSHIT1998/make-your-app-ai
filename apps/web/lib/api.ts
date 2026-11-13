@@ -46,7 +46,7 @@ export interface PlanDraft {
   questions: { id: string; question: string; why: string }[];
   assumptions: string[];
 }
-export interface Run { id: string; projectId: string; kind: 'create' | 'edit' | 'repair' | 'plan'; status: RunStatus; prompt: string; error: string | null; creditsUsed: number; createdAt: string; finishedAt: string | null; plan?: PlanDraft | null; fromPlanId?: string | null }
+export interface Run { id: string; projectId: string; kind: 'create' | 'edit' | 'repair' | 'plan' | 'ask'; status: RunStatus; prompt: string; error: string | null; creditsUsed: number; creditsRefunded?: number; answer?: string | null; createdAt: string; finishedAt: string | null; plan?: PlanDraft | { suggestedPrompt: string } | null; fromPlanId?: string | null }
 export interface RunEvent { id: string; type: string; agent: string | null; message: string; data?: Record<string, unknown>; createdAt: string }
 export interface Version { id: string; number: number; commitSha: string; message: string; createdAt: string; isHead: boolean }
 export interface Approval { id: string; action: string; status: string; summary: string; createdAt: string; expiresAt: string }
@@ -68,7 +68,7 @@ export const api = {
   project: (id: string) => apiFetch<ProjectDto>(`/projects/${id}`),
   createProject: (input: Omit<CreateProjectInput, 'description'> & { description?: string; type: ProjectType }) => apiFetch<ProjectDto>('/projects', { method: 'POST', body: JSON.stringify(input) }),
   deleteProject: (id: string) => apiFetch<void>(`/projects/${id}`, { method: 'DELETE' }),
-  generate: (projectId: string, prompt: string, opts: { mode?: 'build' | 'plan'; planRunId?: string; answers?: string } = {}) => apiFetch<Run>(`/projects/${projectId}/generations`, { method: 'POST', body: JSON.stringify({ prompt, ...opts }) }),
+  generate: (projectId: string, prompt: string, opts: { mode?: 'build' | 'plan' | 'ask'; planRunId?: string; answers?: string } = {}) => apiFetch<Run>(`/projects/${projectId}/generations`, { method: 'POST', body: JSON.stringify({ prompt, ...opts }) }),
   runs: (projectId: string) => apiFetch<Run[]>(`/projects/${projectId}/generations`),
   events: (runId: string, after = '0') => apiFetch<RunEvent[]>(`/generations/${runId}/events?after=${after}`),
   files: (projectId: string) => apiFetch<{ path: string; sizeBytes: number }[]>(`/projects/${projectId}/files`),
@@ -184,7 +184,7 @@ export interface ShowcaseCard {
 export interface ShowcasePage extends ShowcaseCard {
   showAttribution: boolean; summary: string | null; audience: string | null; pages: { route: string; title: string; purpose: string }[];
   fileCount: number; versionNumber: number | null; likedByMe: boolean; isOwner: boolean; projectId: string | null;
-  remixedFrom: ShowcaseCard | { private: true } | null; remixList: ShowcaseCard[]; preview: null;
+  remixedFrom: ShowcaseCard | { private: true } | null; remixList: ShowcaseCard[]; preview: null; playable: boolean;
 }
 export interface Creator { handle: string; name: string; bio: string; joinedAt: string; isMe: boolean; followers: number; following: number; followedByMe: boolean; totals: { projects: number; likes: number; remixes: number }; projects: ShowcaseCard[] }
 export interface Publishing {
@@ -203,6 +203,7 @@ const qs = (o: object) => { const p = new URLSearchParams(); for (const [k, v] o
 export const showcase = {
   explore: (q: ExploreQuery) => apiFetch<{ items: ShowcaseCard[]; page: number; hasMore: boolean }>(`/explore${qs(q)}`),
   page: (slug: string) => apiFetch<ShowcasePage>(`/showcase/${slug}`),
+  play: (slug: string) => apiFetch<{ html: string; versionNumber: number }>(`/showcase/${slug}/play`),
   view: (slug: string) => apiFetch<{ counted: boolean }>(`/showcase/${slug}/view`, { method: 'POST' }),
   like: (slug: string, on: boolean) => apiFetch<{ liked: boolean; likes: number }>(`/showcase/${slug}/like`, { method: on ? 'PUT' : 'DELETE' }),
   remix: (slug: string) => apiFetch<ProjectDto>(`/showcase/${slug}/remix`, { method: 'POST', body: '{}' }),
@@ -246,7 +247,7 @@ export async function publicGet<T>(path: string): Promise<T | null> {
 
 // ───────── Platform flags, retention ─────────
 
-export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting' | 'templates' | 'team_workspaces' | 'comments';
+export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting' | 'templates' | 'team_workspaces' | 'comments' | 'refund_failed_builds';
 export const flags = {
   all: () => apiFetch<Record<FlagKey, boolean>>('/flags', {}, async () => null),
   admin: () => apiFetch<{ key: FlagKey; enabled: boolean; description: string; default: boolean; updatedAt: string | null }[]>('/admin/flags'),

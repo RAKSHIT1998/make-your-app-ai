@@ -41,7 +41,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
     @Inject(OrgsService) private readonly orgs: OrgsService,
   ) {}
 
-  async start(user: AuthUser, projectId: string, input: string | { prompt: string; mode?: 'build' | 'plan'; planRunId?: string | undefined; answers?: string }, ip: string | null) {
+  async start(user: AuthUser, projectId: string, input: string | { prompt: string; mode?: 'build' | 'plan' | 'ask'; planRunId?: string | undefined; answers?: string }, ip: string | null) {
     const req = typeof input === 'string' ? { prompt: input, mode: 'build' as const, answers: '' } : { mode: 'build' as const, answers: '', ...input };
     const prompt = req.prompt;
     await this.flags.assert('ai_generation', 'AI generation');
@@ -57,6 +57,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       if (!pr?.plan) throw new NotFoundException('Plan not found for this project.');
       fromPlan = { id: pr.id, plan: pr.plan };
     }
+    if (req.mode === 'ask' && req.planRunId) throw new BadRequestException('A question can’t be combined with a plan.');
     if (!supportsProjectType(project.type)) {
       throw new UnprocessableEntityException(`Generation for "${project.type}" projects is not available yet. Websites, business websites and mobile apps are supported today.`);
     }
@@ -72,11 +73,11 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       throw new HttpException({ message: `You've reached today's AI usage limit for your plan (${ent.dailyCreditLimit} credits). It resets at midnight UTC.`, code: 'plan_limit_daily' }, HttpStatus.TOO_MANY_REQUESTS);
     }
     await this.credits.assertCanSpend(project.organizationId, MIN_CREDITS_TO_START);
-    if (this.router.candidates('balanced').length === 0) {
+    if (this.router.candidates(req.mode === 'ask' ? 'fast' : 'balanced').length === 0) {
       throw new HttpException('AI generation is not configured on this server (no AI provider key).', HttpStatus.SERVICE_UNAVAILABLE);
     }
 
-    const kind = req.mode === 'plan' ? 'plan' : project.headVersionId ? 'edit' : 'create';
+    const kind = req.mode === 'ask' ? 'ask' : req.mode === 'plan' ? 'plan' : project.headVersionId ? 'edit' : 'create';
     const run = await this.prisma.$transaction(async (tx) => {
       // Lock the project row so two concurrent starts can't both pass the "no active run" check.
       await tx.$queryRaw`SELECT id FROM "Project" WHERE id = ${project.id}::uuid FOR UPDATE`;
@@ -119,7 +120,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
   /** Fails runs whose lease lapsed (owner died). Never touches runs this instance is executing. */
   async recoverAbandoned(now = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - this.config.RUN_LEASE_SECONDS * 1000);
-    const n = await this.failActive({ id: { notIn: [...this.inflight.keys()] }, OR: [{ heartbeatAt: { lt: cutoff } }, { heartbeatAt: null, createdAt: { lt: cutoff } }] }, 'Interrupted by a server restart. You were only charged for work already done — please try again.');
+    const n = await this.failActive({ id: { notIn: [...this.inflight.keys()] }, OR: [{ heartbeatAt: { lt: cutoff } }, { heartbeatAt: null, createdAt: { lt: cutoff } }] }, 'Interrupted by a server restart. Please try again.');
     if (n) this.log.warn(`recovered ${n} run(s) abandoned by a stopped instance`);
     return n;
   }
@@ -137,7 +138,11 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
         if (p?.status === 'generating') await tx.project.update({ where: { id: r.projectId }, data: { status: p.headVersionId ? 'ready' : 'error' } });
         return true;
       });
-      if (done) n++;
+      if (done) {
+        n++;
+        const proj = await this.prisma.project.findUnique({ where: { id: r.projectId }, select: { organizationId: true } });
+        if (proj) await this.refundFailedRun(r.id, proj.organizationId).catch((err) => this.log.error(`refund for run ${r.id} failed: ${err instanceof Error ? err.message : err}`));
+      }
     }
     return n;
   }
@@ -201,14 +206,23 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       if (bal < worst) throw new BudgetExceededError(`Not enough credits to continue (balance ${bal}, next step may need up to ${worst}).`);
     };
 
+    let run: GenerationRun | null = null;
     try {
       await this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'running', startedAt: new Date(), workerId: this.workerId, heartbeatAt: new Date() } });
-      const run = await this.prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
+      run = await this.prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
       if (run.kind === 'plan') {
         const draft = await this.orchestrator.plan({ projectType: project.type, projectName: project.name, prompt: run.prompt, templateKey: project.templateId }, { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });
         await this.prisma.$transaction([
           this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'succeeded', plan: draft as unknown as Prisma.InputJsonValue, finishedAt: new Date() } }),
           this.prisma.project.update({ where: { id: project.id }, data: { status: 'draft' } }),
+        ]);
+        return;
+      }
+      if (run.kind === 'ask') {
+        const res = await this.orchestrator.ask({ projectId: project.id, projectType: project.type, projectName: project.name, prompt: run.prompt }, { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });
+        await this.prisma.$transaction([
+          this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'succeeded', answer: res.answer, ...(res.suggestedPrompt ? { plan: { suggestedPrompt: res.suggestedPrompt } } : {}), finishedAt: new Date() } }),
+          this.prisma.project.update({ where: { id: project.id }, data: { status: project.status } }),
         ]);
         return;
       }
@@ -238,9 +252,44 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       await reporter.event('run.failed', message).catch(() => {});
       await this.prisma.$transaction([
         this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'failed', error: message.slice(0, 4000), finishedAt: new Date() } }),
-        this.prisma.project.update({ where: { id: project.id }, data: { status: project.headVersionId ? 'ready' : 'error' } }),
+        this.prisma.project.update({ where: { id: project.id }, data: { status: run?.kind === 'ask' ? project.status : project.headVersionId ? 'ready' : 'error' } }),
       ]);
+      // Running out of credits or hitting the per-run cap is the plan's limit, not a fault in the build, so that work stays charged.
+      if (!(e instanceof BudgetExceededError)) await this.refundFailedRun(runId, orgId).catch((err) => this.log.error(`refund for run ${runId} failed: ${err instanceof Error ? err.message : err}`));
     }
+  }
+
+  /**
+   * Failed-build guarantee: a run that fails without delivering anything gets its credits back, to the buckets they came from.
+   * Idempotent per run, switchable with the `refund_failed_builds` flag, and capped per workspace per day so it can't be
+   * used to burn AI spend for free. Returns the credits refunded.
+   */
+  async refundFailedRun(runId: string, organizationId: string): Promise<number> {
+    if (!(await this.flags.isEnabled('refund_failed_builds'))) return 0;
+    const since = new Date(Date.now() - 24 * 3600_000);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${organizationId}))`;
+      const run = await tx.generationRun.findUnique({ where: { id: runId } });
+      if (!run || run.status !== 'failed' || run.creditsRefunded > 0 || run.creditsUsed <= 0) return 0;
+      const today = await tx.generationRun.count({ where: { project: { organizationId }, creditsRefunded: { gt: 0 }, finishedAt: { gte: since } } });
+      if (today >= this.config.FAILED_RUN_REFUNDS_PER_DAY) {
+        await tx.agentEvent.create({ data: { generationRunId: runId, type: 'run.refund_skipped', message: `Today’s limit of ${this.config.FAILED_RUN_REFUNDS_PER_DAY} automatic refunds was reached, so this run stays charged. Contact support if that seems wrong.` } });
+        return 0;
+      }
+      const usageIds = (await tx.aiUsage.findMany({ where: { generationRunId: runId }, select: { id: true } })).map((u) => u.id);
+      const spent = await tx.creditLedgerEntry.groupBy({ by: ['bucket'], where: { organizationId, reason: 'ai_usage', referenceType: 'ai_usage', referenceId: { in: usageIds } }, _sum: { amount: true } });
+      let total = 0;
+      for (const s of spent) {
+        const amount = -(s._sum.amount ?? 0);
+        if (amount <= 0) continue;
+        await this.credits.grant(organizationId, amount, 'refund', `runrefund:${runId}:${s.bucket}`, s.bucket, tx, { type: 'generation_run', id: runId });
+        total += amount;
+      }
+      if (total <= 0) return 0;
+      await tx.generationRun.update({ where: { id: runId }, data: { creditsRefunded: total } });
+      await tx.agentEvent.create({ data: { generationRunId: runId, type: 'run.refunded', message: `This run failed, so its ${total} credit${total === 1 ? '' : 's'} went back to your balance.`, data: { credits: total } } });
+      return total;
+    });
   }
 
   private async finish(runId: string, project: Project, requestedBy: string, outcome: GenerationOutcome) {
@@ -320,7 +369,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
   }
 
   toRunDto(r: GenerationRun) {
-    return { id: r.id, projectId: r.projectId, kind: r.kind, status: r.status, prompt: r.prompt, error: r.error, creditsUsed: r.creditsUsed, createdAt: r.createdAt.toISOString(), startedAt: r.startedAt?.toISOString() ?? null, finishedAt: r.finishedAt?.toISOString() ?? null, plan: r.plan ?? null, fromPlanId: r.fromPlanId ?? null };
+    return { id: r.id, projectId: r.projectId, kind: r.kind, status: r.status, prompt: r.prompt, error: r.error, creditsUsed: r.creditsUsed, creditsRefunded: r.creditsRefunded, answer: r.answer ?? null, createdAt: r.createdAt.toISOString(), startedAt: r.startedAt?.toISOString() ?? null, finishedAt: r.finishedAt?.toISOString() ?? null, plan: r.plan ?? null, fromPlanId: r.fromPlanId ?? null };
   }
 
   async getRun(user: AuthUser, runId: string) {

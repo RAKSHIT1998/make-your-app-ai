@@ -1,7 +1,8 @@
-import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Prisma, PrismaClient, Project } from '@mya/db';
 import { z } from 'zod';
+import { buildPreviewDocument } from '@mya/shared';
 import { PRISMA } from '../prisma.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -39,6 +40,8 @@ export const ReportSchema = z.object({
 });
 
 /** Files never copied into a remix, even if a generator ever wrote them. */
+/** Project types built from the static `web-play` template, which can run in a sandboxed iframe. */
+const PLAYABLE_TYPES = new Set<string>(['game', 'custom_software']);
 export const SECRET_FILE = /(^|\/)(\.env(\..*)?|\.npmrc|id_rsa.*|.*\.pem|.*\.key|secrets?\.(json|ya?ml))$/i;
 const AUTO_HIDE_REPORTS = 3;
 const RESERVED_HANDLES = new Set(['admin', 'api', 'app', 'explore', 'login', 'pricing', 'settings', 'billing', 'support', 'help', 'about', 'legal', 'mya', 'makeyourapp', 'official', 'staff', 'team']);
@@ -238,8 +241,26 @@ export class ShowcaseService {
       projectId: member ? p.id : null,
       remixedFrom: origin ? toCard(origin) : p.remixedFromId ? { private: true as const } : null,
       remixList: remixes.map(toCard),
-      preview: null, // Live previews arrive with hosting; we never show a fake one.
+      preview: null, // Live previews of hosted sites arrive with hosting; we never show a fake one.
+      /** Games and browser apps can be run right on the page (see play()). */
+      playable: PLAYABLE_TYPES.has(p.type),
     };
+  }
+
+  /**
+   * The published version of a game or browser app as one self-contained HTML document, for the sandboxed player on its
+   * public page. Always the frozen published version (never later private edits), secret-like files stripped. The document
+   * is only assembled here: it runs in the visitor's browser inside a sandboxed iframe with no network and an opaque origin.
+   */
+  async play(slug: string) {
+    const p = await this.findPublic(slug);
+    if (!PLAYABLE_TYPES.has(p.type)) throw new UnprocessableEntityException('This project can’t be run in the browser.');
+    const version = await this.prisma.projectVersion.findUniqueOrThrow({ where: { id: p.publishedVersionId! } });
+    const tree = await this.generations.readVersionTree(p.id, version.commitSha);
+    for (const path of [...tree.keys()]) if (SECRET_FILE.test(path)) tree.delete(path);
+    const doc = buildPreviewDocument(tree);
+    if (!doc.ok) throw new UnprocessableEntityException(doc.reason);
+    return { html: doc.html, versionNumber: version.number };
   }
 
   /** Counts a view once per viewer per day. Owners' own visits don't count. */

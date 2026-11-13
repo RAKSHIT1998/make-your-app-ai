@@ -101,9 +101,13 @@ export class BillingService {
     const runIds = [...new Set(rows.filter((r) => r.referenceType === 'ai_usage' && r.referenceId).map((r) => r.referenceId!))];
     const usage = runIds.length ? await this.prisma.aiUsage.findMany({ where: { id: { in: runIds } }, select: { id: true, agent: true, model: true, run: { select: { project: { select: { name: true } } } } } }) : [];
     const byId = new Map(usage.map((u) => [u.id, u]));
+    const refundedRunIds = [...new Set(rows.filter((r) => r.referenceType === 'generation_run' && r.referenceId).map((r) => r.referenceId!))];
+    const refundedRuns = refundedRunIds.length ? await this.prisma.generationRun.findMany({ where: { id: { in: refundedRunIds } }, select: { id: true, project: { select: { name: true } } } }) : [];
+    const runById = new Map(refundedRuns.map((g) => [g.id, g]));
     return rows.map((r) => {
       const u = r.referenceId ? byId.get(r.referenceId) : undefined;
-      return { id: r.id, amount: r.amount, reason: r.reason, bucket: r.bucket, createdAt: r.createdAt.toISOString(), detail: u ? `${u.agent ?? 'AI'} · ${u.run?.project.name ?? 'project'}` : null };
+      const g = r.referenceType === 'generation_run' && r.referenceId ? runById.get(r.referenceId) : undefined;
+      return { id: r.id, amount: r.amount, reason: r.reason, bucket: r.bucket, createdAt: r.createdAt.toISOString(), detail: u ? `${u.agent ?? 'AI'} · ${u.run?.project.name ?? 'project'}` : g ? `Failed build · ${g.project.name}` : null };
     });
   }
 

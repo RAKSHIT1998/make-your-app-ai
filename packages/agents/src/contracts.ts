@@ -35,6 +35,14 @@ export const PlanDraftSchema = z.object({
 });
 export type PlanDraft = z.infer<typeof PlanDraftSchema>;
 
+/** Ask mode: an answer about the project. Never changes code. */
+export const AskAnswerSchema = z.object({
+  answer: z.string().min(1).max(6000),
+  /** A ready-to-send change request, when the customer would likely want to act on the answer. */
+  suggestedPrompt: z.string().max(600).nullable(),
+});
+export type AskAnswer = z.infer<typeof AskAnswerSchema>;
+
 export const DesignSpecSchema = z.object({
   tone: z.string().max(120),
   palette: z.object({ primary: hex, primaryForeground: hex, background: hex, surface: hex, text: hex, muted: hex, accent: hex, border: hex }),

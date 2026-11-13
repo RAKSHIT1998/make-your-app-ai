@@ -1,5 +1,6 @@
 'use client';
 
+import { Player } from '@/components/growth/player';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Eye, FileCode2, Flag, GitFork, Heart, Layers, Sparkles } from 'lucide-react';
 import Link from 'next/link';
@@ -87,6 +88,11 @@ export function ProjectPublic({ slug }: { slug: string }) {
                 )}
               </div>
 
+              {p.playable ? (
+                <Card padded={false} className="overflow-hidden">
+                  <Player slug={p.slug} title={p.title} poster={<PalettePreview palette={p.palette} pages={p.pageCount} className="size-full" />} />
+                </Card>
+              ) : (
               <Card padded={false} className="overflow-hidden">
                 <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-[13px] text-muted">
                   <span className="flex gap-1.5"><span className="size-2.5 rounded-full bg-border" /><span className="size-2.5 rounded-full bg-border" /><span className="size-2.5 rounded-full bg-border" /></span>
@@ -95,6 +101,7 @@ export function ProjectPublic({ slug }: { slug: string }) {
                 </div>
                 <PalettePreview palette={p.palette} pages={p.pageCount} className="aspect-[16/9]" />
               </Card>
+              )}
 
               {(p.summary || p.audience) && (
                 <section>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ArrowUp, Check, Code2, Compass, Globe, LayoutTemplate, MessageSquare, Rocket, ShoppingBag, Smartphone } from 'lucide-react';
+import { ArrowRight, ArrowUp, Check, Code2, Compass, Download, Gamepad2, Globe, History, LayoutTemplate, MessageCircleQuestion, MessageSquare, Receipt, Rocket, ShieldCheck, ShoppingBag, Smartphone, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -10,10 +10,10 @@ import { PublicHeader } from '@/components/growth/public-header';
 import { VoiceButton } from '@/components/voice-button';
 import { Button } from '@/components/ui';
 import { LEGAL, LEGAL_SLUGS } from '@/lib/legal';
-import { showcase } from '@/lib/api';
+import { flags, showcase } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
-const EXAMPLES = ['A website for my dental clinic with services and appointment requests', 'A café app with our menu and table bookings', 'A portfolio for my wedding photography'];
+const EXAMPLES = ['A website for my dental clinic with services and appointment requests', 'A brick-breaker game with levels and a high score', 'A café app with our menu and table bookings'];
 
 export function Landing() {
   const { session } = useAuth();
@@ -21,6 +21,9 @@ export function Landing() {
   const [idea, setIdea] = useState('');
   // Real public projects only; the section hides when there are none.
   const featured = useQuery({ queryKey: ['landing-showcase'], queryFn: async () => { const f = await showcase.explore({ sort: 'featured', limit: 6 }); return f.items.length ? f.items : (await showcase.explore({ sort: 'trending', limit: 6 })).items; }, retry: false });
+  // Promises on this page follow the live platform switches, so the page never advertises something that is turned off.
+  const live = useQuery({ queryKey: ['flags'], queryFn: flags.all, retry: false, staleTime: 60_000 });
+  const refunds = live.data?.refund_failed_builds === true;
   const start = () => {
     const target = `/create${idea.trim() ? `?idea=${encodeURIComponent(idea.trim().slice(0, 1500))}` : ''}`;
     router.push(session ? target : `/login?next=${encodeURIComponent(target)}`);
@@ -33,7 +36,7 @@ export function Landing() {
         <section className="mx-auto max-w-3xl px-4 pb-16 pt-16 text-center sm:px-6 sm:pt-24">
           <p className="text-sm font-medium text-accent-text">Build anything. From anywhere.</p>
           <h1 className="mt-4 text-[40px] font-semibold leading-[1.05] tracking-[-0.04em] sm:text-6xl">Your idea deserves to exist.<br className="hidden sm:block" /> Build it with AI.</h1>
-          <p className="mx-auto mt-5 max-w-xl text-[17px] text-muted">Describe a website, app or online store in your own words. Get real, editable code you own — then publish, share and keep improving it by chatting.</p>
+          <p className="mx-auto mt-5 max-w-xl text-[17px] text-muted">Describe a website, app, game or online store in your own words. Get real, editable code you own — then publish, share and keep improving it by chatting.</p>
           <form className="mx-auto mt-9 max-w-2xl rounded-[var(--radius-xl)] border border-border bg-surface text-left shadow-[var(--shadow-lg)] focus-within:border-border-strong" onSubmit={(e) => { e.preventDefault(); start(); }}>
             <label htmlFor="landing-idea" className="sr-only">Describe your idea</label>
             <textarea id="landing-idea" rows={3} value={idea} onChange={(e) => setIdea(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) start(); }}
@@ -71,11 +74,12 @@ export function Landing() {
 
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-[-0.02em]">What you can build today</h2>
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
               { icon: Globe, t: 'Websites', b: 'Business sites, portfolios and landing pages with SEO built in.' },
               { icon: Smartphone, t: 'Mobile apps', b: 'iOS and Android apps in React Native (Expo) that you build with your own accounts.' },
               { icon: ShoppingBag, t: 'Online stores', b: 'Products, inventory, orders, discounts and payments through your own Razorpay or Stripe.' },
+              { icon: Gamepad2, t: 'Games and web apps', b: 'Browser games, calculators, planners and trackers you can play the moment they are built.' },
               { icon: Rocket, t: 'Hosting', b: 'One-click deploys, rollbacks, environment variables and custom domains with SSL.' },
             ].map(({ icon: Icon, t, b }) => (
               <div key={t} className="rounded-[var(--radius-lg)] border border-border bg-surface p-5 shadow-sm">
@@ -85,11 +89,33 @@ export function Landing() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-[13px] text-subtle">SaaS platforms and custom business software are on the way.</p>
+          <p className="mt-4 text-[13px] text-subtle">Apps with their own backend, database and logins are on the way.</p>
+        </section>
+
+        <section className="border-y border-border bg-surface/60">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em]">Credits that play fair</h2>
+            <p className="mt-2 max-w-2xl text-sm text-muted">AI builders are known for burning credits on their own mistakes. We built the opposite.</p>
+            <div className="mt-8 grid grid-cols-1 gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ...(refunds ? [{ icon: Undo2, t: 'A failed build costs nothing', b: 'If a build fails and delivers nothing, its credits go back to your balance automatically. A daily limit applies.' }] : []),
+                { icon: MessageCircleQuestion, t: 'Ask before you spend', b: 'Ask mode answers questions about your project on the fastest model, for a fraction of a build, and never touches your code.' },
+                { icon: Receipt, t: 'See the cost first', b: 'A typical cost is shown before you build, and every credit spent is itemised by project and step.' },
+                { icon: ShieldCheck, t: 'Checked before it is saved', b: 'The AI tests its own work and repairs what it finds. Code that does not pass is never saved over your project.' },
+                { icon: History, t: 'Undo anything', b: 'Every change is a version. Restore any earlier one with a click, at no cost.' },
+                { icon: Download, t: 'Your code is yours', b: 'Download the full source at any time and take it anywhere. No lock-in.' },
+              ].map(({ icon: Icon, t, b }) => (
+                <div key={t} className="flex gap-3.5">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-surface-muted"><Icon className="size-4" /></span>
+                  <div><h3 className="font-semibold">{t}</h3><p className="mt-1 text-sm text-muted">{b}</p></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {featured.data && featured.data.length > 0 && (
-          <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+          <section className="mx-auto max-w-6xl px-4 pb-16 pt-16 sm:px-6">
             <div className="flex items-end justify-between gap-4">
               <h2 className="text-2xl font-semibold tracking-[-0.02em]">Made with Make Your App AI</h2>
               <Link href="/explore" className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-muted hover:text-fg">Explore all<ArrowRight className="size-3.5" /></Link>
@@ -98,7 +124,7 @@ export function Landing() {
           </section>
         )}
 
-        <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+        <section className={`mx-auto max-w-6xl px-4 pb-20 sm:px-6 ${featured.data && featured.data.length > 0 ? '' : 'pt-16'}`}>
           <div className="flex flex-col items-start gap-6 rounded-[var(--radius-xl)] bg-[#0C0C0B] px-6 py-10 text-[#F3F2EF] sm:px-10 md:flex-row md:items-center">
             <div className="flex-1">
               <h2 className="text-2xl font-semibold tracking-[-0.02em]">Start free. Upgrade when you launch.</h2>

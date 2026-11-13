@@ -27,6 +27,7 @@ export class ShowcaseController {
 
   @Get('explore') explore(@Query(new ZodPipe(ExploreQuerySchema)) q: z.infer<typeof ExploreQuerySchema>) { return this.s.explore(q); }
   @Get('showcase/:slug') page(@Param('slug', SlugPipe) slug: string, @OptionalUser() u: AuthUser | null) { return this.s.page(slug, u); }
+  @Get('showcase/:slug/play') @Throttle({ default: { limit: 60, ttl: 60_000 } }) play(@Param('slug', SlugPipe) slug: string) { return this.s.play(slug); }
   @Post('showcase/:slug/view') @HttpCode(200) @Throttle({ default: { limit: 120, ttl: 60_000 } })
   view(@Param('slug', SlugPipe) slug: string, @OptionalUser() u: AuthUser | null, @Ip() ip: string, @Headers('user-agent') ua?: string) { return this.s.view(slug, u, ip, ua); }
   @Get('creators/:handle') creator(@Param('handle', SlugPipe) handle: string, @OptionalUser() u: AuthUser | null) { return this.s.creator(handle, u); }

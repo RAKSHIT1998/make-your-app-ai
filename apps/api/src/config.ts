@@ -32,6 +32,8 @@ const EnvSchema = z
     CREDITS_PER_USD: z.coerce.number().positive().default(100),
     /** Hard cap on credits one generation run may consume. */
     MAX_CREDITS_PER_RUN: z.coerce.number().int().positive().default(500),
+    /** Failed-build guarantee: automatic refunds per workspace per 24 h (0 disables refunds). */
+    FAILED_RUN_REFUNDS_PER_DAY: z.coerce.number().int().min(0).default(5),
     /** Monthly credit allowance of the default Free plan when plans are first seeded. */
     /** Requests per minute per client (IP + user). In-memory store; switch to Redis storage when running >1 instance. */
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),

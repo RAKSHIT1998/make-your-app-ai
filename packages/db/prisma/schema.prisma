@@ -503,6 +503,7 @@ enum RunKind {
   edit
   repair
   plan
+  ask
 }
 
 model GenerationRun {
@@ -514,6 +515,10 @@ model GenerationRun {
   status      RunStatus       @default(queued)
   error       String?
   creditsUsed Int             @default(0)
+  /// Credits returned because the run failed through no fault of the customer (see GenerationsService.refundFailedRun).
+  creditsRefunded Int         @default(0)
+  /// kind=ask: the assistant's answer (no code is changed).
+  answer      String?
   /// kind=plan: the drafted plan (spec, questions, assumptions). kind=create from a plan: the plan run it built.
   plan        Json?
   fromPlanId  String?         @db.Uuid

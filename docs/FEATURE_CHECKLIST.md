@@ -1,6 +1,6 @@
 # Feature Implementation Checklist — "Viral AI Software-Building Ecosystem" spec
 
-_Audit date: 2026-11-13 (sessions 7–10). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
+_Audit date: 2026-11-13 (sessions 7–13). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
 Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 partial · ⛔ blocked (needs credentials/infrastructure) · ⬜ not started
 
 ## Architecture audit (spec §1)
@@ -21,7 +21,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Item | Status | Notes |
 |---|---|---|
 | Public project pages, title/description, category, creator, likes, views | ✅ | `/p/:slug`, frozen published snapshot |
-| Screenshots and live previews | ⛔ | Needs sandbox/hosting to render; palette preview shown, labelled "soon" |
+| Screenshots and live previews | 🟡 | Games and browser apps are playable on their public page (sandboxed, published version only). Websites and mobile apps still show the palette preview until hosting exists |
 | Search, filters, trending, recent, featured | ✅ | |
 | Shareable links, public/private controls | ✅ | |
 | Remix with AI + lineage + attribution, no secrets | ✅ | Published version only; secret-like files stripped |
@@ -43,6 +43,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Run project, working preview | 🟡 | Games and browser apps (static HTML/JS) run in a sandboxed Preview tab today. Next.js sites and Expo apps still need a Docker host / hosting |
 | Test workflows | ⛔ | Needs Docker host |
 | Incremental edits | ✅ | Patch-based edits, versioned |
+| Ask mode (discuss without changing code) | ✅ (session 13) | Fast tier, answers from the project's files, optional suggested change request |
 | Screenshot-to-app | ⛔ | Needs object storage (R2) + vision-capable key |
 | Voice-to-app (voice-to-text, spoken edits, confirmation) | ✅ (this session) | Browser speech recognition in Create and workspace chat; dictation only fills text — generation still needs Generate + confirmation. Hidden when unsupported or switched off. Server-side transcription (Whisper-style) not added |
 | Visual editor | ⛔ | Needs live preview |
@@ -135,6 +136,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Per-project limits, concurrency limits | 🟡 | One active run per project enforced; per-project budget not yet |
 | Usage alerts, admin credit pricing | 🟡 / ✅ | Credit packs configurable; alerts not yet |
 | Unlimited usage never promised | ✅ | |
+| Failed-build guarantee (automatic credit refund for failed runs) | ✅ (session 13) | `refund_failed_builds` flag, daily cap per workspace, idempotent, excluded from route revenue |
 | Multi-provider AI routing with free/cheap routes, customer billed at the standard tier rate, margin-first selection, quality floors, daily caps, circuit breaker, per-route margin | ✅ | Owner console → AI routing. Needs provider keys + route data from you; adapter not yet run against live providers |
 
 ## §14 Owner admin
@@ -142,7 +144,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 |---|---|
 | Users, MRR/ARR, revenue, AI cost, margin, subscriptions, plans, credits, audit log, moderation, referrals | ✅ |
 | AI routing console (tier rates, routes, health, margin; audited) | ✅ |
-| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments), enforced by the API (503 `feature_disabled`), audited, owner console tab |
+| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, refund_failed_builds), enforced by the API (503 `feature_disabled`), audited, owner console tab |
 | Churn, conversion, ARPU, model distribution, cost per project, completion time, deployment rate, template approvals, fraud signals, system health | 🟡 partial / ⬜ |
 
 ## §15 Onboarding

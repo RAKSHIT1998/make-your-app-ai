@@ -35,11 +35,18 @@ export class AiRoutingService {
 
   async overview() {
     await loadTierRates(this.prisma); // seeds the reference rates on first use
-    const [rows, rates, status, usage] = await Promise.all([
+    const since = new Date(Date.now() - 24 * 3600_000);
+    const [rows, rates, status, usage, refunded] = await Promise.all([
       this.prisma.aiProviderConfig.findMany({ orderBy: [{ tier: 'asc' }, { priority: 'asc' }] }),
       this.prisma.aiTierRate.findMany(),
       this.router.status(),
       this.prisma.aiUsage.groupBy({ by: ['provider', 'model'], where: { createdAt: { gte: new Date(Date.now() - 24 * 3600_000) } }, _sum: { costMicros: true, creditsCharged: true }, _count: { _all: true } }),
+      // Credits handed back by the failed-build guarantee are not revenue; the route's cost still is a cost.
+      this.prisma.$queryRaw<{ provider: string; model: string; credits: bigint }[]>`
+        SELECT u."provider"::text AS provider, u."model" AS model, COALESCE(SUM(u."creditsCharged"), 0)::bigint AS credits
+        FROM "AiUsage" u JOIN "GenerationRun" r ON r."id" = u."generationRunId"
+        WHERE r."creditsRefunded" > 0 AND u."createdAt" >= ${since}
+        GROUP BY 1, 2`,
     ]);
     const registered = new Set(this.router.providerNames());
     const routes = rows.map((r) => {
@@ -47,7 +54,8 @@ export class AiRoutingService {
       const st = status.find((s) => routeKey(s) === key);
       const u = usage.find((x) => routeKey(x) === key);
       const costUsd = Number(u?._sum.costMicros ?? 0n) / 1e6;
-      const revenueUsd = (u?._sum.creditsCharged ?? 0) / this.config.CREDITS_PER_USD;
+      const back = Number(refunded.find((x) => routeKey(x) === key)?.credits ?? 0n);
+      const revenueUsd = Math.max(0, (u?._sum.creditsCharged ?? 0) - back) / this.config.CREDITS_PER_USD;
       return {
         id: r.id, provider: r.provider, model: r.model, tier: r.tier, priority: r.priority, enabled: r.enabled,
         inputCostPerMTokMicros: r.inputCostPerMTokMicros, outputCostPerMTokMicros: r.outputCostPerMTokMicros,
