@@ -33,6 +33,11 @@ const EnvSchema = z
     /** Hard cap on credits one generation run may consume. */
     MAX_CREDITS_PER_RUN: z.coerce.number().int().positive().default(500),
     /** Failed-build guarantee: automatic refunds per workspace per 24 h (0 disables refunds). */
+    /** Built-in app backends: per-IP request limits and per-app, per-environment storage quotas. */
+    APP_DATA_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
+    APP_AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
+    APP_DATA_MAX_RECORDS: z.coerce.number().int().positive().default(10_000),
+    APP_DATA_MAX_USERS: z.coerce.number().int().positive().default(5_000),
     FAILED_RUN_REFUNDS_PER_DAY: z.coerce.number().int().min(0).default(5),
     /** Monthly credit allowance of the default Free plan when plans are first seeded. */
     /** Requests per minute per client (IP + user). In-memory store; switch to Redis storage when running >1 instance. */

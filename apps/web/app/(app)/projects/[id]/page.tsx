@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer, Rocket, Smartphone, Download, HeartPulse } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Database, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer, Rocket, Smartphone, Download, HeartPulse } from 'lucide-react';
 import Link from 'next/link';
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -13,10 +13,11 @@ import { api, ApiError, downloadSource, type PlanDraft, type Run, type RunEvent 
 import { VoiceButton } from '@/components/voice-button';
 import { HealthView } from '@/components/health-view';
 import { PreviewView } from '@/components/preview-view';
+import { AppDataView } from '@/components/app-data-view';
 
 const ACTIVE = new Set(['queued', 'running']);
-type Center = 'code' | 'versions' | 'health' | 'logs' | 'preview';
-type MobileTab = 'chat' | 'files' | 'code' | 'versions' | 'health' | 'preview';
+type Center = 'code' | 'versions' | 'health' | 'logs' | 'preview' | 'data';
+type MobileTab = 'chat' | 'files' | 'code' | 'versions' | 'health' | 'preview' | 'data';
 
 /** Polls a run's event stream (cursor = last event id) while the run is live. */
 function useRunEvents(runId: string, live: boolean) {
@@ -50,6 +51,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   const runs = useQuery({ queryKey: ['runs', id], queryFn: () => api.runs(id), refetchInterval: (q) => (q.state.data?.some((r) => ACTIVE.has(r.status)) ? 2000 : false) });
   const files = useQuery({ queryKey: ['files', id], queryFn: () => api.files(id) });
   const canPreview = !!files.data?.some((f) => f.path === 'index.html');
+  const hasBackend = !!files.data?.some((f) => f.path === 'app.backend.json');
   const previewStamp = (files.data ?? []).map((f) => `${f.path}:${f.sizeBytes}`).join('|');
   const activeRun = runs.data?.find((r) => ACTIVE.has(r.status));
   const [center, setCenter] = useState<Center>('code');
@@ -117,9 +119,10 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
                   { value: 'health', label: <><HeartPulse className="size-3.5" />Health</> },
                   { value: 'logs', label: <><ScrollText className="size-3.5" />Logs</> },
                   { value: 'preview', label: <><Eye className="size-3.5" />Preview</>, disabled: !canPreview, badge: canPreview ? undefined : <SoonBadge /> },
+                  ...(hasBackend ? [{ value: 'data', label: <><Database className="size-3.5" />Data</> }] : []),
                 ]} />
               </div>
-              <div className="min-h-0 flex-1">{center === 'code' ? <CodeView projectId={id} path={current} /> : center === 'versions' ? <Versions projectId={id} busy={!!activeRun} /> : center === 'health' ? <HealthView projectId={id} hasFiles={!!files.data?.length} onOpenFile={(p) => { setFile(p); setCenter('code'); }} /> : center === 'preview' ? <PreviewView projectId={id} stamp={previewStamp} /> : <Logs runs={runs.data} />}</div>
+              <div className="min-h-0 flex-1">{center === 'code' ? <CodeView projectId={id} path={current} /> : center === 'versions' ? <Versions projectId={id} busy={!!activeRun} /> : center === 'health' ? <HealthView projectId={id} hasFiles={!!files.data?.length} onOpenFile={(p) => { setFile(p); setCenter('code'); }} /> : center === 'preview' ? <PreviewView projectId={id} stamp={previewStamp} /> : center === 'data' ? <AppDataView projectId={id} /> : <Logs runs={runs.data} />}</div>
             </section>
           </Panel>
           <Separator className="w-px bg-border outline-none transition-colors hover:bg-accent data-[separator=active]:bg-accent" />
@@ -138,7 +141,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
             { value: 'code', label: <><Code2 className="size-3.5" />Code</> },
             { value: 'versions', label: <><History className="size-3.5" />Versions</> },
             { value: 'health', label: <><HeartPulse className="size-3.5" />Health</> },
-            ...(canPreview ? [{ value: 'preview', label: <><Eye className="size-3.5" />Play</> }] : []),
+            ...(canPreview ? [{ value: 'preview', label: <><Eye className="size-3.5" />{hasBackend ? 'Preview' : 'Play'}</> }] : []),
+            ...(hasBackend ? [{ value: 'data', label: <><Database className="size-3.5" />Data</> }] : []),
           ]} />
         </div>
         <div className="min-h-0 flex-1">
@@ -147,6 +151,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
             : mobileTab === 'code' ? <CodeView projectId={id} path={current} />
             : mobileTab === 'health' ? <HealthView projectId={id} hasFiles={!!files.data?.length} onOpenFile={(p) => { setFile(p); setMobileTab('code'); }} />
             : mobileTab === 'preview' ? <PreviewView projectId={id} stamp={previewStamp} />
+            : mobileTab === 'data' ? <AppDataView projectId={id} />
             : <Versions projectId={id} busy={!!activeRun} />}
         </div>
       </div>}

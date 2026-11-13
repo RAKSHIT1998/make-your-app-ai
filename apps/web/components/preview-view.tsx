@@ -23,7 +23,7 @@ export function PreviewView({ projectId, stamp }: { projectId: string; stamp: st
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted">
         <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
-        <span className="min-w-0 flex-1 truncate">Runs in a sandbox in your browser. No network access.</span>
+        <span className="min-w-0 flex-1 truncate">{q.data.backend ? 'Preview: test accounts and test data, separate from your published app. Sign-ins reset on restart.' : 'Runs in a sandbox in your browser. No network access.'}</span>
         <Button size="sm" variant="ghost" onClick={() => setRun((n) => n + 1)} aria-label="Restart preview"><RotateCw className="size-3.5" />Restart</Button>
         <Button size="sm" variant="ghost" onClick={() => void frame.current?.requestFullscreen?.()} aria-label="Full screen"><Maximize2 className="size-3.5" />Full screen</Button>
       </div>
@@ -32,7 +32,7 @@ export function PreviewView({ projectId, stamp }: { projectId: string; stamp: st
         key={run}
         ref={frame}
         title="Live preview"
-        sandbox="allow-scripts allow-pointer-lock"
+        sandbox="allow-scripts allow-forms allow-pointer-lock"
         allow="fullscreen"
         srcDoc={q.data.html}
         className="min-h-0 w-full flex-1 bg-white"

@@ -435,6 +435,9 @@ model Project {
   remixedFrom    Project?            @relation("Remixes", fields: [remixedFromId], references: [id], onDelete: SetNull)
   remixes        Project[]           @relation("Remixes")
   likes          ProjectLike[]
+  appBackend     AppBackend?
+  appUsers       AppUser[]
+  appRecords     AppRecord[]
   comments       ProjectComment[]
   showcaseCollectionItems ShowcaseCollectionItem[]
   hostingSite    HostingSite?
@@ -1419,4 +1422,56 @@ model RateLimitHit {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+/// Built-in backend of a generated full-stack app. Data lives in two separate environments: "preview" (the builder's
+/// workspace preview, reached with the secret previewKey) and "live" (the published app, reached by project id).
+model AppBackend {
+  projectId  String   @id @db.Uuid
+  previewKey String   @unique
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+/// An end user of a generated app (not a platform user). Passwords are scrypt hashes.
+model AppUser {
+  id           String       @id @default(uuid()) @db.Uuid
+  projectId    String       @db.Uuid
+  env          String
+  email        String
+  passwordHash String
+  lastSignInAt DateTime?
+  createdAt    DateTime     @default(now())
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sessions     AppSession[]
+  records      AppRecord[]
+
+  @@unique([projectId, env, email])
+}
+
+model AppSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique
+  appUserId String   @db.Uuid
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@index([appUserId])
+}
+
+model AppRecord {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  env        String
+  collection String
+  ownerId    String?  @db.Uuid
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner      AppUser? @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, env, collection, createdAt])
+  @@index([ownerId])
 }

@@ -2,6 +2,8 @@
  * Builds a single self-contained HTML document from a static web project (index.html + css + classic scripts)
  * so it can run in a sandboxed iframe. Pure string work: nothing here executes the project's code.
  */
+import { appBackendScripts } from './appbackend.js';
+
 export const PREVIEW_CSP =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'; object-src 'none'";
 
@@ -22,7 +24,11 @@ export function isPreviewable(paths: Iterable<string>): boolean {
   return false;
 }
 
-export function buildPreviewDocument(files: Record<string, string> | Map<string, string>): PreviewResult {
+/**
+ * `backend`: for full-stack apps, the page may reach exactly one origin (this app's data endpoint) and gets the `App`
+ * SDK injected ahead of its own scripts. Everything else stays blocked.
+ */
+export function buildPreviewDocument(files: Record<string, string> | Map<string, string>, opts: { backend?: { api: string; env: 'preview' | 'live' } } = {}): PreviewResult {
   const get = (p: string) => (files instanceof Map ? files.get(p) : files[p]);
   const index = get('index.html');
   if (index === undefined) return { ok: false, reason: 'This project has no index.html, so there is nothing to run in the browser.' };
@@ -48,7 +54,14 @@ export function buildPreviewDocument(files: Record<string, string> | Map<string,
     return `<script>\n${inlineSafe(code)}\n</script>`;
   });
 
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
+  let csp = PREVIEW_CSP;
+  let sdk = '';
+  if (opts.backend) {
+    const origin = new URL(opts.backend.api).origin;
+    csp = csp.replace("connect-src 'none'", `connect-src ${origin}`);
+    sdk = `\n${appBackendScripts(opts.backend)}`;
+  }
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">${sdk}`;
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => `${m}\n${meta}`) : `${meta}\n${html}`;
   if (Buffer_byteLength(html) > MAX_BYTES) return { ok: false, reason: 'The project is too large to preview (over 2 MB).' };
   return { ok: true, html, warnings };

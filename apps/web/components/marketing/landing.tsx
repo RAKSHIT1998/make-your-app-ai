@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ArrowUp, Check, Code2, Compass, Download, Gamepad2, Globe, History, LayoutTemplate, MessageCircleQuestion, MessageSquare, Receipt, Rocket, ShieldCheck, ShoppingBag, Smartphone, Undo2 } from 'lucide-react';
+import { ArrowRight, ArrowUp, Check, Code2, Compass, Database, Download, Gamepad2, Globe, History, LayoutTemplate, MessageCircleQuestion, MessageSquare, Receipt, Rocket, ShieldCheck, ShoppingBag, Smartphone, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -13,7 +13,7 @@ import { LEGAL, LEGAL_SLUGS } from '@/lib/legal';
 import { flags, showcase } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
-const EXAMPLES = ['A website for my dental clinic with services and appointment requests', 'A brick-breaker game with levels and a high score', 'A café app with our menu and table bookings'];
+const EXAMPLES = ['A website for my dental clinic with services and appointment requests', 'A habit tracker where each user signs in and sees only their own habits', 'A brick-breaker game with levels and a high score'];
 
 export function Landing() {
   const { session } = useAuth();
@@ -74,11 +74,12 @@ export function Landing() {
 
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <h2 className="text-2xl font-semibold tracking-[-0.02em]">What you can build today</h2>
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { icon: Globe, t: 'Websites', b: 'Business sites, portfolios and landing pages with SEO built in.' },
               { icon: Smartphone, t: 'Mobile apps', b: 'iOS and Android apps in React Native (Expo) that you build with your own accounts.' },
               { icon: ShoppingBag, t: 'Online stores', b: 'Products, inventory, orders, discounts and payments through your own Razorpay or Stripe.' },
+              { icon: Database, t: 'Full-stack apps', b: 'Sign-up and login, a real database and access rules, working in the preview from the first build.' },
               { icon: Gamepad2, t: 'Games and web apps', b: 'Browser games, calculators, planners and trackers you can play the moment they are built.' },
               { icon: Rocket, t: 'Hosting', b: 'One-click deploys, rollbacks, environment variables and custom domains with SSL.' },
             ].map(({ icon: Icon, t, b }) => (
@@ -89,7 +90,6 @@ export function Landing() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-[13px] text-subtle">Apps with their own backend, database and logins are on the way.</p>
         </section>
 
         <section className="border-y border-border bg-surface/60">

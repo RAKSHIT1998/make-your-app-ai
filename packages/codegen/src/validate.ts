@@ -2,6 +2,7 @@ import { builtinModules } from 'node:module';
 import path from 'node:path';
 import vm from 'node:vm';
 import type { FileTree } from './patch.js';
+import { APP_BACKEND_FILE, parseAppBackend } from '@mya/shared';
 
 export interface ValidationIssue {
   file: string;
@@ -37,6 +38,7 @@ function readAliases(tree: FileTree): [string, string][] {
 export function validateTree(tree: FileTree): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (tree.has('index.html')) issues.push(...validateStaticWeb(tree));
+  if (tree.has('index.html') || tree.has(APP_BACKEND_FILE)) issues.push(...validateAppBackend(tree));
   let deps = new Set<string>();
   const pkgRaw = tree.get('package.json');
   if (!pkgRaw) issues.push({ file: 'package.json', message: 'Missing package.json' });
@@ -125,7 +127,31 @@ export function validateStaticWeb(tree: FileTree): ValidationIssue[] {
     }
     const stripped = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const net = NETWORK_API.exec(stripped);
-    if (net) issues.push({ file, message: `Uses ${net[1]!.replace(/\s*\($/, '')}, which is blocked in the sandboxed preview. Keep state in memory or localStorage.` });
+    if (net) issues.push({ file, message: tree.has(APP_BACKEND_FILE) ? `Uses ${net[1]!.replace(/\s*\($/, '')}. Talk to the backend only through App.db and App.auth.` : `Uses ${net[1]!.replace(/\s*\($/, '')}, which is blocked in the sandboxed preview. Keep state in memory or localStorage.` });
+  }
+  return issues;
+}
+
+const DB_CALL = /\bApp\.db\.(list|get|create|update|remove)\(\s*(['"`])([^'"`]+)\2/g;
+
+/**
+ * Checks the built-in backend contract: app.backend.json is valid, every collection the code uses is declared, the
+ * code uses the platform's `App` object only when a backend exists, and never redefines it.
+ */
+export function validateAppBackend(tree: FileTree): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const raw = tree.get(APP_BACKEND_FILE);
+  const parsed = raw === undefined ? null : parseAppBackend(raw);
+  if (parsed && !parsed.ok) for (const e of parsed.errors) issues.push({ file: APP_BACKEND_FILE, message: e });
+  const backend = parsed?.ok ? parsed.backend : null;
+  for (const [file, code] of tree) {
+    if (!/\.(js|html)$/.test(file)) continue;
+    const uses = /\bApp\.(db|auth|ready)\b/.test(code);
+    if (uses && raw === undefined) { issues.push({ file, message: `Uses App.db/App.auth but there is no ${APP_BACKEND_FILE}. Declare the collections and access rules there.` }); continue; }
+    if (/(\bwindow\.App\s*=|\b(const|let|var|function|class)\s+App\b)/.test(code)) issues.push({ file, message: 'Redefines App. The platform provides App; use it, never define it.' });
+    if (!backend) continue;
+    if (/\bApp\.auth\.(signUp|signIn)\b/.test(code) && !backend.auth.enabled) issues.push({ file, message: `Uses sign-in, but ${APP_BACKEND_FILE} has "auth": { "enabled": false }.` });
+    for (const m of code.matchAll(DB_CALL)) if (!backend.collections[m[3]!]) issues.push({ file, message: `Uses collection "${m[3]}" which is not declared in ${APP_BACKEND_FILE}.` });
   }
   return issues;
 }

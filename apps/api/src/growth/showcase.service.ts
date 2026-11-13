@@ -2,7 +2,8 @@ import { BadRequestException, ConflictException, ForbiddenException, HttpExcepti
 import { createHash, randomBytes } from 'node:crypto';
 import type { Prisma, PrismaClient, Project } from '@mya/db';
 import { z } from 'zod';
-import { buildPreviewDocument } from '@mya/shared';
+import { APP_BACKEND_FILE, buildPreviewDocument } from '@mya/shared';
+import { APP_CONFIG, type AppConfig } from '../config.js';
 import { PRISMA } from '../prisma.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -41,7 +42,7 @@ export const ReportSchema = z.object({
 
 /** Files never copied into a remix, even if a generator ever wrote them. */
 /** Project types built from the static `web-play` template, which can run in a sandboxed iframe. */
-const PLAYABLE_TYPES = new Set<string>(['game', 'custom_software']);
+const PLAYABLE_TYPES = new Set<string>(['game', 'custom_software', 'saas']);
 export const SECRET_FILE = /(^|\/)(\.env(\..*)?|\.npmrc|id_rsa.*|.*\.pem|.*\.key|secrets?\.(json|ya?ml))$/i;
 const AUTO_HIDE_REPORTS = 3;
 const RESERVED_HANDLES = new Set(['admin', 'api', 'app', 'explore', 'login', 'pricing', 'settings', 'billing', 'support', 'help', 'about', 'legal', 'mya', 'makeyourapp', 'official', 'staff', 'team']);
@@ -72,6 +73,7 @@ export function toCard(p: CardRow) {
 export class ShowcaseService {
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(ProjectsService) private readonly projects: ProjectsService,
     @Inject(GenerationsService) private readonly generations: GenerationsService,
     @Inject(CreditsService) private readonly credits: CreditsService,
@@ -258,9 +260,11 @@ export class ShowcaseService {
     const version = await this.prisma.projectVersion.findUniqueOrThrow({ where: { id: p.publishedVersionId! } });
     const tree = await this.generations.readVersionTree(p.id, version.commitSha);
     for (const path of [...tree.keys()]) if (SECRET_FILE.test(path)) tree.delete(path);
-    const doc = buildPreviewDocument(tree);
+    // A full-stack app on its public page uses its live data, separate from the builder's preview data.
+    const backend = tree.has(APP_BACKEND_FILE) ? { api: `${this.config.PUBLIC_API_URL.replace(/\/$/, '')}/api/v1/appdata/lv_${p.id}`, env: 'live' as const } : undefined;
+    const doc = buildPreviewDocument(tree, backend ? { backend } : {});
     if (!doc.ok) throw new UnprocessableEntityException(doc.reason);
-    return { html: doc.html, versionNumber: version.number };
+    return { html: doc.html, versionNumber: version.number, backend: !!backend };
   }
 
   /** Counts a view once per viewer per day. Owners' own visits don't count. */

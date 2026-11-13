@@ -17,7 +17,7 @@ export const PROJECT_TYPE_OPTIONS: ProjectTypeOption[] = [
   { type: 'game', label: 'Game', description: 'Playable HTML5 game that runs in any browser', icon: Gamepad2, available: true },
   { type: 'custom_software', label: 'Web App', description: 'Calculators, planners and trackers that run in the browser', icon: Boxes, available: true },
   { type: 'ecommerce', label: 'Online Store', description: 'Catalog, cart, checkout and store admin', icon: ShoppingBag, available: false },
-  { type: 'saas', label: 'SaaS Platform', description: 'Auth, subscriptions and dashboards', icon: LayoutDashboard, available: false },
+  { type: 'saas', label: 'Full-stack App', description: 'Sign-up and login, a real database and access rules', icon: LayoutDashboard, available: true },
 ];
 
 export const projectTypeOption = (t: string) => PROJECT_TYPE_OPTIONS.find((o) => o.type === t);

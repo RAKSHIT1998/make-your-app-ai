@@ -1,0 +1,13 @@
+{
+  "auth": { "enabled": true },
+  "collections": {
+    "tasks": {
+      "fields": {
+        "title": { "type": "string", "required": true, "max": 120 },
+        "done": { "type": "boolean" },
+        "priority": { "type": "enum", "values": ["low", "normal", "high"] }
+      },
+      "access": { "read": "owner", "create": "users", "modify": "owner" }
+    }
+  }
+}

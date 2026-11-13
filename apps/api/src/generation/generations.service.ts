@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, type OnApplicationBootstrap, ty
 import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecord } from '@mya/ai';
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
 import { auditProject, type FilePatch, type FileTree, type GitProjectStore } from '@mya/codegen';
-import { buildPreviewDocument } from '@mya/shared';
+import { APP_BACKEND_FILE, buildPreviewDocument } from '@mya/shared';
 import type { GenerationRun, Prisma, PrismaClient, Project } from '@mya/db';
 import { createHash, randomUUID } from 'node:crypto';
 import { PRISMA } from '../prisma.service.js';
@@ -11,6 +11,7 @@ import { AI_ROUTER, ORCHESTRATOR, PROJECT_STORE } from '../ai/ai.providers.js';
 import { CreditsService } from '../credits/credits.service.js';
 import { ProjectsService } from '../projects/projects.service.js';
 import { FlagsService } from '../flags/flags.service.js';
+import { AppDataService } from '../appdata/appdata.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { OrgsService } from '../orgs/orgs.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -35,6 +36,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
     @Inject(ORCHESTRATOR) private readonly orchestrator: Orchestrator,
     @Inject(PROJECT_STORE) private readonly store: GitProjectStore,
     @Inject(FlagsService) private readonly flags: FlagsService,
+    @Inject(AppDataService) private readonly appData: AppDataService,
     @Inject(CreditsService) private readonly credits: CreditsService,
     @Inject(ProjectsService) private readonly projects: ProjectsService,
     @Inject(AuditService) private readonly audit: AuditService,
@@ -402,9 +404,11 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
   async preview(user: AuthUser, projectId: string) {
     await this.projects.getAuthorized(user, projectId, 'viewer');
     const tree = await this.store.readTree(projectId);
-    const r = buildPreviewDocument(tree);
+    // Full-stack apps get the SDK and may reach only their own preview data (separate from the published app's data).
+    const backend = tree.has(APP_BACKEND_FILE) ? { api: this.appData.endpoint(`pv_${await this.appData.previewKey(projectId)}`), env: 'preview' as const } : undefined;
+    const r = buildPreviewDocument(tree, backend ? { backend } : {});
     if (!r.ok) throw new UnprocessableEntityException(r.reason);
-    return { html: r.html, warnings: r.warnings };
+    return { html: r.html, warnings: r.warnings, backend: !!backend };
   }
 
   /** Static review of the project's current files (SEO, accessibility, performance, security). No AI, no credits. */

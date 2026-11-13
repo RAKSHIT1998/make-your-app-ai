@@ -90,7 +90,7 @@ export function ProjectPublic({ slug }: { slug: string }) {
 
               {p.playable ? (
                 <Card padded={false} className="overflow-hidden">
-                  <Player slug={p.slug} title={p.title} poster={<PalettePreview palette={p.palette} pages={p.pageCount} className="size-full" />} />
+                  <Player slug={p.slug} title={p.title} backend={p.type === 'saas'} poster={<PalettePreview palette={p.palette} pages={p.pageCount} className="size-full" />} />
                 </Card>
               ) : (
               <Card padded={false} className="overflow-hidden">

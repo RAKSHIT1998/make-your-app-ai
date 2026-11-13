@@ -10,6 +10,17 @@ export function configureApp(app: INestApplication, config: AppConfig) {
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalFilters(new HttpErrorFilter());
   app.use(helmet());
+  // Generated apps call their data API from sandboxed pages (opaque origin) and from their own hosts. These routes
+  // accept no cookies and no platform tokens, only the app's own session header, so they can be open to any origin.
+  app.use(`/${API_PREFIX}/appdata`, (req: { method: string }, res: { setHeader: (k: string, v: string) => void; statusCode: number; end: () => void }, next: () => void) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type,x-app-session');
+    res.setHeader('Access-Control-Max-Age', '600');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+    next();
+  });
   app.enableCors({ origin: config.WEB_ORIGIN.split(','), credentials: false, exposedHeaders: ['Content-Disposition'] });
   app.enableShutdownHooks();
 }

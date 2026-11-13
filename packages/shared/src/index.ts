@@ -66,7 +66,7 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   website: 'Website',
   ecommerce: 'E-commerce store',
   business_website: 'Business website',
-  saas: 'SaaS application',
+  saas: 'Full-stack app',
   custom_software: 'Web app',
   game: 'Game',
 };
@@ -79,3 +79,4 @@ export interface ApiError {
 }
 export * from './commerce.js';
 export * from './preview.js';
+export * from './appbackend.js';

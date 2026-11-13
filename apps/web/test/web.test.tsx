@@ -26,9 +26,10 @@ describe('Composer', () => {
     wrap(<Composer />);
     const website = screen.getByRole('radio', { name: /^Website/ });
     expect((website as HTMLButtonElement).disabled).toBe(false);
-    const mobile = screen.getByRole('radio', { name: /SaaS Platform/ });
-    expect((mobile as HTMLButtonElement).disabled).toBe(true);
-    expect(mobile.textContent?.toLowerCase()).toContain('soon');
+    expect((screen.getByRole('radio', { name: /Full-stack App/ }) as HTMLButtonElement).disabled).toBe(false);
+    const store = screen.getByRole('radio', { name: /Online Store/ });
+    expect((store as HTMLButtonElement).disabled).toBe(true);
+    expect(store.textContent?.toLowerCase()).toContain('soon');
 
     const generate = screen.getByRole('button', { name: 'Generate' }) as HTMLButtonElement;
     expect(generate.disabled).toBe(true);

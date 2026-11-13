@@ -73,7 +73,13 @@ export const api = {
   events: (runId: string, after = '0') => apiFetch<RunEvent[]>(`/generations/${runId}/events?after=${after}`),
   files: (projectId: string) => apiFetch<{ path: string; sizeBytes: number }[]>(`/projects/${projectId}/files`),
   file: (projectId: string, path: string) => apiFetch<{ path: string; content: string | null }>(`/projects/${projectId}/file?path=${encodeURIComponent(path)}`),
-  preview: (projectId: string) => apiFetch<{ html: string; warnings: string[] }>(`/projects/${projectId}/preview`),
+  preview: (projectId: string) => apiFetch<{ html: string; warnings: string[]; backend?: boolean }>(`/projects/${projectId}/preview`),
+  appData: (projectId: string, env: AppEnv) => apiFetch<AppDataOverview>(`/projects/${projectId}/data?env=${env}`),
+  appRecords: (projectId: string, env: AppEnv, collection: string, cursor?: string) => apiFetch<{ items: AppDataRecord[]; nextCursor: string | null }>(`/projects/${projectId}/data/records?env=${env}&collection=${encodeURIComponent(collection)}${cursor ? `&cursor=${cursor}` : ''}`),
+  appUsers: (projectId: string, env: AppEnv) => apiFetch<AppDataUser[]>(`/projects/${projectId}/data/users?env=${env}`),
+  deleteAppRecord: (projectId: string, env: AppEnv, id: string) => apiFetch<void>(`/projects/${projectId}/data/records/${id}?env=${env}`, { method: 'DELETE' }),
+  deleteAppUser: (projectId: string, env: AppEnv, id: string) => apiFetch<void>(`/projects/${projectId}/data/users/${id}?env=${env}`, { method: 'DELETE' }),
+  clearPreviewData: (projectId: string) => apiFetch<{ records: number; users: number }>(`/projects/${projectId}/data/clear-preview`, { method: 'POST' }),
   versions: (projectId: string) => apiFetch<Version[]>(`/projects/${projectId}/versions`),
   restore: (projectId: string, versionId: string) => apiFetch<Version[]>(`/projects/${projectId}/versions/${versionId}/restore`, { method: 'POST' }),
   approvals: (projectId: string) => apiFetch<Approval[]>(`/projects/${projectId}/approvals`),
@@ -105,6 +111,15 @@ export interface AdminAnalytics {
   failedBuildRefunds: { runs: number; credits: number };
   topWorkspaces: { id: string; name: string; owner: string | null; credits: number; aiCostUsd: number }[];
 }
+
+export type AppEnv = 'preview' | 'live';
+export interface AppDataOverview {
+  env: AppEnv; available: boolean; users: number; orphanedRecords: number; limits: { records: number; users: number };
+  backend: { auth: { enabled: boolean } } | null;
+  collections: { name: string; records: number; access: { read: string; create: string; modify: string }; fields: { name: string; type: string; required?: boolean }[] }[];
+}
+export interface AppDataRecord { id: string; data: Record<string, unknown>; owner: string | null; createdAt: string; updatedAt: string }
+export interface AppDataUser { id: string; email: string; createdAt: string; lastSignInAt: string | null; records: number }
 
 export const commerce = {
   extensions: (id: string) => apiFetch<Extension[]>(`/stores/${id}/extensions`),
@@ -228,7 +243,7 @@ const qs = (o: object) => { const p = new URLSearchParams(); for (const [k, v] o
 export const showcase = {
   explore: (q: ExploreQuery) => apiFetch<{ items: ShowcaseCard[]; page: number; hasMore: boolean }>(`/explore${qs(q)}`),
   page: (slug: string) => apiFetch<ShowcasePage>(`/showcase/${slug}`),
-  play: (slug: string) => apiFetch<{ html: string; versionNumber: number }>(`/showcase/${slug}/play`),
+  play: (slug: string) => apiFetch<{ html: string; versionNumber: number; backend?: boolean }>(`/showcase/${slug}/play`),
   view: (slug: string) => apiFetch<{ counted: boolean }>(`/showcase/${slug}/view`, { method: 'POST' }),
   like: (slug: string, on: boolean) => apiFetch<{ liked: boolean; likes: number }>(`/showcase/${slug}/like`, { method: on ? 'PUT' : 'DELETE' }),
   remix: (slug: string) => apiFetch<ProjectDto>(`/showcase/${slug}/remix`, { method: 'POST', body: '{}' }),

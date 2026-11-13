@@ -1,11 +1,12 @@
 import { nextjsSiteTemplate } from './nextjs-site.js';
 import { expoAppTemplate } from './expo-app.js';
 import { webPlayTemplate } from './web-play.js';
+import { fullstackWebTemplate } from './fullstack-web.js';
 import type { ProjectTemplate } from './types.js';
 
 export * from './types.js';
 
-const TEMPLATES: ProjectTemplate[] = [nextjsSiteTemplate, expoAppTemplate, webPlayTemplate];
+const TEMPLATES: ProjectTemplate[] = [nextjsSiteTemplate, expoAppTemplate, webPlayTemplate, fullstackWebTemplate];
 
 export function templateKey(t: ProjectTemplate) {
   return `${t.id}@${t.version}`;

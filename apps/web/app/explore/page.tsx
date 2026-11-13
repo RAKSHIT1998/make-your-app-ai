@@ -12,7 +12,7 @@ import { CATEGORIES, CATEGORY_LABELS, community, showcase, type Category, type E
 import { useAuth } from '@/lib/auth';
 
 const SORTS = [{ value: 'trending', label: 'Trending' }, { value: 'recent', label: 'New' }, { value: 'popular', label: 'Most liked' }, { value: 'featured', label: 'Featured' }] as const;
-const TYPES: { value: ProjectType | ''; label: string }[] = [{ value: '', label: 'All types' }, { value: 'website', label: 'Websites' }, { value: 'business_website', label: 'Business websites' }, { value: 'ecommerce', label: 'Online stores' }, { value: 'mobile_app', label: 'Mobile apps' }, { value: 'saas', label: 'SaaS' }, { value: 'game', label: 'Games' }];
+const TYPES: { value: ProjectType | ''; label: string }[] = [{ value: '', label: 'All types' }, { value: 'website', label: 'Websites' }, { value: 'business_website', label: 'Business websites' }, { value: 'ecommerce', label: 'Online stores' }, { value: 'mobile_app', label: 'Mobile apps' }, { value: 'saas', label: 'Full-stack apps' }, { value: 'game', label: 'Games' }];
 
 export default function ExplorePage() {
   const { session } = useAuth();

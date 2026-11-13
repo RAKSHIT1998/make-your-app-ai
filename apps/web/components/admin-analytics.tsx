@@ -58,7 +58,7 @@ function Breakdown({ title, rows, empty }: { title: string; rows: { label: strin
   );
 }
 
-const TYPE: Record<string, string> = { website: 'Websites', business_website: 'Business sites', mobile_app: 'Mobile apps', game: 'Games', custom_software: 'Web apps', ecommerce: 'Stores', saas: 'SaaS' };
+const TYPE: Record<string, string> = { website: 'Websites', business_website: 'Business sites', mobile_app: 'Mobile apps', game: 'Games', custom_software: 'Web apps', ecommerce: 'Stores', saas: 'Full-stack apps' };
 
 export function AdminAnalyticsPanel() {
   const [days, setDays] = useState<'7' | '30' | '90'>('30');
