@@ -8,6 +8,7 @@ import { rateLimits } from '../common/rate-limits.js';
 import { ProjectsService } from '../projects/projects.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AppDataService, type AppEnv } from './appdata.service.js';
+import { AppServicesService } from './app-services.service.js';
 
 const Key = new ZodPipe(z.string().regex(/^(pv_[A-Za-z0-9_-]{20,64}|lv_[0-9a-f-]{36})$/, 'Unknown app'));
 const Name = new ZodPipe(z.string().regex(/^[a-z][a-zA-Z0-9_]{0,39}$/, 'Unknown collection'));
@@ -22,7 +23,17 @@ const auth = { default: { limit: () => rateLimits.appAuth, ttl: 60_000 } };
 @Public()
 @Controller('appdata/:key')
 export class AppDataController {
-  constructor(@Inject(AppDataService) private readonly s: AppDataService) {}
+  constructor(@Inject(AppDataService) private readonly s: AppDataService, @Inject(AppServicesService) private readonly svc: AppServicesService) {}
+
+  // Free services, available to any live or preview app (never as an open proxy: the app key is checked first).
+  @Get('services/currency/latest') @Throttle(data) async rates(@Param('key', Key) key: string, @Query('base') base?: string, @Query('symbols') symbols?: string) {
+    await this.s.resolve(key);
+    return this.svc.latestRates(String(base ?? 'EUR'), typeof symbols === 'string' && symbols ? symbols.split(',').map((x) => x.trim()) : undefined);
+  }
+  @Get('services/countries') @Throttle(data) async countries(@Param('key', Key) key: string, @Query('lang') lang?: string) {
+    await this.s.resolve(key);
+    return this.svc.countries(typeof lang === 'string' && lang.length <= 20 ? lang : 'en');
+  }
 
   @Post('auth/signup') @Throttle(auth) async signUp(@Param('key', Key) key: string, @Body() b: unknown) { return this.s.signUp(await this.s.resolve(key), b); }
   @Post('auth/signin') @HttpCode(200) @Throttle(auth) async signIn(@Param('key', Key) key: string, @Body() b: unknown) { return this.s.signIn(await this.s.resolve(key), b); }

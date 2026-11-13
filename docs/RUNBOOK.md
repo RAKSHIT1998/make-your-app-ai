@@ -51,6 +51,8 @@ Everything else is already instance-safe: run ownership uses leases, stock-hold 
 ## Full-stack app backends
 Generated full-stack apps call `/api/v1/appdata/:key` (open CORS, no platform credentials). Kill switch: Owner console → Flags → `app_backends` (those apps then can't load or save data). Limits: `APP_DATA_MAX_RECORDS` and `APP_DATA_MAX_USERS` per app per environment; per-IP `APP_DATA_RATE_LIMIT_PER_MINUTE` and `APP_AUTH_RATE_LIMIT_PER_MINUTE` (sign-up/sign-in). A creator removes an end user (with all their data) in the project's Data tab, which is how a deletion request is handled. Preview data can be cleared there; live data cannot be bulk-deleted.
 
+Free services (`/appdata/:key/services/*`): exchange rates come from Frankfurter (ECB) and are cached for an hour per base currency; if Frankfurter is down, apps get the last cached rates or a clear "unavailable" message. Switch off with the `app_services` flag.
+
 ## Store extensions
 Merchants connect their own Razorpay, Stripe and Shiprocket accounts in Business Studio → Extensions. Shiprocket failures come back to the merchant with Shiprocket's own reason (wrong API user, pickup location name not found, empty wallet); a failed booking can simply be retried and never creates a second shipment. If Shiprocket is down, bookings return 503 and nothing is left half-done. Provider calls share `DEPLOY_RATE_LIMIT_PER_MINUTE`. Adoption and parcel counts are in Owner console → Analytics.
 

@@ -7,6 +7,20 @@ import type { PrismaClient } from '@mya/db';
 import { AI_ROUTER } from '../src/ai/ai.providers.js';
 import { GenerationsService } from '../src/generation/generations.service.js';
 import { FlagsService } from '../src/flags/flags.service.js';
+import { SERVICES_FETCH } from '../src/appdata/app-services.service.js';
+
+/** Emulated Frankfurter API (no internet in tests); the platform code calling it is real. */
+const upstream: string[] = [];
+let ratesDown = false;
+const servicesFetch = (async (url: string | URL | Request) => {
+  const u = new URL(String(url));
+  upstream.push(u.toString());
+  if (ratesDown) throw new TypeError('fetch failed');
+  if (u.host !== 'api.frankfurter.dev' || u.pathname !== '/v1/latest') return new Response('{}', { status: 404 });
+  const base = u.searchParams.get('base');
+  if (base === 'XXX') return new Response(JSON.stringify({ message: 'not found' }), { status: 404 });
+  return Response.json({ amount: 1, base, date: '2026-11-13', rates: base === 'USD' ? { EUR: 0.86, INR: 88.4, GBP: 0.76 } : { USD: 1.16, INR: 102.8 } });
+}) as typeof fetch;
 import { createTestApp, newIdentity, resetDb, tokenFor } from './helpers.js';
 import { DESIGN, SPEC } from './fixtures.js';
 const V = '/api/v1';
@@ -32,7 +46,7 @@ let gen: GenerationsService;
 const http = () => request(app.getHttpServer());
 
 beforeAll(async () => {
-  ({ app, prisma } = await createTestApp({ env: { APP_DATA_RATE_LIMIT_PER_MINUTE: '100000', APP_AUTH_RATE_LIMIT_PER_MINUTE: '100000', APP_DATA_MAX_RECORDS: '25' }, overrides: [{ provide: AI_ROUTER, useValue: router }] }));
+  ({ app, prisma } = await createTestApp({ env: { APP_DATA_RATE_LIMIT_PER_MINUTE: '100000', APP_AUTH_RATE_LIMIT_PER_MINUTE: '100000', APP_DATA_MAX_RECORDS: '25' }, overrides: [{ provide: SERVICES_FETCH, useValue: servicesFetch }, { provide: AI_ROUTER, useValue: router }] }));
   gen = app.get(GenerationsService);
 });
 afterAll(async () => { await app.close(); await prisma.$disconnect(); });
@@ -247,5 +261,39 @@ describe('full-stack apps: built-in backend', () => {
     provider.queue([JSON.stringify(SPEC), JSON.stringify(DESIGN), JSON.stringify({ summary: 'Draft', patches: patches(broken) }), JSON.stringify({ diagnosis: 'Removed the undeclared collection', patches: patches({ 'app.js': TASKS['app.js']! }) })]);
     const { run } = await build(a.auth, 'tasks');
     expect(run.status).toBe('succeeded');
+  });
+});
+
+describe('free services for full-stack apps', () => {
+  it('serves cached ECB exchange rates and built-in country data to apps only, with clear errors', async () => {
+    const { base } = await fullstack('sv1');
+    upstream.length = 0; ratesDown = false;
+    const r = (await http().get(`${base}/services/currency/latest?base=usd&symbols=INR,EUR`).expect(200)).body;
+    expect(r).toEqual({ base: 'USD', date: '2026-11-13', rates: { INR: 88.4, EUR: 0.86 }, source: expect.stringContaining('European Central Bank') });
+    await http().get(`${base}/services/currency/latest?base=USD&symbols=GBP`).expect(200);
+    expect(upstream).toEqual(['https://api.frankfurter.dev/v1/latest?base=USD']); // one upstream call serves both
+    expect((await http().get(`${base}/services/currency/latest?base=USD&symbols=JPY`).expect(400)).body.message).toBe('Not supported: JPY.');
+    await http().get(`${base}/services/currency/latest?base=usd1`).expect(400);
+    await http().get(`${base}/services/currency/latest?base=XXX`).expect(400);
+
+    ratesDown = true;
+    expect((await http().get(`${base}/services/currency/latest?base=USD`).expect(200)).body.rates.INR).toBe(88.4); // cached
+    expect((await http().get(`${base}/services/currency/latest?base=EUR`).expect(503)).body.message).toMatch(/unavailable right now/);
+    ratesDown = false;
+
+    const countries = (await http().get(`${base}/services/countries`).expect(200)).body as { code: string; name: string; flag: string }[];
+    expect(countries.length).toBeGreaterThanOrEqual(245);
+    expect(countries).toContainEqual({ code: 'IN', name: 'India', flag: '🇮🇳' });
+    expect(countries.some((c) => ['EU', 'UN', 'ZZ', 'SU', 'YU'].includes(c.code))).toBe(false);
+    expect(countries.map((c) => c.name)).toEqual([...countries.map((c) => c.name)].sort((a, b) => a.localeCompare(b, 'en')));
+    const hi = (await http().get(`${base}/services/countries?lang=hi`).expect(200)).body as { code: string; name: string }[];
+    expect(hi.find((c) => c.code === 'IN')!.name).toBe('भारत');
+
+    // Not an open proxy: unknown or unpublished apps get nothing, and the kill switch works.
+    await http().get(`${V}/appdata/pv_${'y'.repeat(32)}/services/countries`).expect(404);
+    await prisma.platformFlag.create({ data: { key: 'app_services', enabled: false, description: 'off' } });
+    (app.get(FlagsService) as unknown as { cache: unknown }).cache = null;
+    await http().get(`${base}/services/countries`).expect(503);
+    (app.get(FlagsService) as unknown as { cache: unknown }).cache = null;
   });
 });

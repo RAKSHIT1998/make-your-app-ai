@@ -16,6 +16,7 @@ export const FLAGS = {
   team_workspaces: { default: true, description: 'Team workspaces: create shared workspaces and invite teammates.' },
   hosting: { default: true, description: 'Deployments, custom domains and environment variables (Cloud Studio).' },
   comments: { default: true, description: 'Comments on public project pages.' },
+  app_services: { default: true, description: 'Free services for full-stack apps (exchange rates, country lists). Off: those calls return "temporarily turned off".' },
   app_backends: { default: true, description: 'Built-in backends of generated full-stack apps (data, end-user accounts). Off: those apps cannot load or save data.' },
   refund_failed_builds: { default: true, description: 'Failed-build guarantee: return the credits of AI runs that fail without delivering anything (daily cap per workspace).' },
   referrals: { default: true, description: 'Linking invite codes to new accounts. Reward amounts live in Growth settings.' },

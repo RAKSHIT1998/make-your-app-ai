@@ -166,6 +166,19 @@ export const APP_SDK_SOURCE = `(function () {
       signOut: function () { var p = token ? req('POST', '/auth/signout').catch(function () {}) : Promise.resolve(); save(null); user = null; emit(); return p.then(function () {}); },
       onChange: function (cb) { listeners.push(cb); return function () { listeners = listeners.filter(function (x) { return x !== cb; }); }; }
     }),
+    services: Object.freeze({
+      currency: Object.freeze({
+        latest: function (base, symbols) { return req('GET', '/services/currency/latest?base=' + encodeURIComponent(base || 'EUR') + (symbols && symbols.length ? '&symbols=' + encodeURIComponent([].concat(symbols).join(',')) : '')); },
+        convert: function (amount, from, to) {
+          if (typeof amount !== 'number' || !isFinite(amount)) return Promise.reject(AppError('Amount must be a number.', 400, 'invalid_amount'));
+          return req('GET', '/services/currency/latest?base=' + encodeURIComponent(from) + '&symbols=' + encodeURIComponent(to)).then(function (r) {
+            var rate = r.rates[String(to).toUpperCase()];
+            return { amount: amount, from: r.base, to: String(to).toUpperCase(), rate: rate, result: Math.round(amount * rate * 100) / 100, date: r.date, source: r.source };
+          });
+        }
+      }),
+      countries: function (lang) { return req('GET', '/services/countries' + (lang ? '?lang=' + encodeURIComponent(lang) : '')); }
+    }),
     db: Object.freeze({
       list: function (name, options) { return req('GET', c(name) + q(options)); },
       get: function (name, id) { return req('GET', c(name) + '/' + encodeURIComponent(id)); },

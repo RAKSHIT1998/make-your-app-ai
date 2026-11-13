@@ -35,3 +35,8 @@ describe('built-in app backend', () => {
 it('the full-stack starter template passes its own checks', () => {
   expect(validateTree(treeFromTemplate(templateForProjectType('saas')!))).toEqual([]);
 });
+
+it('free services need the built-in backend (they go through the same SDK)', () => {
+  const t = new Map([['index.html', '<!doctype html><html><head><title>x</title></head><body><script src="app.js"></script></body></html>'], ['app.js', "App.services.currency.convert(10, 'USD', 'INR');\n"]]);
+  expect(validateTree(t).map((i) => i.message).join('\n')).toContain('there is no app.backend.json');
+});

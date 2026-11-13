@@ -35,6 +35,7 @@ import { GatewayRegistry, gatewayFactoryProvider } from './commerce/gateways.js'
 import { MerchantService } from './commerce/merchant.service.js';
 import { ShippingService, shippingFactoryProvider } from './commerce/shipping.service.js';
 import { AppDataService } from './appdata/appdata.service.js';
+import { AppServicesService, servicesFetchProvider } from './appdata/app-services.service.js';
 import { AppDataController, ProjectDataController } from './appdata/appdata.controller.js';
 import { StorefrontService } from './commerce/storefront.service.js';
 import { HostingService, healthCheckProvider, hostingProviderFactory } from './hosting/hosting.service.js';
@@ -79,6 +80,8 @@ export class AppModule {
         shippingFactoryProvider,
         ShippingService,
         AppDataService,
+        AppServicesService,
+        servicesFetchProvider,
         StorefrontService,
         billingProvidersFactory,
         BillingService,

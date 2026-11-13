@@ -146,7 +146,7 @@ export function validateAppBackend(tree: FileTree): ValidationIssue[] {
   const backend = parsed?.ok ? parsed.backend : null;
   for (const [file, code] of tree) {
     if (!/\.(js|html)$/.test(file)) continue;
-    const uses = /\bApp\.(db|auth|ready)\b/.test(code);
+    const uses = /\bApp\.(db|auth|ready|services)\b/.test(code);
     if (uses && raw === undefined) { issues.push({ file, message: `Uses App.db/App.auth but there is no ${APP_BACKEND_FILE}. Declare the collections and access rules there.` }); continue; }
     if (/(\bwindow\.App\s*=|\b(const|let|var|function|class)\s+App\b)/.test(code)) issues.push({ file, message: 'Redefines App. The platform provides App; use it, never define it.' });
     if (!backend) continue;

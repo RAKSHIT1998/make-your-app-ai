@@ -139,6 +139,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Usage alerts, admin credit pricing | 🟡 / ✅ | Credit packs configurable; alerts not yet |
 | Unlimited usage never promised | ✅ | |
 | Failed-build guarantee (automatic credit refund for failed runs) | ✅ (session 13) | `refund_failed_builds` flag, daily cap per workspace, idempotent, excluded from route revenue |
+| Free services inside full-stack apps: exchange rates (ECB via Frankfurter), country lists (built-in) | ✅ (session 16) | Platform-proxied, cached, `app_services` kill switch. Holidays left out (Nager.Date's public API needs paid sponsorship for commercial use) |
 | Free AI provider catalogue (Groq, Cerebras, OpenRouter free, Gemini, Cloudflare Workers AI): live model discovery, one-click $0 routes, real-call test | ✅ (session 16) | Needs your free keys; discovery and probes tested against emulated APIs only |
 | Multi-provider AI routing with free/cheap routes, customer billed at the standard tier rate, margin-first selection, quality floors, daily caps, circuit breaker, per-route margin | ✅ | Owner console → AI routing. Needs provider keys + route data from you; adapter not yet run against live providers |
 
@@ -148,7 +149,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Users, MRR/ARR, revenue, AI cost, margin, subscriptions, plans, credits, audit log, moderation, referrals | ✅ |
 | AI routing console (tier rates, routes, health, margin; audited) | ✅ |
 | Analytics tab: daily revenue, sign-ups, projects, builds, credits; project mix; customer-store sales and parcels; extensions in use; top workspaces | ✅ (session 14) |
-| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, refund_failed_builds, app_backends), enforced by the API (503 `feature_disabled`), audited, owner console tab |
+| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, refund_failed_builds, app_backends, app_services), enforced by the API (503 `feature_disabled`), audited, owner console tab |
 | Churn, conversion, ARPU, cost per project, completion time, deployment rate, fraud signals, system health | 🟡 partial / ⬜ |
 
 ## §15 Onboarding
