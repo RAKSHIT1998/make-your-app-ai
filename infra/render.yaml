@@ -6,14 +6,15 @@ services:
     runtime: docker
     dockerfilePath: apps/api/Dockerfile
     dockerContext: .
-    plan: standard
+    plan: starter # 512 MB; NODE_OPTIONS keeps the heap inside it. Move to standard if builds run out of memory.
     region: singapore
     numInstances: 1
     healthCheckPath: /api/v1/health
     preDeployCommand: cd /migrate && npx prisma migrate deploy
-    disk: { name: projects, mountPath: /data, sizeGB: 20 }
+    disk: { name: projects, mountPath: /data, sizeGB: 5 } # grow later in the dashboard (it can't shrink)
     envVars:
       - { key: NODE_ENV, value: production }
+      - { key: NODE_OPTIONS, value: --max-old-space-size=384 }
       - { key: TRUST_PROXY, value: "1" }
       - { key: STORAGE_DIR, value: /data/projects }
       - { key: SANDBOX_PROVIDER, value: none }
