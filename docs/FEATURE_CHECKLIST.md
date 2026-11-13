@@ -1,6 +1,6 @@
 # Feature Implementation Checklist — "Viral AI Software-Building Ecosystem" spec
 
-_Audit date: 2026-11-13 (sessions 7–15). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
+_Audit date: 2026-11-13 (sessions 7–16). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
 Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 partial · ⛔ blocked (needs credentials/infrastructure) · ⬜ not started
 
 ## Architecture audit (spec §1)
@@ -139,6 +139,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Usage alerts, admin credit pricing | 🟡 / ✅ | Credit packs configurable; alerts not yet |
 | Unlimited usage never promised | ✅ | |
 | Failed-build guarantee (automatic credit refund for failed runs) | ✅ (session 13) | `refund_failed_builds` flag, daily cap per workspace, idempotent, excluded from route revenue |
+| Free AI provider catalogue (Groq, Cerebras, OpenRouter free, Gemini, Cloudflare Workers AI): live model discovery, one-click $0 routes, real-call test | ✅ (session 16) | Needs your free keys; discovery and probes tested against emulated APIs only |
 | Multi-provider AI routing with free/cheap routes, customer billed at the standard tier rate, margin-first selection, quality floors, daily caps, circuit breaker, per-route margin | ✅ | Owner console → AI routing. Needs provider keys + route data from you; adapter not yet run against live providers |
 
 ## §14 Owner admin

@@ -1,3 +1,4 @@
+import { extractJson } from './json.js';
 import { BudgetExceededError, NoRouteError, ProviderError, type AiProvider, type CompletionRequest, type CompletionResult, type ModelRoute, type ModelTier, type RouteWindowStats, type TierRate } from './types.js';
 
 export interface UsageRecord {
@@ -123,6 +124,24 @@ export class ProviderRouter {
   }
   providerNames() {
     return [...this.providers.keys()];
+  }
+
+  /**
+   * One small real call to check that a provider's key and model work and return valid JSON, before customers are
+   * routed to it. Not metered to any customer and not recorded in route health.
+   */
+  async probe(provider: string, model: string): Promise<{ ok: boolean; latencyMs: number; error: string | null; inputTokens: number; outputTokens: number }> {
+    const p = this.providers.get(provider);
+    if (!p) return { ok: false, latencyMs: 0, error: 'No API key is configured for this provider.', inputTokens: 0, outputTokens: 0 };
+    const started = Date.now();
+    try {
+      const r = await p.complete(model, { system: 'You are a JSON API. Answer with JSON only.', messages: [{ role: 'user', content: 'Add 2 and 3. Return {"sum": <number>}.' }], maxOutputTokens: 300, jsonSchema: { type: 'object', properties: { sum: { type: 'number' } }, required: ['sum'], additionalProperties: false } });
+      let ok = false;
+      try { ok = (extractJson(r.text) as { sum?: unknown })?.sum === 5; } catch { ok = false; }
+      return { ok, latencyMs: Date.now() - started, error: ok ? null : 'The model answered, but not with the expected JSON.', inputTokens: r.inputTokens, outputTokens: r.outputTokens };
+    } catch (e) {
+      return { ok: false, latencyMs: Date.now() - started, error: e instanceof Error ? e.message.slice(0, 300) : 'Unknown error', inputTokens: 0, outputTokens: 0 };
+    }
   }
 
   /** Enabled routes for a tier whose provider is registered, in admin priority order (no health or cost logic). */

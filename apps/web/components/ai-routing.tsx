@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { admin, type AiRoute, type AiRouteInput, type AiTier } from '@/lib/api';
+import { FreeProvidersCard } from './free-providers';
 import { Badge, Button, Card, Dialog, ErrorNotice, Field, Input, Menu, MenuItem, Segmented, Skeleton, Stat, toast, useConfirm } from './ui';
 import { DataTable } from './ui/table';
 
@@ -17,7 +18,7 @@ const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(n !== 0 
 const EMPTY: AiRouteInput = { provider: '', model: '', tier: 'balanced', priority: 100, enabled: true, inputCostPerMTokMicros: 0, outputCostPerMTokMicros: 0, quality: 80, dailyRequestLimit: null, dailyTokenLimit: null };
 
 function envName(provider: string) {
-  return provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : `${provider.toUpperCase()}_API_KEY`;
+  return provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'cloudflare' ? 'CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN' : `${provider.toUpperCase()}_API_KEY`;
 }
 
 export function AiRoutingPanel() {
@@ -27,6 +28,7 @@ export function AiRoutingPanel() {
   const [edit, setEdit] = useState<AiRouteInput | null>(null);
   const done = (msg: string) => () => { toast.success(msg); void qc.invalidateQueries({ queryKey: ['admin-ai-routing'] }); setEdit(null); };
   const save = useMutation({ mutationFn: admin.saveRoute, onSuccess: done('Route saved. It applies immediately.'), onError: (e) => toast.error((e as Error).message) });
+  const test = useMutation({ mutationFn: (r: AiRoute) => admin.testRoute({ provider: r.provider, model: r.model }), onSuccess: (t, r) => (t.ok ? toast.success(`${r.model} works · ${(t.latencyMs / 1000).toFixed(1)}s`) : toast.error(`${r.model}: ${t.error}`)) });
   const del = useMutation({ mutationFn: admin.deleteRoute, onSuccess: done('Route removed'), onError: (e) => toast.error((e as Error).message) });
   if (q.error) return <ErrorNotice error={q.error} onRetry={() => q.refetch()} />;
   if (!q.data) return <Skeleton className="h-64" />;
@@ -44,6 +46,7 @@ export function AiRoutingPanel() {
     { key: 'margin', header: 'Margin 24h', align: 'right' as const, cell: (r: AiRoute) => <span className={r.marginUsd24h < 0 ? 'text-danger' : ''}>{money(r.marginUsd24h)}</span> },
     { key: 'act', header: '', align: 'right' as const, cell: (r: AiRoute) => (
       <Menu align="end" trigger={<Button size="sm" variant="ghost" aria-label={`Actions for ${r.model}`}><MoreHorizontal className="size-4" /></Button>}>
+        <MenuItem onSelect={() => test.mutate(r)}>Test with one real call</MenuItem>
         <MenuItem onSelect={() => setEdit(r)}>Edit</MenuItem>
         <MenuItem onSelect={() => save.mutate({ ...r, enabled: !r.enabled })}>{r.enabled ? 'Turn off' : 'Turn on'}</MenuItem>
         <MenuItem danger onSelect={async () => { const c = await confirm({ title: `Remove ${r.model}?`, body: 'Requests will use the other routes for this tier.', confirmLabel: 'Remove', danger: true }); if (c.ok) del.mutate(r.id); }}>Remove</MenuItem>
@@ -61,6 +64,8 @@ export function AiRoutingPanel() {
         <Stat label="AI cost, 24h" value={money(d.totals.costUsd24h)} />
         <Stat label="Margin, 24h" value={money(d.totals.marginUsd24h)} hint={d.totals.revenueUsd24h > 0 ? `${Math.round((d.totals.marginUsd24h / d.totals.revenueUsd24h) * 100)}% of revenue` : 'No usage yet'} />
       </div></Card>
+
+      <FreeProvidersCard />
 
       <Card>
         <h3 className="text-sm font-semibold">Providers</h3>

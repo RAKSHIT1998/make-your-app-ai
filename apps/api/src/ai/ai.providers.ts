@@ -1,4 +1,4 @@
-import { AnthropicProvider, DEFAULT_ROUTES, OPENAI_COMPATIBLE_PRESETS, OpenAiCompatibleProvider, ProviderRouter, routeKey, type AiProvider, type ModelRoute, type ModelTier, type RouteWindowStats, type TierRate } from '@mya/ai';
+import { AnthropicProvider, DEFAULT_ROUTES, OPENAI_COMPATIBLE_PRESETS, OpenAiCompatibleProvider, ProviderRouter, routeKey, type AiProvider, type ModelRoute, type ModelTier, type RouteWindowStats, type TierRate, cloudflareBaseUrl } from '@mya/ai';
 import { Orchestrator } from '@mya/agents';
 import { GitProjectStore } from '@mya/codegen';
 import { DockerSandbox, LocalProcessSandbox, type SandboxProvider } from '@mya/sandbox';
@@ -57,8 +57,9 @@ export async function loadRouteStats(prisma: PrismaClient): Promise<Map<string, 
 export function buildProviders(config: AppConfig): AiProvider[] {
   const providers: AiProvider[] = [];
   if (config.ANTHROPIC_API_KEY) providers.push(new AnthropicProvider({ apiKey: config.ANTHROPIC_API_KEY }));
-  const keyed: [string, string | undefined][] = [['openai', config.OPENAI_API_KEY], ['groq', config.GROQ_API_KEY], ['openrouter', config.OPENROUTER_API_KEY], ['gemini', config.GEMINI_API_KEY], ['deepseek', config.DEEPSEEK_API_KEY], ['mistral', config.MISTRAL_API_KEY], ['together', config.TOGETHER_API_KEY]];
+  const keyed: [string, string | undefined][] = [['openai', config.OPENAI_API_KEY], ['groq', config.GROQ_API_KEY], ['openrouter', config.OPENROUTER_API_KEY], ['gemini', config.GEMINI_API_KEY], ['deepseek', config.DEEPSEEK_API_KEY], ['mistral', config.MISTRAL_API_KEY], ['together', config.TOGETHER_API_KEY], ['cerebras', config.CEREBRAS_API_KEY]];
   for (const [name, apiKey] of keyed) if (apiKey) providers.push(new OpenAiCompatibleProvider({ name, apiKey, baseURL: OPENAI_COMPATIBLE_PRESETS[name]! }));
+  if (config.CLOUDFLARE_ACCOUNT_ID && config.CLOUDFLARE_API_TOKEN) providers.push(new OpenAiCompatibleProvider({ name: 'cloudflare', apiKey: config.CLOUDFLARE_API_TOKEN, baseURL: cloudflareBaseUrl(config.CLOUDFLARE_ACCOUNT_ID) }));
   if (config.CUSTOM_AI_NAME && config.CUSTOM_AI_BASE_URL) providers.push(new OpenAiCompatibleProvider({ name: config.CUSTOM_AI_NAME, apiKey: config.CUSTOM_AI_API_KEY ?? 'none', baseURL: config.CUSTOM_AI_BASE_URL }));
   return providers;
 }

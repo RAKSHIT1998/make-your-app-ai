@@ -44,7 +44,7 @@ Production-like stack: `docker compose -f infra/docker-compose.yml up --build` r
 | `WEB_ORIGIN`, `WEB_APP_URL`, `PUBLIC_API_URL` | Public https URLs (CORS, links, webhook URLs shown to merchants) |
 | `STORAGE_DIR` | Absolute path on a persistent disk (one git repository per project). On Render: `/data/projects` |
 | `ANTHROPIC_API_KEY` | AI generation. Without it (and with no other provider key), generation reports "not configured" |
-| `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CUSTOM_AI_NAME` / `CUSTOM_AI_BASE_URL` / `CUSTOM_AI_API_KEY` | Optional extra providers for smart routing. Routes are added in Owner console → AI routing; a route without its key is never used |
+| `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CEREBRAS_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`, `CUSTOM_AI_NAME` / `CUSTOM_AI_BASE_URL` / `CUSTOM_AI_API_KEY` | Optional extra providers for smart routing. Routes are added in Owner console → AI routing; a route without its key is never used |
 | `AI_ROUTING_STRATEGY` | `margin` (default: cheapest reliable route that meets the tier's quality floor) or `priority` |
 | `PLATFORM_OWNER_EMAILS` | Comma-separated emails that get the platform admin console |
 | `TRUST_PROXY` | `1` behind Render/Vercel/one load balancer, so rate limits see the real client IP |

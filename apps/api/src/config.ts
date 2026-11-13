@@ -17,6 +17,10 @@ const EnvSchema = z
     DEEPSEEK_API_KEY: z.string().optional(),
     MISTRAL_API_KEY: z.string().optional(),
     TOGETHER_API_KEY: z.string().optional(),
+    CEREBRAS_API_KEY: z.string().optional(),
+    /** Cloudflare Workers AI: account id plus an API token with Workers AI permission. */
+    CLOUDFLARE_ACCOUNT_ID: z.string().regex(/^[a-f0-9]{32}$/, 'CLOUDFLARE_ACCOUNT_ID is a 32-character hex id').optional(),
+    CLOUDFLARE_API_TOKEN: z.string().optional(),
     /** Any other OpenAI-compatible endpoint, such as a self-hosted Ollama or vLLM. */
     CUSTOM_AI_NAME: z.string().regex(/^[a-z0-9_-]{2,30}$/).optional(),
     CUSTOM_AI_BASE_URL: z.url().optional(),

@@ -55,6 +55,8 @@ Generated full-stack apps call `/api/v1/appdata/:key` (open CORS, no platform cr
 Merchants connect their own Razorpay, Stripe and Shiprocket accounts in Business Studio → Extensions. Shiprocket failures come back to the merchant with Shiprocket's own reason (wrong API user, pickup location name not found, empty wallet); a failed booking can simply be retried and never creates a second shipment. If Shiprocket is down, bookings return 503 and nothing is left half-done. Provider calls share `DEPLOY_RATE_LIMIT_PER_MINUTE`. Adoption and parcel counts are in Owner console → Analytics.
 
 ## AI routing
+Free providers: Owner console → AI routing → Free AI providers shows which free keys are set and the models each provider currently offers for free. Use "Test with one real call" before adding a model, and again whenever a route starts failing. Free quotas reset daily (most at 00:00 UTC); a route that runs out is skipped automatically until then.
+
 Owner console → AI routing shows each route's health (ok / open breaker / paused / capped / no key), 24 h cost, revenue and margin. A route that keeps failing opens its breaker automatically (60 s, doubling to 10 min); a 401/403/404 pauses it for 10 min, so rotate that provider's key. To stop using a provider immediately, toggle its route off or delete it. Customers are always billed the tier rate, so switching routes never changes their price. Breaker and schema-validity state is per instance; usage caps and success rates are shared via the database.
 
 ## Routine

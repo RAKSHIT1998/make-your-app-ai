@@ -12,6 +12,7 @@ export const OPENAI_COMPATIBLE_PRESETS: Record<string, string> = {
   deepseek: 'https://api.deepseek.com/v1',
   mistral: 'https://api.mistral.ai/v1',
   together: 'https://api.together.xyz/v1',
+  cerebras: 'https://api.cerebras.ai/v1',
 };
 
 export interface OpenAiCompatibleOptions {

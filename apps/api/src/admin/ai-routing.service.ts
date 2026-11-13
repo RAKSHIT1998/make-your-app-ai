@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { OPENAI_COMPATIBLE_PRESETS, routeKey, type ProviderRouter } from '@mya/ai';
+import { DiscoveryError, FREE_PROVIDERS, OPENAI_COMPATIBLE_PRESETS, discoverFreeModels, routeKey, type DiscoveredModel, type ProviderRouter } from '@mya/ai';
 import type { PrismaClient } from '@mya/db';
 import { z } from 'zod';
 import { AI_ROUTER, loadTierRates, refreshRouting } from '../ai/ai.providers.js';
@@ -9,6 +9,10 @@ import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 
 const Tier = z.enum(['fast', 'balanced', 'deep']);
+/** fetch used to list providers' models (replaced in tests; the sandboxed test environment has no internet). */
+export const DISCOVERY_FETCH = Symbol('DISCOVERY_FETCH');
+export const discoveryFetchProvider = { provide: DISCOVERY_FETCH, useValue: (...a: Parameters<typeof fetch>) => fetch(...a) };
+const DISCOVERY_TTL_MS = 10 * 60_000;
 export const RouteInput = z.object({
   provider: z.string().regex(/^[a-z0-9_-]{2,30}$/),
   model: z.string().trim().min(1).max(120),
@@ -31,7 +35,47 @@ export class AiRoutingService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(AI_ROUTER) private readonly router: ProviderRouter,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(DISCOVERY_FETCH) private readonly discoveryFetch: typeof fetch,
   ) {}
+
+  private readonly discovered = new Map<string, { at: number; models: DiscoveredModel[] }>();
+
+  private credsFor(provider: string): { apiKey: string; accountId?: string } | null {
+    const c = this.config;
+    const key: Record<string, string | undefined> = { groq: c.GROQ_API_KEY, cerebras: c.CEREBRAS_API_KEY, openrouter: c.OPENROUTER_API_KEY, gemini: c.GEMINI_API_KEY, cloudflare: c.CLOUDFLARE_ACCOUNT_ID ? c.CLOUDFLARE_API_TOKEN : undefined };
+    const apiKey = key[provider];
+    return apiKey ? { apiKey, ...(provider === 'cloudflare' ? { accountId: c.CLOUDFLARE_ACCOUNT_ID! } : {}) } : null;
+  }
+
+  /**
+   * Free providers with their published free tier, whether a key is set, and (when it is) the models the provider
+   * offers for free right now, discovered live from its API. Nothing is invented: no key, no model list.
+   */
+  async freeCatalog(refresh = false) {
+    const routes = await this.prisma.aiProviderConfig.findMany({ select: { provider: true, model: true, tier: true, enabled: true } });
+    return Promise.all(FREE_PROVIDERS.map(async (p) => {
+      const creds = this.credsFor(p.key);
+      const base = { ...p, configured: !!creds && this.router.hasProvider(p.key), models: [] as (DiscoveredModel & { route: { tier: string; enabled: boolean } | null })[], error: null as string | null, checkedAt: null as string | null };
+      if (!creds) return base;
+      let hit = this.discovered.get(p.key);
+      if (refresh || !hit || Date.now() - hit.at > DISCOVERY_TTL_MS) {
+        try {
+          hit = { at: Date.now(), models: await discoverFreeModels(p.key, creds, this.discoveryFetch) };
+          this.discovered.set(p.key, hit);
+        } catch (e) {
+          return { ...base, error: e instanceof DiscoveryError ? e.message : 'Could not list models.' };
+        }
+      }
+      return { ...base, checkedAt: new Date(hit.at).toISOString(), models: hit.models.map((m) => { const r = routes.find((x) => x.provider === p.key && x.model === m.id); return { ...m, route: r ? { tier: r.tier, enabled: r.enabled } : null }; }) };
+    }));
+  }
+
+  /** One small real call through the provider to check the key, the model and JSON output before customers use it. */
+  async testRoute(admin: AuthUser, provider: string, model: string) {
+    const r = await this.router.probe(provider, model);
+    await this.audit.record({ action: 'admin.ai_route_tested', actorId: admin.id, targetType: 'ai_route', metadata: { provider, model, ok: r.ok, latencyMs: r.latencyMs } });
+    return r;
+  }
 
   async overview() {
     await loadTierRates(this.prisma); // seeds the reference rates on first use
@@ -70,7 +114,7 @@ export class AiRoutingService {
     return {
       strategy: this.config.AI_ROUTING_STRATEGY,
       creditsPerUsd: this.config.CREDITS_PER_USD,
-      providers: [...new Set([...Object.keys(OPENAI_COMPATIBLE_PRESETS), 'anthropic', ...(this.config.CUSTOM_AI_NAME ? [this.config.CUSTOM_AI_NAME] : [])])].sort().map((name) => ({ name, configured: registered.has(name) })),
+      providers: [...new Set([...Object.keys(OPENAI_COMPATIBLE_PRESETS), 'anthropic', 'cloudflare', ...(this.config.CUSTOM_AI_NAME ? [this.config.CUSTOM_AI_NAME] : [])])].sort().map((name) => ({ name, configured: registered.has(name) })),
       tierRates: rates.map((r) => ({ tier: r.tier, inputCostPerMTokMicros: r.inputCostPerMTokMicros, outputCostPerMTokMicros: r.outputCostPerMTokMicros })),
       routes,
       totals: { costUsd24h: round(routes.reduce((n, r) => n + r.costUsd24h, 0)), revenueUsd24h: round(routes.reduce((n, r) => n + r.revenueUsd24h, 0)), marginUsd24h: round(routes.reduce((n, r) => n + r.marginUsd24h, 0)) },

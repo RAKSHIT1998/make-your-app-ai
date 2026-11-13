@@ -121,6 +121,13 @@ export interface AppDataOverview {
 export interface AppDataRecord { id: string; data: Record<string, unknown>; owner: string | null; createdAt: string; updatedAt: string }
 export interface AppDataUser { id: string; email: string; createdAt: string; lastSignInAt: string | null; records: number }
 
+export interface FreeProvider {
+  key: string; name: string; env: string[]; signupUrl: string; docsUrl: string; freeTier: string; dataNote: string | null; accountWideQuota: boolean;
+  defaults: { dailyRequestLimit: number | null; dailyTokenLimit: number | null };
+  configured: boolean; error: string | null; checkedAt: string | null;
+  models: { id: string; pricing: 'free' | 'free_tier'; contextWindow: number | null; route: { tier: string; enabled: boolean } | null }[];
+}
+
 export const commerce = {
   extensions: (id: string) => apiFetch<Extension[]>(`/stores/${id}/extensions`),
   connectShiprocket: (id: string, b: { email: string; password?: string; pickupLocation: string; pickupPostcode: string; parcel: Parcel }) => apiFetch<Extension[]>(`/stores/${id}/extensions/shiprocket`, { method: 'PUT', ...j(b) }),
@@ -200,6 +207,8 @@ export const admin = {
   credits: (orgId: string, amount: number, reason: string) => apiFetch<unknown>(`/admin/organizations/${orgId}/credits`, { method: 'POST', body: JSON.stringify({ amount, reason, bucket: 'purchased', idempotencyKey: crypto.randomUUID() }) }),
   audit: () => apiFetch<{ id: string; action: string; actor: string | null; targetType: string | null; createdAt: string }[]>('/admin/audit-log?limit=50'),
   aiRouting: () => apiFetch<AiRouting>('/admin/ai/routing'),
+  freeProviders: (refresh = false) => apiFetch<FreeProvider[]>(`/admin/ai/free-providers${refresh ? '?refresh=1' : ''}`),
+  testRoute: (b: { provider: string; model: string }) => apiFetch<{ ok: boolean; latencyMs: number; error: string | null }>('/admin/ai/routes/test', { method: 'POST', body: JSON.stringify(b) }),
   saveRoute: (b: AiRouteInput) => apiFetch<AiRouting>('/admin/ai/routes', { method: 'PUT', body: JSON.stringify(b) }),
   deleteRoute: (id: string) => apiFetch<AiRouting>(`/admin/ai/routes/${id}`, { method: 'DELETE' }),
   setTierRate: (tier: AiTier, b: { inputCostPerMTokMicros: number; outputCostPerMTokMicros: number }) => apiFetch<AiRouting>(`/admin/ai/tier-rates/${tier}`, { method: 'PUT', body: JSON.stringify(b) }),

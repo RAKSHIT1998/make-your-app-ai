@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { CurrentUser } from '../auth/decorators.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -38,6 +39,8 @@ export class AdminController {
   @RequirePlatformRole('superadmin') @Patch('credit-packs/:id') updatePack(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string, @Body(new ZodPipe(PackUpdate)) b: z.infer<typeof PackUpdate>) { return this.a.updatePack(u, id, b); }
 
   @Get('ai/routing') aiRouting() { return this.ai.overview(); }
+  @Get('ai/free-providers') freeProviders(@Query(new ZodPipe(z.object({ refresh: z.enum(['1', '0']).optional() }))) q: { refresh?: '1' | '0' }) { return this.ai.freeCatalog(q.refresh === '1'); }
+  @RequirePlatformRole('superadmin') @Post('ai/routes/test') @HttpCode(200) @Throttle({ default: { limit: 20, ttl: 60_000 } }) testRoute(@CurrentUser() u: AuthUser, @Body(new ZodPipe(z.object({ provider: z.string().regex(/^[a-z0-9_-]{2,30}$/), model: z.string().trim().min(1).max(120) }))) b: { provider: string; model: string }) { return this.ai.testRoute(u, b.provider, b.model); }
   @RequirePlatformRole('superadmin') @Put('ai/routes') saveRoute(@CurrentUser() u: AuthUser, @Body(new ZodPipe(RouteInput)) b: z.infer<typeof RouteInput>) { return this.ai.upsertRoute(u, b); }
   @RequirePlatformRole('superadmin') @Delete('ai/routes/:id') deleteRoute(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string) { return this.ai.deleteRoute(u, id); }
   @RequirePlatformRole('superadmin') @Put('ai/tier-rates/:tier') setRate(@CurrentUser() u: AuthUser, @Param('tier', new ZodPipe(AiTier)) tier: z.infer<typeof AiTier>, @Body(new ZodPipe(TierRateInput)) b: z.infer<typeof TierRateInput>) { return this.ai.setTierRate(u, tier, b); }
