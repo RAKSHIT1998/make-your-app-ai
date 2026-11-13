@@ -176,10 +176,10 @@ export interface ShowcasePage extends ShowcaseCard {
   fileCount: number; versionNumber: number | null; likedByMe: boolean; isOwner: boolean; projectId: string | null;
   remixedFrom: ShowcaseCard | { private: true } | null; remixList: ShowcaseCard[]; preview: null;
 }
-export interface Creator { handle: string; name: string; bio: string; joinedAt: string; isMe: boolean; totals: { projects: number; likes: number; remixes: number }; projects: ShowcaseCard[] }
+export interface Creator { handle: string; name: string; bio: string; joinedAt: string; isMe: boolean; followers: number; following: number; followedByMe: boolean; totals: { projects: number; likes: number; remixes: number }; projects: ShowcaseCard[] }
 export interface Publishing {
   visibility: 'private' | 'public'; slug: string | null; publishedAt: string | null; publicTitle: string; publicDescription: string; category: Category | null;
-  allowRemix: boolean; showAttribution: boolean; canHideAttribution: boolean; hasVersion: boolean; outdated: boolean; moderated: boolean; moderationNote: string | null; creatorHandle: string | null;
+  allowRemix: boolean; commentsEnabled: boolean; showAttribution: boolean; canHideAttribution: boolean; hasVersion: boolean; outdated: boolean; moderated: boolean; moderationNote: string | null; creatorHandle: string | null;
 }
 export interface ExploreQuery { q?: string; type?: ProjectType; category?: Category; sort?: 'trending' | 'recent' | 'popular' | 'featured'; page?: number; limit?: number }
 export interface ReferralDashboard {
@@ -236,7 +236,7 @@ export async function publicGet<T>(path: string): Promise<T | null> {
 
 // ───────── Platform flags, retention ─────────
 
-export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting' | 'templates' | 'team_workspaces';
+export type FlagKey = 'ai_generation' | 'plan_first_builder' | 'voice_input' | 'publishing' | 'explore' | 'remix' | 'referrals' | 'hosting' | 'templates' | 'team_workspaces' | 'comments';
 export const flags = {
   all: () => apiFetch<Record<FlagKey, boolean>>('/flags', {}, async () => null),
   admin: () => apiFetch<{ key: FlagKey; enabled: boolean; description: string; default: boolean; updatedAt: string | null }[]>('/admin/flags'),
@@ -360,4 +360,27 @@ export const insights = {
   health: (projectId: string) => apiFetch<HealthReport>(`/projects/${projectId}/health`),
   validateIdea: (idea: string) => apiFetch<IdeaValidation>('/ideas/validate', { method: 'POST', body: JSON.stringify({ idea }) }),
   ideas: () => apiFetch<IdeaValidation[]>('/ideas'),
+};
+
+
+// ───────── Community: comments, follows, collections ─────────
+export interface Comment { id: string; parentId: string | null; body: string; createdAt: string; author: { handle: string | null; name: string }; byCreator: boolean; mine: boolean; canRemove: boolean }
+export interface CollectionSummary { id: string; name: string; description: string; isPublic: boolean; count: number; has?: boolean }
+export interface CollectionView { id: string; name: string; description: string; isPublic: boolean; mine: boolean; owner: { handle: string | null; name: string }; items: ShowcaseCard[] }
+export interface AdminComment { id: string; body: string; status: 'visible' | 'hidden'; createdAt: string; author: string; project: { slug: string | null; title: string }; reports: string[] }
+export const community = {
+  comments: (slug: string) => apiFetch<{ enabled: boolean; items: Comment[] }>(`/showcase/${slug}/comments`),
+  addComment: (slug: string, body: string, parentId?: string) => apiFetch<Comment>(`/showcase/${slug}/comments`, { method: 'POST', body: JSON.stringify({ body, ...(parentId ? { parentId } : {}) }) }),
+  removeComment: (id: string) => apiFetch<void>(`/comments/${id}`, { method: 'DELETE' }),
+  reportComment: (id: string, reason: string) => apiFetch<{ reported: boolean; duplicate: boolean }>(`/comments/${id}/report`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  follow: (handle: string, on: boolean) => apiFetch<{ following: boolean; followers: number }>(`/creators/${handle}/follow`, { method: on ? 'PUT' : 'DELETE' }),
+  feed: (page: number) => apiFetch<{ items: ShowcaseCard[]; page: number; hasMore: boolean; followingCount: number }>(`/feed/following?page=${page}`),
+  collections: (slug?: string) => apiFetch<CollectionSummary[]>(`/collections${slug ? `?slug=${encodeURIComponent(slug)}` : ''}`),
+  createCollection: (name: string, isPublic = false, description = '') => apiFetch<CollectionSummary>('/collections', { method: 'POST', body: JSON.stringify({ name, isPublic, description }) }),
+  updateCollection: (id: string, patch: Partial<{ name: string; description: string; isPublic: boolean }>) => apiFetch<unknown>(`/collections/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  deleteCollection: (id: string) => apiFetch<void>(`/collections/${id}`, { method: 'DELETE' }),
+  setItem: (id: string, slug: string, on: boolean) => apiFetch<{ in: boolean }>(`/collections/${id}/items/${slug}`, { method: on ? 'PUT' : 'DELETE' }),
+  collection: (id: string) => apiFetch<CollectionView>(`/collections/${id}`),
+  adminComments: () => apiFetch<AdminComment[]>('/admin/growth/comments'),
+  moderateComment: (id: string, action: 'remove' | 'restore') => apiFetch<unknown>(`/admin/growth/comments/${id}/moderate`, { method: 'POST', body: JSON.stringify({ action }) }),
 };

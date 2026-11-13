@@ -12,6 +12,8 @@ import { projectTypeOption } from '@/components/project-types';
 import { Badge, Button, Card, EmptyState, ErrorNotice, Skeleton, SoonBadge, toast, useConfirm } from '@/components/ui';
 import { ApiError, CATEGORY_LABELS, showcase, type ShowcasePage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { Comments } from '@/components/growth/comments';
+import { SaveToCollection } from '@/components/growth/save-to-collection';
 
 const REPORT_REASONS = 'spam, abuse, copyright, illegal, impersonation or other';
 
@@ -111,6 +113,8 @@ export function ProjectPublic({ slug }: { slug: string }) {
                 </section>
               )}
 
+              <Comments slug={slug} signInHref={`/login?next=${encodeURIComponent(`/p/${slug}`)}`} />
+
               {p.remixList.length > 0 && (
                 <section>
                   <h2 className="flex items-center gap-2 text-sm font-semibold"><GitFork className="size-4 text-subtle" />Remixes</h2>
@@ -139,6 +143,7 @@ export function ProjectPublic({ slug }: { slug: string }) {
                   <Button variant="secondary" className="w-full" disabled={p.isOwner} onClick={() => (session ? like.mutate(!p.likedByMe) : needLogin())}>
                     <Heart className={p.likedByMe ? 'size-4 fill-accent text-accent' : 'size-4'} />{p.likedByMe ? 'Liked' : 'Like'}
                   </Button>
+                  {session && <SaveToCollection slug={slug} />}
                   <Link href={session ? `/create?idea=${encodeURIComponent(`Something like “${p.title}”: ${p.description}`.slice(0, 600))}` : '/login'}><Button variant="ghost" className="w-full">Build something like this<ArrowRight className="size-4" /></Button></Link>
                 </div>
                 <dl className="space-y-1.5 border-t border-border pt-4 text-[13px]">

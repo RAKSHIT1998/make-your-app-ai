@@ -59,6 +59,11 @@ model User {
   notifications   Notification[]
   supportRequests SupportRequest[]
   approvals       ApprovalRequest[]        @relation("ApprovalDecider")
+  comments        ProjectComment[]
+  commentReports  CommentReport[]
+  following       UserFollow[]             @relation("Follower")
+  followers       UserFollow[]             @relation("Followed")
+  showcaseCollections ShowcaseCollection[]
 }
 
 model Organization {
@@ -409,6 +414,8 @@ model Project {
   publicDescription  String?
   category           String?
   allowRemix         Boolean           @default(true)
+  /// Visitors may comment on the public page. Owners can turn this off.
+  commentsEnabled    Boolean           @default(true)
   /// "Made with Make Your App AI". Only paid plans may turn it off (enforced server-side).
   showAttribution    Boolean           @default(true)
   featuredAt         DateTime?
@@ -427,6 +434,8 @@ model Project {
   remixedFrom    Project?            @relation("Remixes", fields: [remixedFromId], references: [id], onDelete: SetNull)
   remixes        Project[]           @relation("Remixes")
   likes          ProjectLike[]
+  comments       ProjectComment[]
+  showcaseCollectionItems ShowcaseCollectionItem[]
   hostingSite    HostingSite?
   template       Template?           @relation("TemplateSource")
   envVars        ProjectEnvVar[]
@@ -1185,6 +1194,83 @@ model ProjectReport {
 
   @@unique([projectId, reporterId])
   @@index([status, createdAt])
+}
+
+enum CommentStatus {
+  visible
+  /// Hidden automatically after several reports, pending a moderator.
+  hidden
+  removed
+}
+
+model ProjectComment {
+  id            String           @id @default(uuid()) @db.Uuid
+  projectId     String           @db.Uuid
+  authorId      String           @db.Uuid
+  /// One level of replies: the parent is always a top-level comment.
+  parentId      String?          @db.Uuid
+  body          String
+  status        CommentStatus    @default(visible)
+  removedReason String?
+  createdAt     DateTime         @default(now())
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author        User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent        ProjectComment?  @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       ProjectComment[] @relation("Replies")
+  reports       CommentReport[]
+
+  @@index([projectId, createdAt])
+  @@index([status, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model CommentReport {
+  commentId  String         @db.Uuid
+  reporterId String         @db.Uuid
+  reason     String
+  createdAt  DateTime       @default(now())
+  resolvedAt DateTime?
+  comment    ProjectComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter   User           @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, reporterId])
+}
+
+model UserFollow {
+  followerId String   @db.Uuid
+  followedId String   @db.Uuid
+  createdAt  DateTime @default(now())
+  follower   User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   User     @relation("Followed", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followedId])
+  @@index([followedId])
+}
+
+/// A creator-curated list of public projects (distinct from storefront product collections).
+model ShowcaseCollection {
+  id          String                   @id @default(uuid()) @db.Uuid
+  ownerId     String                   @db.Uuid
+  name        String
+  description String                   @default("")
+  isPublic    Boolean                  @default(false)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  owner       User                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items       ShowcaseCollectionItem[]
+
+  @@index([ownerId, updatedAt])
+}
+
+model ShowcaseCollectionItem {
+  collectionId String             @db.Uuid
+  projectId    String             @db.Uuid
+  addedAt      DateTime           @default(now())
+  collection   ShowcaseCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, projectId])
+  @@index([projectId])
 }
 
 enum ReferralStatus {

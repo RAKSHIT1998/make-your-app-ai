@@ -21,9 +21,9 @@ function Toggle({ checked, onChange, label, hint, disabled }: { checked: boolean
 export function PublishPanel({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const pub = useQuery({ queryKey: ['publishing', projectId], queryFn: () => showcase.publishing(projectId) });
-  const [f, setF] = useState<{ publicTitle: string; publicDescription: string; category: Category | ''; allowRemix: boolean; showAttribution: boolean } | null>(null);
+  const [f, setF] = useState<{ publicTitle: string; publicDescription: string; category: Category | ''; allowRemix: boolean; commentsEnabled: boolean; showAttribution: boolean } | null>(null);
   useEffect(() => {
-    if (pub.data && !f) setF({ publicTitle: pub.data.publicTitle, publicDescription: pub.data.publicDescription, category: pub.data.category ?? '', allowRemix: pub.data.allowRemix, showAttribution: pub.data.showAttribution });
+    if (pub.data && !f) setF({ publicTitle: pub.data.publicTitle, publicDescription: pub.data.publicDescription, category: pub.data.category ?? '', allowRemix: pub.data.allowRemix, commentsEnabled: pub.data.commentsEnabled, showAttribution: pub.data.showAttribution });
   }, [pub.data, f]);
   const save = useMutation({
     mutationFn: (visibility: Publishing['visibility']) => showcase.publish(projectId, { visibility, ...f!, category: f!.category || null }),
@@ -60,6 +60,7 @@ export function PublishPanel({ projectId }: { projectId: string }) {
         <Field label="Description" hint="Shown on your public page and in Explore."><Textarea rows={3} maxLength={600} value={f.publicDescription} onChange={(e) => setF({ ...f, publicDescription: e.target.value })} /></Field>
         <Field label="Category"><Select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as Category | '' })}><option value="">Choose a category</option>{CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}</Select></Field>
         <Toggle checked={f.allowRemix} onChange={(v) => setF({ ...f, allowRemix: v })} label="Allow Remix with AI" hint="Others can copy the published version into their own workspace, credited to you. Secrets and your private edits are never shared." />
+        <Toggle checked={f.commentsEnabled} onChange={(v) => setF({ ...f, commentsEnabled: v })} label="Allow comments" hint="Signed-in visitors can comment on your public page. You can delete any comment on your project." />
         <Toggle checked={f.showAttribution} onChange={(v) => setF({ ...f, showAttribution: v })} disabled={!d.canHideAttribution} label="Show “Made with Make Your App AI”" hint={d.canHideAttribution ? undefined : 'Paid plans can hide the badge.'} />
       </div>
 

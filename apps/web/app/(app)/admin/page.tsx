@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorNotice, Field, Input, Menu, MenuItem, PageHeader, Segmented, Skeleton, Stat, StatusBadge, Tabs, toast, useConfirm } from '@/components/ui';
 import { DataTable } from '@/components/ui/table';
 import Link from 'next/link';
-import { admin, api, flags as flagsApi, growthAdmin, templatesApi, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
+import { admin, api, community, flags as flagsApi, growthAdmin, templatesApi, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
 
 type Tab = 'overview' | 'plans' | 'customers' | 'growth' | 'templates' | 'flags' | 'audit';
 const intOk = (v: string, allowNeg = false) => (allowNeg ? /^-?\d+$/ : /^\d+$/).test(v.trim());
@@ -232,6 +232,12 @@ function Growth() {
   const confirm = useConfirm();
   const ref = useQuery({ queryKey: ['admin-referrals'], queryFn: growthAdmin.referrals });
   const show = useQuery({ queryKey: ['admin-showcase'], queryFn: growthAdmin.showcase });
+  const comments = useQuery({ queryKey: ['admin-comments'], queryFn: community.adminComments });
+  const decide = useMutation({
+    mutationFn: (v: { id: string; action: 'remove' | 'restore' }) => community.moderateComment(v.id, v.action),
+    onSuccess: (_d, v) => { toast.success(v.action === 'remove' ? 'Comment removed' : 'Comment restored'); void qc.invalidateQueries({ queryKey: ['admin-comments'] }); },
+    onError: (e) => toast.error((e as Error).message),
+  });
   const [f, setF] = useState<Record<keyof GrowthSettings, string> | null>(null);
   const s = ref.data?.settings;
   const form = f ?? (s ? { referralsEnabled: String(s.referralsEnabled), referrerRewardCredits: String(s.referrerRewardCredits), referredRewardCredits: String(s.referredRewardCredits), maxRewardsPerMonth: String(s.maxRewardsPerMonth), claimWindowDays: String(s.claimWindowDays) } : null);
@@ -299,6 +305,24 @@ function Growth() {
               { key: 'a', header: <span className="sr-only">Actions</span>, align: 'right', cell: (r) => <div className="flex justify-end gap-1.5">{!r.project.hidden && <Button size="xs" variant="danger" onClick={() => void hide(r.project.id, r.project.title)}>Hide</Button>}{r.project.hidden && <Button size="xs" variant="secondary" onClick={() => act.mutate({ fn: () => growthAdmin.restore(r.project.id), msg: 'Project restored' })}>Restore</Button>}<Button size="xs" variant="ghost" onClick={() => act.mutate({ fn: () => growthAdmin.dismiss(r.id), msg: 'Report dismissed' })}>Dismiss</Button></div> },
             ]}
             mobile={{ primary: (r) => r.project.title, secondary: (r) => `${r.reason} · ${r.reporter}`, trailing: (r) => <Button size="xs" variant="ghost" onClick={() => act.mutate({ fn: () => growthAdmin.dismiss(r.id), msg: 'Report dismissed' })}>Dismiss</Button> }}
+          />
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">Reported comments</h2>
+        {comments.error ? <ErrorNotice error={comments.error} /> : !comments.data ? <Skeleton className="h-24" /> : (
+          <DataTable
+            rows={comments.data}
+            rowKey={(c) => c.id}
+            empty={<Card padded={false}><EmptyState compact title="No reported comments" /></Card>}
+            columns={[
+              { key: 'c', header: 'Comment', cell: (c) => <div className="max-w-[360px]"><div className="line-clamp-2 break-words">{c.body}</div><div className="text-xs text-muted">by {c.author}{c.project.slug ? <> on <Link className="hover:underline" href={`/p/${c.project.slug}`} target="_blank">{c.project.title}</Link></> : null}</div></div> },
+              { key: 'r', header: 'Reports', cell: (c) => <span className="capitalize">{c.reports.length} · {[...new Set(c.reports)].join(', ')}</span> },
+              { key: 's', header: 'Status', cell: (c) => <span className="capitalize">{c.status === 'hidden' ? 'Hidden (auto)' : 'Visible'}</span> },
+              { key: 'a', header: <span className="sr-only">Actions</span>, align: 'right', cell: (c) => <div className="flex justify-end gap-1.5"><Button size="xs" variant="danger" onClick={() => decide.mutate({ id: c.id, action: 'remove' })}>Remove</Button><Button size="xs" variant="secondary" onClick={() => decide.mutate({ id: c.id, action: 'restore' })}>Keep</Button></div> },
+            ]}
+            mobile={{ primary: (c) => c.body.slice(0, 80), secondary: (c) => `${c.reports.length} reports · ${c.author}`, trailing: (c) => <Button size="xs" variant="danger" onClick={() => decide.mutate({ id: c.id, action: 'remove' })}>Remove</Button> }}
           />
         )}
       </section>

@@ -24,6 +24,7 @@ import { BillingService, billingProvidersFactory } from './billing/billing.servi
 import { BillingController, BillingWebhooksController } from './billing/billing.controllers.js';
 import { AdminService } from './admin/admin.service.js';
 import { AdminController } from './admin/admin.controller.js';
+import { CommunityService } from './growth/community.service.js';
 import { TeamsService } from './teams/teams.service.js';
 import { TeamsController } from './teams/teams.controller.js';
 import { IdeasService } from './ideas/ideas.service.js';
@@ -45,7 +46,7 @@ import { FlagsController } from './flags/flags.controller.js';
 import { ShowcaseService } from './growth/showcase.service.js';
 import { ReferralsService } from './growth/referrals.service.js';
 import { ModerationService } from './growth/moderation.service.js';
-import { GrowthAdminController, ReferralsController, ShowcaseActionsController, ShowcaseController } from './growth/growth.controllers.js';
+import { GrowthAdminController, ReferralsController, ShowcaseActionsController, CommunityPublicController, CommunityController, ShowcaseController } from './growth/growth.controllers.js';
 import { MerchantController, PaymentWebhooksController, StorefrontController } from './commerce/commerce.controllers.js';
 
 @Module({})
@@ -55,7 +56,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: config.RATE_LIMIT_PER_MINUTE }])],
-      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController, TemplatesController, AppStudioController, TeamsController, IdeasController],
+      controllers: [HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, CommunityPublicController, CommunityController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController, TemplatesController, AppStudioController, TeamsController, IdeasController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         prismaProvider,
@@ -83,6 +84,7 @@ export class AppModule {
         TemplatesService,
         AppStudioService,
         TeamsService,
+        CommunityService,
         IdeasService,
         ShowcaseService,
         ReferralsService,

@@ -29,7 +29,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | "Made with" attribution; paid plans can hide | 🟡 | Enforced on public pages; injection into deployed sites waits for hosting |
 | Referral programme (codes, URL, dashboard, tracking, conversion, rewards, history, limits, anti-abuse, admin config) | ✅ | Rewards only after verified first payment |
 | Weekly challenges, voting, submissions, leaderboards | ⬜ | Phase 3 remaining |
-| Comments, follows, collections | ⬜ | |
+| Comments, follows, collections | ✅ | Threaded comments with per-creator toggle, report → auto-hide at 3 + admin queue, follow + Following feed, public collections; behind the `comments` flag |
 | Achievement badges | ✅ (this session) | Computed from real activity |
 | Moderation, reporting, spam protection | ✅ | Reports, auto-hide after 3, owner moderation, rate limits |
 

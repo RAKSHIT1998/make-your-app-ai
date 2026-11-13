@@ -15,6 +15,7 @@ export const FLAGS = {
   templates: { default: true, description: 'Template gallery, submissions and starting projects from templates.' },
   team_workspaces: { default: true, description: 'Team workspaces: create shared workspaces and invite teammates.' },
   hosting: { default: true, description: 'Deployments, custom domains and environment variables (Cloud Studio).' },
+  comments: { default: true, description: 'Comments on public project pages.' },
   referrals: { default: true, description: 'Linking invite codes to new accounts. Reward amounts live in Growth settings.' },
 } as const;
 export type FlagKey = keyof typeof FLAGS;

@@ -48,6 +48,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
+/** A labelled on/off checkbox. */
+export function Toggle({ checked, onChange, label, hint, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string; disabled?: boolean }) {
+  return (
+    <label className={cx('flex items-start gap-3', disabled ? 'opacity-60' : 'cursor-pointer')}>
+      <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-primary)]" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span className="text-sm"><span className="font-medium">{label}</span>{hint && <span className="block text-[13px] text-muted">{hint}</span>}</span>
+    </label>
+  );
+}
+
 /** A link that looks like a Button (navigation is a link, not a click handler). */
 export function LinkButton({ href, variant = 'primary', size = 'md', className, children }: { href: string; variant?: ButtonVariant; size?: ButtonSize; className?: string; children: ReactNode }) {
   return <Link href={href} className={cx('inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-medium transition-colors duration-150', VARIANT[variant], SIZE[size], className)}>{children}</Link>;

@@ -19,6 +19,7 @@ export const PublishSchema = z.object({
   publicDescription: z.string().trim().max(600).optional(),
   category: z.enum(CATEGORIES).nullable().optional(),
   allowRemix: z.boolean().optional(),
+  commentsEnabled: z.boolean().optional(),
   showAttribution: z.boolean().optional(),
 });
 export type PublishInput = z.infer<typeof PublishSchema>;
@@ -44,8 +45,8 @@ const RESERVED_HANDLES = new Set(['admin', 'api', 'app', 'explore', 'login', 'pr
 
 export const HandleSchema = z.string().trim().toLowerCase().regex(/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/, 'Use 3–30 lowercase letters, numbers or hyphens.').refine((h) => !RESERVED_HANDLES.has(h), 'That handle is reserved.');
 
-const publicWhere: Prisma.ProjectWhereInput = { visibility: 'public', deletedAt: null, moderatedAt: null, publishedVersionId: { not: null } };
-const cardSelect = {
+export const publicWhere: Prisma.ProjectWhereInput = { visibility: 'public', deletedAt: null, moderatedAt: null, publishedVersionId: { not: null } };
+export const cardSelect = {
   id: true, slug: true, type: true, category: true, publicTitle: true, name: true, publicDescription: true, description: true, publishedAt: true, featuredAt: true,
   likeCount: true, viewCount: true, remixCount: true, allowRemix: true, publishedSnapshot: true,
   createdBy: { select: { handle: true, displayName: true } },
@@ -54,7 +55,7 @@ type CardRow = Prisma.ProjectGetPayload<{ select: typeof cardSelect }>;
 
 interface Snapshot { versionNumber: number; fileCount: number; pages: { route: string; title: string; purpose: string }[]; palette: Record<string, string> | null; summary: string | null; audience: string | null }
 
-function toCard(p: CardRow) {
+export function toCard(p: CardRow) {
   const snap = (p.publishedSnapshot ?? null) as Snapshot | null;
   return {
     slug: p.slug!, type: p.type, category: p.category, title: p.publicTitle ?? p.name, description: p.publicDescription ?? p.description,
@@ -90,6 +91,7 @@ export class ShowcaseService {
       publicDescription: p.publicDescription ?? p.description,
       category: p.category,
       allowRemix: p.allowRemix,
+      commentsEnabled: p.commentsEnabled,
       showAttribution: p.showAttribution,
       canHideAttribution: ent.source !== 'free',
       hasVersion: !!p.headVersionId,
@@ -110,6 +112,7 @@ export class ShowcaseService {
       ...(input.publicDescription !== undefined ? { publicDescription: input.publicDescription } : {}),
       ...(input.category !== undefined ? { category: input.category } : {}),
       ...(input.allowRemix !== undefined ? { allowRemix: input.allowRemix } : {}),
+      ...(input.commentsEnabled !== undefined ? { commentsEnabled: input.commentsEnabled } : {}),
       ...(input.showAttribution !== undefined ? { showAttribution: input.showAttribution } : {}),
       visibility: input.visibility,
     };
@@ -299,7 +302,13 @@ export class ShowcaseService {
     const u = await this.prisma.user.findUnique({ where: { handle: handle.toLowerCase() }, select: { id: true, handle: true, displayName: true, bio: true, createdAt: true, status: true } });
     if (!u || u.status !== 'active') throw new NotFoundException('Creator not found');
     const projects = await this.prisma.project.findMany({ where: { createdById: u.id, ...publicWhere }, orderBy: { publishedAt: 'desc' }, take: 60, select: cardSelect });
+    const [followers, following, mine] = await Promise.all([
+      this.prisma.userFollow.count({ where: { followedId: u.id } }),
+      this.prisma.userFollow.count({ where: { followerId: u.id } }),
+      viewer ? this.prisma.userFollow.findUnique({ where: { followerId_followedId: { followerId: viewer.id, followedId: u.id } } }) : null,
+    ]);
     return {
+      followers, following, followedByMe: !!mine,
       handle: u.handle!, name: u.displayName ?? u.handle!, bio: u.bio, joinedAt: u.createdAt.toISOString(), isMe: viewer?.id === u.id,
       totals: { projects: projects.length, likes: projects.reduce((n, p) => n + p.likeCount, 0), remixes: projects.reduce((n, p) => n + p.remixCount, 0) },
       projects: projects.map(toCard),
