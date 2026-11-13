@@ -17,7 +17,8 @@ services:
       - { key: TRUST_PROXY, value: "1" }
       - { key: STORAGE_DIR, value: /data/projects }
       - { key: SANDBOX_PROVIDER, value: none }
-      - { key: HOSTING_PROVIDER, value: vercel }
+      # Customer-site hosting stays off until you have a Vercel token: then set HOSTING_PROVIDER=vercel and VERCEL_TOKEN.
+      - { key: HOSTING_PROVIDER, value: none }
       - { key: DATABASE_URL, sync: false }
       - { key: DIRECT_URL, sync: false }
       - { key: SUPABASE_URL, sync: false }
@@ -29,6 +30,7 @@ services:
       - { key: OPENROUTER_API_KEY, sync: false }
       - { key: CEREBRAS_API_KEY, sync: false }
       - { key: PLATFORM_OWNER_EMAILS, sync: false }
+      - { key: WEATHER_CONTACT, sync: false }
       - { key: WEB_ORIGIN, sync: false }
       - { key: WEB_APP_URL, sync: false }
       - { key: PUBLIC_API_URL, sync: false }
