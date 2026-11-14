@@ -14,6 +14,7 @@ services:
     disk: { name: projects, mountPath: /data, sizeGB: 5 } # grow later in the dashboard (it can't shrink)
     envVars:
       - { key: NODE_ENV, value: production }
+      - { key: API_PORT, value: "10000" } # Render's default port, so no port re-detection restart
       - { key: NODE_OPTIONS, value: --max-old-space-size=384 }
       - { key: TRUST_PROXY, value: "1" }
       - { key: STORAGE_DIR, value: /data/projects }

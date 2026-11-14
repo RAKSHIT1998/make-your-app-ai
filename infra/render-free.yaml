@@ -16,6 +16,7 @@ services:
     dockerCommand: sh /app/start.sh
     envVars:
       - { key: NODE_ENV, value: production }
+      - { key: API_PORT, value: "10000" } # Render's default port, so no port re-detection restart
       - { key: RUN_MIGRATIONS_ON_START, value: "true" } # free services have no pre-deploy step
       - { key: NODE_OPTIONS, value: --max-old-space-size=384 }
       - { key: TRUST_PROXY, value: "1" }
