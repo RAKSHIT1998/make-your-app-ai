@@ -8,7 +8,7 @@ export interface BusinessKit {
   id: string;
   name: string;
   /** lucide icon name, resolved by the web app */
-  icon: 'contact' | 'shopping-cart' | 'boxes' | 'calendar-clock' | 'receipt' | 'life-buoy' | 'plane' | 'utensils' | 'dumbbell' | 'wrench';
+  icon: 'contact' | 'shopping-cart' | 'boxes' | 'calendar-clock' | 'receipt' | 'life-buoy' | 'plane' | 'utensils' | 'dumbbell' | 'wrench' | 'bed';
   tagline: string;
   forWho: string;
   features: string[];
@@ -21,12 +21,19 @@ const COMMON = 'Every list needs search, the filters named, empty states and loa
 export const BUSINESS_KITS: BusinessKit[] = [
   {
     id: 'crm', name: 'CRM', icon: 'contact',
-    tagline: 'Leads, customers, deals and follow-ups in one place',
+    tagline: 'Leads, deals, tasks and calls in one place',
     forWho: 'Agencies, consultants, real estate, B2B sales teams',
-    features: ['Contacts and companies', 'Deal pipeline with stages and values', 'Notes and follow-up reminders', 'Pipeline totals and won/lost this month'],
+    features: ['Leads that convert into deals', 'Deal board with stage probability', 'Tasks, call logs and notes on one page', 'Forecast, win rate and lost reasons'],
     prompt: `A CRM for my sales team. ${TEAM}
-Data: contacts (name, company, email, phone, source: website/referral/walk-in/social/other, status: lead/customer/inactive, notes); deals (title, contact name, value, stage: new/contacted/proposal/negotiation/won/lost, expected close date, owner email); activities (deal or contact, type: call/email/meeting/note, date, summary, follow-up date, done yes/no). Activities are permanent history (cannot be edited or deleted); contacts and deals can be edited by any team member.
-Screens: a dashboard with open pipeline value per stage, deals won and lost this month, and follow-ups due today or overdue; a pipeline board grouped by stage with a quick "move to next stage" button; contacts list with search and status filter; a contact page showing their deals and activity timeline with a form to log an activity.
+Data:
+- leads (number like LEAD-0001, name, company, job title, email, phone, source: website/referral/walk-in/social/ads/event/other, temperature: hot/warm/cold, status: new/contacted/qualified/unqualified/converted, owner email, notes)
+- deals (number like DEAL-0001, title, organization, contact name, email, phone, value, stage: qualification/demo or meeting/proposal/negotiation/won/lost, probability % that follows the stage (10/30/50/70/100/0) but can be changed, expected close date, next step, owner email, lost reason: price/competitor/no budget/no response/timing/other, lead number it came from)
+- organizations (name, industry, website, size: 1-10/11-50/51-200/201+, city)
+- tasks (title, related to: lead or deal number, assignee email, priority: low/medium/high, status: to do/in progress/done/cancelled, due date)
+- call logs (related to: lead or deal number, type: incoming/outgoing, outcome: connected/no answer/busy/voicemail, duration in minutes, notes, date) — permanent
+- notes (related to: lead or deal number, text, author email) — permanent
+- stage changes (deal number, from stage, to stage, by email, date) — permanent; write one every time a deal's stage changes
+Screens: a dashboard with open pipeline value, weighted forecast (value × probability) for this month, deals won and lost this month, win rate, top lost reasons, and my tasks due today or overdue; leads list with filters by status, temperature, source and owner, and a "Convert to deal" action that creates the deal (and the organization if new), marks the lead converted and links them; a deal board with one column per stage showing count and total value, and buttons to move a deal forward or back (asking for a lost reason when moved to lost); a single deal or lead page with details on top and tabs for activity (calls, notes and stage changes in time order), tasks, and quick actions to log a call, add a note or create a task.
 ${COMMON}`,
   },
   {
@@ -91,12 +98,36 @@ ${COMMON}`,
   },
   {
     id: 'restaurant', name: 'Restaurant orders', icon: 'utensils',
-    tagline: 'Table orders straight to the kitchen screen',
+    tagline: 'Tables, kitchen tickets and bills in one flow',
     forWho: 'Restaurants, cafés, cloud kitchens, food trucks',
-    features: ['Menu with categories and availability', 'Orders per table or takeaway', 'Kitchen screen: new, preparing, ready', 'Daily sales and best sellers'],
+    features: ['Live table board', 'Items with add-ons and special requests', 'Kitchen screen by ticket', 'Split bills, voids with a reason, daily sales'],
     prompt: `A restaurant ordering app for waiters, the kitchen and the cashier. ${TEAM}
-Data: menu items (name, category: starters/mains/breads/drinks/desserts/other, price, veg yes/no, available yes/no); orders (order number like ORD-0001, table number or "Takeaway", items as text lines "qty x item (notes)", subtotal, tax, total, status: placed/preparing/ready/served/paid/cancelled, payment method, waiter email, time placed).
-Screens: a waiter screen to pick a table, tap menu items by category (unavailable items greyed out), add notes like "less spicy", and place the order; a kitchen screen showing placed and preparing orders as large cards, oldest first, with one-tap "Start" and "Ready", refreshing automatically every 15 seconds; a cashier screen listing ready/served orders to mark paid with a payment method; a menu screen to edit items and toggle availability; today's sales, order count and top 5 items.
+Data:
+- tables (number, area: indoor/outdoor/terrace/private, seats, status: free/occupied/bill requested/needs cleaning)
+- menu items (name, category: starters/mains/breads/rice/drinks/desserts/other, price, veg yes/no, available yes/no, add-ons as text like "extra cheese +40, no onion +0")
+- orders (number like ORD-0001, table number or "Takeaway"/"Delivery", guests count, waiter email, status: open/billed/paid/cancelled, opened at time, subtotal, discount, service charge, tax, total, payment method: cash/UPI/card/split, notes)
+- order lines (order number, item, quantity, chosen add-ons, special request, unit price, line total, kitchen status: new/preparing/ready/served, sent at time) — lines can be marked void only with a reason (never deleted)
+- payments (order number, method, amount, date) — permanent; a bill can have several payments to split it
+Screens: a table board showing every table's status and open order total, tap a table to open or continue its order; an ordering screen with menu by category (unavailable items greyed out), add-ons and a special-request note per item, and "Send to kitchen" which sets the new lines to new; a kitchen screen showing new and preparing lines grouped by order as large tickets, oldest first, with one-tap "Start" and "Ready", refreshing every 15 seconds; a billing screen that totals the order, applies discount, service charge and tax, takes one or more payments until the balance is zero, then frees the table (status needs cleaning); a menu screen to edit items and toggle availability; today's sales, covers, average bill, top 5 items and void count.
+${COMMON}`,
+  },
+  {
+    id: 'hotel', name: 'Hotel front desk (PMS)', icon: 'bed',
+    tagline: 'Reservations, room board, check-in to check-out',
+    forWho: 'Independent hotels, guesthouses, homestays, hostels',
+    features: ['Room board and availability by date', 'Arrivals, in-house and departures', 'Guest bill with charges and payments', 'Housekeeping status and night audit'],
+    prompt: `A hotel front-desk system (PMS) for my property. ${TEAM}
+Data:
+- room types (name like Deluxe/Standard/Suite/Dorm bed, base rate per night, max guests)
+- rooms (room number, type, floor, sellable yes/no, housekeeping status: clean/dirty/inspected/out of order, out-of-order reason)
+- guests (name, phone, email, nationality, ID type and last 4 digits only, notes, visits count)
+- reservations (booking code like BKG-0001, guest name, phone, source: walk-in/phone/website/OTA/agent, OTA reference, room number, check-in date, check-out date, nights (computed), adults, children, rate per night, total, deposit received, status: confirmed/checked in/checked out/cancelled/no-show, special requests, created by email)
+- bill charges (booking code, date, item: room night/food/laundry/minibar/extra bed/other, description, amount) — permanent; corrections are a new negative charge with a reason
+- payments (booking code, date, amount, method: cash/UPI/card/bank transfer/OTA prepaid, reference) — permanent
+- housekeeping log (room number, status change, note, by email, time) — permanent
+- logbook (date, shift: morning/evening/night, note, by email) — permanent
+Rules: before saving or changing a reservation, check that no other confirmed or checked-in reservation uses the same room on any overlapping night (check-out day is free for a new arrival) and explain any clash; out-of-order rooms can't be booked. Checking in requires the room to be clean or inspected. Checking out adds the room nights as charges if not already added, shows the balance (charges minus payments) and only completes when the balance is zero, then sets the room to dirty.
+Screens: a room board for a chosen date range (rooms as rows, dates as columns, reservations as bars coloured by status) with free rooms highlighted; today's arrivals, in-house guests and departures with check-in and check-out buttons; a new reservation form with availability shown for the dates; a reservation page with the guest bill (charges, payments, balance) and buttons to add a charge or record a payment; a housekeeping screen listing rooms by status with one-tap changes; a night audit screen that lists today's confirmed arrivals that never checked in and marks them no-show, and posts tonight's room charge for in-house guests; a summary with occupancy % (occupied rooms ÷ sellable rooms), average daily rate (room revenue ÷ rooms sold), RevPAR (room revenue ÷ sellable rooms), arrivals and departures, and payments received today by method. Never store full ID or passport numbers.
 ${COMMON}`,
   },
   {

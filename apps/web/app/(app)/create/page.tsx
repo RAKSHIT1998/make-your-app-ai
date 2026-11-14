@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { BUSINESS_KITS, type BusinessKit } from '@mya/shared';
-import { Boxes, CalendarClock, Contact, Dumbbell, LifeBuoy, Plane, Receipt, ShoppingCart, Utensils, Wrench, Check } from 'lucide-react';
+import { BedDouble, Boxes, CalendarClock, Contact, Dumbbell, LifeBuoy, Plane, Receipt, ShoppingCart, Utensils, Wrench, Check } from 'lucide-react';
 import { Composer } from '@/components/composer';
 import { cx } from '@/components/ui';
 
-const KIT_ICONS: Record<BusinessKit['icon'], typeof Contact> = { contact: Contact, 'shopping-cart': ShoppingCart, boxes: Boxes, 'calendar-clock': CalendarClock, receipt: Receipt, 'life-buoy': LifeBuoy, plane: Plane, utensils: Utensils, dumbbell: Dumbbell, wrench: Wrench };
+const KIT_ICONS: Record<BusinessKit['icon'], typeof Contact> = { contact: Contact, 'shopping-cart': ShoppingCart, boxes: Boxes, 'calendar-clock': CalendarClock, receipt: Receipt, 'life-buoy': LifeBuoy, plane: Plane, utensils: Utensils, dumbbell: Dumbbell, wrench: Wrench, bed: BedDouble };
 
 export default function CreatePage() {
   // "Build something like this" from a public page pre-fills the idea (?idea=...).
