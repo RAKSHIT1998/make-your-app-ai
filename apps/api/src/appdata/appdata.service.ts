@@ -93,6 +93,10 @@ export class AppDataService {
     } else throw notFound();
     const backend = sha ? await this.backendAt(projectId, sha) : null;
     if (!backend) throw notFound();
+    if (env === 'live') {
+      const ctl = await this.prisma.appBackend.findUnique({ where: { projectId }, select: { paused: true } });
+      if (ctl?.paused) throw new HttpException({ message: 'This app is paused by its owner. Please check back later.', code: 'app_paused' }, HttpStatus.SERVICE_UNAVAILABLE);
+    }
     return { projectId, env, backend };
   }
 
@@ -121,6 +125,10 @@ export class AppDataService {
   async signUp(ctx: AppContext, body: unknown) {
     this.requireAuth(ctx);
     const { email, password } = this.credentials(body);
+    if (ctx.env === 'live') {
+      const ctl = await this.prisma.appBackend.findUnique({ where: { projectId: ctx.projectId }, select: { signupsOpen: true } });
+      if (ctl && !ctl.signupsOpen) throw new ForbiddenException({ message: 'New sign-ups are closed for this app. Existing members can still sign in.', code: 'signups_closed' });
+    }
     const count = await this.prisma.appUser.count({ where: { projectId: ctx.projectId, env: ctx.env } });
     if (count >= this.config.APP_DATA_MAX_USERS) throw new ConflictException({ message: 'This app has reached its account limit. Please contact the app owner.', code: 'user_limit' });
     try {

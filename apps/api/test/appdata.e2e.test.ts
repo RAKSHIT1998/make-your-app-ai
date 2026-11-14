@@ -376,4 +376,77 @@ describe('free services for full-stack apps', () => {
     expect(describeSymbol('heavysnow').summary).toBe('Heavy snow');
     expect(describeSymbol(undefined).summary).toBeNull();
   });
+  it('gives the owner a dashboard of visitors, app users, data and money, with controls and exports', async () => {
+    const { a, id } = await fullstack('dash1');
+    const D = `${V}/projects/${id}/insights`;
+    // Before publishing: nothing live yet, no visitors, no published schema.
+    const before = (await http().get(D).set('Authorization', a.auth).expect(200)).body;
+    expect(before.project.live).toBe(false);
+    expect(before.visitors.daily).toHaveLength(30);
+    expect(before.visitors.total).toBe(0);
+    expect(before.data).toBeNull();
+    await http().get(`${D}?days=12`).set('Authorization', a.auth).expect(400);
+
+    const pub = (await http().put(`${V}/projects/${id}/publishing`).set('Authorization', a.auth).send({ visibility: 'public', publicTitle: 'Dash', publicDescription: 'Dashboard test', category: 'other' }).expect(200)).body;
+    const slug = pub.slug as string;
+    const live = `${V}/appdata/lv_${id}`;
+    const ann = await signUp(live, 'ann@dash.test');
+    await signUp(live, 'bob@dash.test');
+    await http().post(`${live}/c/tasks`).set('x-app-session', ann.token).send({ title: '=HYPERLINK("http://evil")', priority: 'high' }).expect(201);
+    await http().post(`${live}/c/tasks`).set('x-app-session', ann.token).send({ title: 'Plain, "quoted"' }).expect(201);
+    await http().post(`${V}/showcase/${slug}/view`).set('User-Agent', 'visitor-1').expect(200);
+    await http().post(`${V}/showcase/${slug}/view`).set('User-Agent', 'visitor-2').expect(200);
+    await http().post(`${V}/showcase/${slug}/view`).set('User-Agent', 'visitor-2').expect(200); // same visitor, same day
+    const store = (await http().post(`${V}/stores`).set('Authorization', a.auth).send({ name: 'Dash store', projectId: id }).expect(201)).body;
+
+    const d = (await http().get(`${D}?days=7`).set('Authorization', a.auth).expect(200)).body;
+    expect(d.project).toMatchObject({ live: true, publishedVersion: 1 });
+    expect(d.project.url).toMatch(new RegExp(`/p/${slug}$`));
+    expect(d.visitors.daily).toHaveLength(7);
+    expect(d.visitors.total).toBe(2);
+    expect(d.visitors.daily.at(-1).value).toBe(2);
+    expect(d.appUsers).toMatchObject({ total: 2, newInPeriod: 2, active7: 2 });
+    expect(d.data.collections).toEqual([{ name: 'tasks', records: 2 }]);
+    expect(d.data.newInPeriod).toBe(2);
+    expect(d.money).toMatchObject({ store: { id: store.id }, orders: 0, grossSalesMinor: 0, currency: 'INR' });
+    expect(d.controls).toEqual({ signupsOpen: true, paused: false, hasAccounts: true });
+
+    // Strangers see nothing and can change nothing; bad input is refused.
+    const stranger = await login('dash-stranger');
+    await http().get(D).set('Authorization', stranger.auth).expect(404);
+    await http().patch(`${D}/controls`).set('Authorization', stranger.auth).send({ paused: true }).expect(404);
+    await http().get(`${D}/export/users`).set('Authorization', stranger.auth).expect(404);
+    await http().patch(`${D}/controls`).set('Authorization', a.auth).send({}).expect(400);
+    await http().patch(`${D}/controls`).set('Authorization', a.auth).send({ billing: true }).expect(400);
+
+    // Exports: CSV, formula injection neutralised, quotes escaped, no password hashes.
+    const users = await http().get(`${D}/export/users`).set('Authorization', a.auth).expect(200);
+    expect(users.headers['content-type']).toMatch(/text\/csv/);
+    expect(users.headers['cache-control']).toBe('no-store');
+    expect(users.text.split('\r\n')[0]).toBe('"email","signed_up","last_sign_in","records"');
+    expect(users.text).toContain('"ann@dash.test"');
+    expect(users.text).not.toMatch(/scrypt/);
+    const recs = (await http().get(`${D}/export/records?collection=tasks`).set('Authorization', a.auth).expect(200)).text;
+    expect(recs).toContain(`"'=HYPERLINK(""http://evil"")"`);
+    expect(recs).toContain('"Plain, ""quoted"""');
+    await http().get(`${D}/export/records?collection=../x`).set('Authorization', a.auth).expect(400);
+
+    // Closing sign-ups stops new accounts on the live app only; members still sign in; preview is unaffected.
+    expect((await http().patch(`${D}/controls`).set('Authorization', a.auth).send({ signupsOpen: false }).expect(200)).body).toEqual({ signupsOpen: false, paused: false });
+    const closed = await http().post(`${live}/auth/signup`).send({ email: 'carl@dash.test', password: 'correct horse 1' }).expect(403);
+    expect(closed.body.code).toBe('signups_closed');
+    await http().post(`${live}/auth/signin`).send({ email: 'ann@dash.test', password: 'correct horse 1' }).expect(200);
+    const preview = (await http().get(`${V}/projects/${id}/preview`).set('Authorization', a.auth).expect(200)).body;
+    const pv = `${V}/appdata/${keyOf(preview.html)}`;
+    await signUp(pv, 'carl@dash.test');
+
+    // Pausing takes the live app's data offline with a clear message; preview keeps working; resuming restores it.
+    await http().patch(`${D}/controls`).set('Authorization', a.auth).send({ paused: true }).expect(200);
+    const paused = await http().get(`${live}/c/tasks`).set('x-app-session', ann.token).expect(503);
+    expect(paused.body).toMatchObject({ code: 'app_paused', message: expect.stringMatching(/paused by its owner/) });
+    await http().get(`${pv}/auth/me`).expect(401);
+    await http().patch(`${D}/controls`).set('Authorization', a.auth).send({ paused: false, signupsOpen: true }).expect(200);
+    expect((await http().get(`${live}/c/tasks`).set('x-app-session', ann.token).expect(200)).body.items).toHaveLength(2);
+    await signUp(live, 'carl@dash.test');
+  });
 });

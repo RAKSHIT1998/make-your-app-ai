@@ -1427,9 +1427,12 @@ model RateLimitHit {
 /// Built-in backend of a generated full-stack app. Data lives in two separate environments: "preview" (the builder's
 /// workspace preview, reached with the secret previewKey) and "live" (the published app, reached by project id).
 model AppBackend {
-  projectId  String   @id @db.Uuid
-  previewKey String   @unique
-  createdAt  DateTime @default(now())
+  projectId   String   @id @db.Uuid
+  previewKey  String   @unique
+  /// Owner controls for the live app: new end-user sign-ups, and a pause switch that takes the live app's data offline.
+  signupsOpen Boolean  @default(true)
+  paused      Boolean  @default(false)
+  createdAt   DateTime @default(now())
   project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 

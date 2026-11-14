@@ -371,14 +371,17 @@ export const appStudio = {
 };
 
 /** Downloads the project's current version as a ZIP (authenticated). */
-export async function downloadSource(projectId: string) {
+export const downloadSource = (projectId: string) => downloadFile(`/projects/${projectId}/export`, 'project.zip');
+
+/** Downloads an authenticated API response as a file, keeping the server's file name. */
+export async function downloadFile(path: string, fallbackName: string) {
   const token = (await supabase?.auth.getSession())?.data.session?.access_token;
-  const res = await fetch(`${API_URL}/projects/${projectId}/export`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const res = await fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   if (!res.ok) {
     const body = await res.json().catch(() => null) as { message?: string } | null;
     throw new ApiError(res.status, body?.message ?? `Download failed (${res.status})`, body);
   }
-  const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'project.zip';
+  const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? fallbackName;
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement('a');
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -444,3 +447,27 @@ export const community = {
   adminComments: () => apiFetch<AdminComment[]>('/admin/growth/comments'),
   moderateComment: (id: string, action: 'remove' | 'restore') => apiFetch<unknown>(`/admin/growth/comments/${id}/moderate`, { method: 'POST', body: JSON.stringify({ action }) }),
 };
+
+
+// ───────── Owner dashboard: analytics, money and controls for one project ─────────
+export interface DayValue { day: string; value: number }
+export interface OwnerDashboard {
+  days: number;
+  project: { id: string; name: string; type: string; live: boolean; url: string | null; publishedAt: string | null; publishedVersion: number | null; hidden: boolean };
+  visitors: { daily: DayValue[]; total: number; changePct: number | null; allTime: number; likes: number; comments: number };
+  appUsers: { daily: DayValue[]; newInPeriod: number; changePct: number | null; total: number; active7: number; active30: number; limit: number } | null;
+  data: { daily: DayValue[]; newInPeriod: number; collections: { name: string; records: number }[]; total: number; limit: number } | null;
+  money: (StoreAnalytics & { store: { id: string; name: string; status: string } }) | null;
+  controls: { signupsOpen: boolean; paused: boolean; hasAccounts: boolean } | null;
+}
+export interface StoreAnalytics {
+  currency: string; days: number; grossSalesMinor: number; refundsMinor: number; netSalesMinor: number; orders: number; averageOrderValueMinor: number; pendingPaymentOrders: number;
+  topProducts: { productTitle: string; units: number; revenueMinor: number }[]; daily: { day: string; orders: number; revenueMinor: number }[];
+}
+export const ownerDashboard = {
+  get: (projectId: string, days: number) => apiFetch<OwnerDashboard>(`/projects/${projectId}/insights?days=${days}`),
+  setControls: (projectId: string, patch: { signupsOpen?: boolean; paused?: boolean }) => apiFetch<{ signupsOpen: boolean; paused: boolean }>(`/projects/${projectId}/insights/controls`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  exportUsers: (projectId: string) => downloadFile(`/projects/${projectId}/insights/export/users`, 'app-users.csv'),
+  exportRecords: (projectId: string, collection: string) => downloadFile(`/projects/${projectId}/insights/export/records?collection=${encodeURIComponent(collection)}`, `${collection}.csv`),
+};
+

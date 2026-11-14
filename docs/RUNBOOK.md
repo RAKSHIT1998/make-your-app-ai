@@ -69,3 +69,7 @@ Owner console → AI routing shows each route's health (ok / open breaker / paus
 
 `.github/workflows/live-check.yml` runs `scripts/live-check.mjs` every 6 hours, 10 minutes after every push to `main`, and on demand (GitHub → Actions → Live check → Run workflow). It is read-only and checks: API and database health; public endpoints; that private data, forged tokens and unsigned billing webhooks are refused; CORS and security headers; customer app-data keys; every public web page, the 404 page, robots/sitemap; and that the website is wired to the live API and Supabase. A failure opens (or comments on) a GitHub issue labelled `live-check`, which GitHub notifies you about; the issue closes itself when checks pass again. Run it locally with `node scripts/live-check.mjs` (`WEB_URL`/`API_URL` override the targets; repo variables `LIVE_WEB_URL`/`LIVE_API_URL` do the same in Actions). It does not sign in or start AI builds: those need a test account and cost credits.
 
+## Owner controls on customers' apps
+
+Owners can pause their live app or close new sign-ups from the project Dashboard. A paused app answers its data and sign-in calls with HTTP 503 `app_paused` ("This app is paused by its owner"); closed sign-ups answer 403 `signups_closed`. Both are recorded in the audit log (`app.controls_changed`), as are CSV exports (`app.users_exported`, `app.records_exported`). Support can check a project's state in the `AppBackend` table (`paused`, `signupsOpen`). Preview data is never affected.
+

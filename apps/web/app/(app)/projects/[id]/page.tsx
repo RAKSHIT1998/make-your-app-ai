@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, Database, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer, Rocket, Smartphone, Download, HeartPulse } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Database, ArrowUp, Check, ChevronRight, CircleDashed, Code2, Eye, FileCode2, FileMinus, FilePlus, FileText, Folder, History, ListTree, Loader2, MessageSquare, RotateCcw, ScrollText, Share2, X, ListChecks, Hammer, Rocket, Smartphone, Download, HeartPulse, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -91,6 +91,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
           <div className="truncate text-xs text-subtle">{opt?.label}{runs.data?.[0] ? ` · last change ${timeAgo(runs.data[0].createdAt)}` : ''}</div>
         </div>
         {activeRun ? <Badge tone="accent" dot pulse>AI working</Badge> : project.data && <span className="hidden sm:inline-flex"><StatusBadge status={project.data.status} /></span>}
+        <Link href={`/projects/${id}/dashboard`}><Button size="sm" variant="secondary" aria-label="Dashboard"><BarChart3 className="size-3.5" /><span className="hidden sm:inline">Dashboard</span></Button></Link>
         {project.data?.type === 'mobile_app'
           ? <Link href={`/studio/app/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Smartphone className="size-3.5" />App settings</Button></Link>
           : <Link href={`/hosting/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Rocket className="size-3.5" />Deploy</Button></Link>}

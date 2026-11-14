@@ -140,6 +140,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Unlimited usage never promised | ✅ | |
 | Failed-build guarantee (automatic credit refund for failed runs) | ✅ (session 13) | `refund_failed_builds` flag, daily cap per workspace, idempotent, excluded from route revenue |
 | Free services inside full-stack apps: exchange rates (ECB via Frankfurter), country lists (built-in), weather forecasts (MET Norway) | ✅ (session 16) | Platform-proxied, cached, `app_services` kill switch, MET credit shown in apps. Left out on licensing terms: Nager.Date holidays (commercial use needs paid sponsorship), Open-Meteo (free API non-commercial) |
+| Owner Dashboard per project: visitors, app users, data, store money, pause app, close sign-ups, CSV exports | ✅ (session 17) | Visitors = unique people on the public page per day; no cookies |
 | Free AI provider catalogue (Groq, Cerebras, OpenRouter free, Gemini, Cloudflare Workers AI): live model discovery, one-click $0 routes, real-call test | ✅ (session 16) | Needs your free keys; discovery and probes tested against emulated APIs only |
 | Multi-provider AI routing with free/cheap routes, customer billed at the standard tier rate, margin-first selection, quality floors, daily caps, circuit breaker, per-route margin | ✅ | Owner console → AI routing. Needs provider keys + route data from you; adapter not yet run against live providers |
 
