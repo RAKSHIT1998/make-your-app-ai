@@ -44,14 +44,18 @@ export function AiRoutingPanel() {
     { key: 'cap', header: 'Today / daily cap', cell: (r: AiRoute) => `${r.requestsToday}${r.dailyRequestLimit ? ` / ${r.dailyRequestLimit}` : ''}`, hideOnMobile: true },
     { key: 'ok', header: 'Success 24h', cell: (r: AiRoute) => (r.requests24h ? `${Math.round((r.successes24h / r.requests24h) * 100)}% of ${r.requests24h}` : '—'), hideOnMobile: true },
     { key: 'margin', header: 'Margin 24h', align: 'right' as const, cell: (r: AiRoute) => <span className={r.marginUsd24h < 0 ? 'text-danger' : ''}>{money(r.marginUsd24h)}</span> },
-    { key: 'act', header: '', align: 'right' as const, cell: (r: AiRoute) => (
+    { key: 'act', header: '', align: 'right' as const, cell: (r: AiRoute) => actions(r) },
+  ];
+  function actions(r: AiRoute) {
+    return (
       <Menu align="end" trigger={<Button size="sm" variant="ghost" aria-label={`Actions for ${r.model}`}><MoreHorizontal className="size-4" /></Button>}>
         <MenuItem onSelect={() => test.mutate(r)}>Test with one real call</MenuItem>
         <MenuItem onSelect={() => setEdit(r)}>Edit</MenuItem>
         <MenuItem onSelect={() => save.mutate({ ...r, enabled: !r.enabled })}>{r.enabled ? 'Turn off' : 'Turn on'}</MenuItem>
         <MenuItem danger onSelect={async () => { const c = await confirm({ title: `Remove ${r.model}?`, body: 'Requests will use the other routes for this tier.', confirmLabel: 'Remove', danger: true }); if (c.ok) del.mutate(r.id); }}>Remove</MenuItem>
-      </Menu>) },
-  ];
+      </Menu>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -91,7 +95,7 @@ export function AiRoutingPanel() {
               <div><h3 className="text-sm font-semibold">{t.label} tier</h3><p className="text-[13px] text-muted">{t.blurb}</p></div>
               <Button size="sm" variant="secondary" onClick={() => setEdit({ ...EMPTY, tier: t.tier })}><Plus className="size-3.5" />Add route</Button>
             </div>
-            <DataTable rows={rows} columns={cols} rowKey={(r) => r.id} mobile={{ primary: (r) => r.model, secondary: (r) => `${r.provider} · ${money(r.marginUsd24h)} margin`, trailing: status }} empty={<Card><p className="text-sm text-muted">No routes for this tier yet.</p></Card>} />
+            <DataTable rows={rows} columns={cols} rowKey={(r) => r.id} mobile={{ primary: (r) => r.model, secondary: (r) => `${r.provider} · ${money(r.marginUsd24h)} margin`, trailing: (r) => <div className="flex items-center gap-1">{status(r)}{actions(r)}</div> }} empty={<Card><p className="text-sm text-muted">No routes for this tier yet.</p></Card>} />
           </section>
         );
       })}

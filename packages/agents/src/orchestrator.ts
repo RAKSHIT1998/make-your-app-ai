@@ -191,7 +191,7 @@ ${CRAFT_RULES.map((g) => `- ${g}`).join('\n')}`,
         design ? wrap('design', JSON.stringify(design, null, 2)) : '',
         `Current project files:\n${fileContext(base)}`,
         input.kind === 'create'
-          ? 'Implement the full first version of this product from the spec and design.'
+          ? `Implement the full first version of this product from the spec and design. The customer's own request is below: where it is more specific than the spec (access, rules, fields, wording), follow the request.\n${wrap('customer_request', input.prompt)}`
           : `Apply this change requested by the customer:\n${wrap('customer_request', input.prompt)}`,
       ].filter(Boolean).join('\n\n'),
     });

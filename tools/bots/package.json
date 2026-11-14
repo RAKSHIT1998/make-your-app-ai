@@ -1,0 +1,12 @@
+{
+  "name": "@mya/bots",
+  "private": true,
+  "type": "module",
+  "description": "Product test bots: each one uses a product like a customer, in a real browser, against a throwaway local platform.",
+  "scripts": {
+    "bots": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

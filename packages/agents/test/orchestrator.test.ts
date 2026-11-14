@@ -66,6 +66,9 @@ describe('Orchestrator', () => {
     expect(h.provider.calls[1]!.req.system).toContain('WCAG AA');
     expect(h.provider.calls[2]!.req.system).toContain('Avoid generated-page tells');
     expect(h.provider.calls[2]!.req.system).toContain('keeps that name through the flow');
+    // The engineer also sees the customer's own words, so specifics the spec summarised away (e.g. "team-only") survive.
+    expect(h.provider.calls[2]!.req.messages[0]!.content).toContain(`<customer_request>`);
+    expect(h.provider.calls[2]!.req.messages[0]!.content).toContain(base.prompt);
   });
 
   it('retries an agent whose output fails the schema, sending the validation errors back', async () => {

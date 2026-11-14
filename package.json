@@ -15,7 +15,8 @@
     "db:migrate": "pnpm --filter @mya/db migrate:dev",
     "db:deploy": "pnpm --filter @mya/db migrate:deploy",
     "test:integration": "SANDBOX_INTEGRATION=1 turbo run test --filter=@mya/agents --filter=@mya/sandbox",
-    "typecheck:mobile": "pnpm --filter @mya/mobile typecheck"
+    "typecheck:mobile": "pnpm --filter @mya/mobile typecheck",
+    "bots": "pnpm --filter @mya/bots bots --"
   },
   "devDependencies": {
     "turbo": "2.11.11",

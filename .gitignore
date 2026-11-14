@@ -11,3 +11,6 @@ coverage
 packages/db/generated
 
 .data
+
+# Product bot reports (screenshots, logs)
+tools/bots/report

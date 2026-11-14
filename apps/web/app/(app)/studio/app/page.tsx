@@ -20,7 +20,7 @@ export default function AppStudioPage() {
         { label: 'Managed iOS and Android builds (EAS)', detail: 'Cloud builds, build logs and installable test builds from here.', live: false },
         { label: 'App icon and splash image upload', detail: 'Needs file storage; Expo’s default icon is used until then.', live: false },
         { label: 'Live preview on your phone', detail: 'Open the app in Expo Go from a QR code.', live: false },
-        { label: 'SaaS platforms and custom software', detail: 'Auth, subscriptions, dashboards and APIs.', live: false },
+        { label: 'Full-stack apps and web apps', detail: 'Sign-up, a real database and access rules, or browser tools: pick the type above.', live: true },
       ]}
     />
   );

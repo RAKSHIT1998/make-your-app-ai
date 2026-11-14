@@ -52,6 +52,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
   const files = useQuery({ queryKey: ['files', id], queryFn: () => api.files(id) });
   const canPreview = !!files.data?.some((f) => f.path === 'index.html');
   const hasBackend = !!files.data?.some((f) => f.path === 'app.backend.json');
+  const isShop = !!files.data?.some((f) => f.path === 'storefront.json');
   const previewStamp = (files.data ?? []).map((f) => `${f.path}:${f.sizeBytes}`).join('|');
   const activeRun = runs.data?.find((r) => ACTIVE.has(r.status));
   const [center, setCenter] = useState<Center>('code');
@@ -93,8 +94,8 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
         {activeRun ? <Badge tone="accent" dot pulse>AI working</Badge> : project.data && <span className="hidden sm:inline-flex"><StatusBadge status={project.data.status} /></span>}
         <Link href={`/projects/${id}/dashboard`}><Button size="sm" variant="secondary" aria-label="Dashboard"><BarChart3 className="size-3.5" /><span className="hidden sm:inline">Dashboard</span></Button></Link>
         {project.data?.type === 'mobile_app'
-          ? <Link href={`/studio/app/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Smartphone className="size-3.5" />App settings</Button></Link>
-          : <Link href={`/hosting/${id}`} className="hidden sm:block"><Button size="sm" variant="secondary"><Rocket className="size-3.5" />Deploy</Button></Link>}
+          ? <Link href={`/studio/app/${id}`}><Button size="sm" variant="secondary" aria-label="App settings"><Smartphone className="size-3.5" /><span className="hidden sm:inline">App settings</span></Button></Link>
+          : <Link href={`/hosting/${id}`}><Button size="sm" variant="secondary" aria-label="Deploy"><Rocket className="size-3.5" /><span className="hidden sm:inline">Deploy</span></Button></Link>}
         <Button size="sm" variant="secondary" onClick={() => setSharing(true)}><Share2 className="size-3.5" />Share</Button>
       </header>
       <Drawer open={sharing} onOpenChange={setSharing} title="Publish & share" side={desktop === false ? 'bottom' : 'right'}>
@@ -142,7 +143,7 @@ export default function WorkspacePage({ params }: { params: Promise<{ id: string
             { value: 'code', label: <><Code2 className="size-3.5" />Code</> },
             { value: 'versions', label: <><History className="size-3.5" />Versions</> },
             { value: 'health', label: <><HeartPulse className="size-3.5" />Health</> },
-            ...(canPreview ? [{ value: 'preview', label: <><Eye className="size-3.5" />{hasBackend ? 'Preview' : 'Play'}</> }] : []),
+            ...(canPreview ? [{ value: 'preview', label: <><Eye className="size-3.5" />{hasBackend ? 'Preview' : isShop ? 'Shop' : 'Play'}</> }] : []),
             ...(hasBackend ? [{ value: 'data', label: <><Database className="size-3.5" />Data</> }] : []),
           ]} />
         </div>

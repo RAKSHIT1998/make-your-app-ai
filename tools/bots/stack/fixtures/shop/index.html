@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1 id="store-name">Loading…</h1>
+    <button id="cart-button" type="button" aria-controls="cart">Cart <span id="cart-count">0</span></button>
+  </header>
+  <main>
+    <input id="search" type="search" placeholder="Search products" aria-label="Search products">
+    <p id="status" role="status"></p>
+    <ul id="grid" class="grid"></ul>
+  </main>
+  <aside id="cart" class="cart" hidden aria-label="Cart">
+    <div class="cart-head"><h2>Your cart</h2><button id="cart-close" type="button" aria-label="Close cart">×</button></div>
+    <ul id="lines"></ul>
+    <label>Discount code <input id="code" autocomplete="off"></label>
+    <label id="ship-wrap" hidden>Delivery <select id="ship"></select></label>
+    <dl id="totals"></dl>
+    <p id="cart-error" class="error" role="alert"></p>
+    <button id="checkout" type="button" class="primary">Checkout</button>
+  </aside>
+  <script src="app.js"></script>
+</body>
+</html>

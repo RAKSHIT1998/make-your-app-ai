@@ -1,0 +1,10 @@
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #0b1020; color: #e6f1ff; }
+#app { width: min(100%, 480px); padding: 12px; text-align: center; }
+.hud { display: flex; justify-content: space-between; padding: 6px 4px 10px; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; }
+.hud strong { color: #5eead4; }
+canvas { width: 100%; height: auto; background: #111936; border: 1px solid #243056; border-radius: 12px; touch-action: none; outline-offset: 3px; }
+#hint { font-size: 13px; color: #9fb3d9; margin: 10px 0; }
+button { background: #5eead4; color: #04211d; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+button:focus-visible, canvas:focus-visible { outline: 3px solid #fbbf24; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

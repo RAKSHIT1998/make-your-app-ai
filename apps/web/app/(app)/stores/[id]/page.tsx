@@ -104,7 +104,7 @@ function SearchInput({ value, onChange, label }: { value: string; onChange: (v: 
 function Overview({ store, go }: { store: Store; go: (s: Section) => void }) {
   const a = useQuery({ queryKey: ['analytics', store.id, 30], queryFn: () => commerce.analytics(store.id, 30) });
   const products = useQuery({ queryKey: ['products', store.id], queryFn: () => commerce.products(store.id) });
-  const orders = useQuery({ queryKey: ['orders', store.id, ''], queryFn: () => commerce.orders(store.id) });
+  const orders = useQuery({ queryKey: ['orders', store.id, ''], queryFn: () => commerce.orders(store.id), refetchOnMount: 'always', refetchInterval: 30_000 });
   const setup = [
     { done: !!store.paymentProvider && store.payments?.status === 'connected', label: 'Connect payments', go: 'payments' as const },
     { done: (products.data?.some((p) => p.status === 'active')) ?? false, label: 'Publish a product', go: 'products' as const },
@@ -167,7 +167,8 @@ function Orders({ store }: { store: Store }) {
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
-  const orders = useQuery({ queryKey: ['orders', store.id, status], queryFn: () => commerce.orders(store.id, status || undefined) });
+  // Orders arrive whenever shoppers pay (via provider webhooks): always fetch fresh on open and keep checking while open.
+  const orders = useQuery({ queryKey: ['orders', store.id, status], queryFn: () => commerce.orders(store.id, status || undefined), refetchOnMount: 'always', refetchInterval: 15_000 });
   const needle = q.trim().toLowerCase();
   const rows = (orders.data?.items ?? []).filter((o) => !needle || o.email.toLowerCase().includes(needle) || String(o.number).includes(needle.replace('#', '')));
   return (

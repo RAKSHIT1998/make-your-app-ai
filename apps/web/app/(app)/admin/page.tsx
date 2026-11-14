@@ -181,7 +181,7 @@ function Customers() {
             { key: 's', header: 'Status', cell: (u) => <Badge tone={u.status === 'active' ? 'success' : 'danger'} dot>{u.status === 'active' ? 'Active' : 'Suspended'}</Badge> },
             { key: 'x', header: <span className="sr-only">Actions</span>, align: 'right', cell: actions },
           ]}
-          mobile={{ primary: (u) => u.email, secondary: (u) => `${u.plan} · ${u.projects} projects · $${u.aiCostUsd.toFixed(2)} AI`, trailing: (u) => <div className="flex items-center gap-1"><StatusBadge status={u.status === 'active' ? 'active' : 'failed'} />{actions(u)}</div> }}
+          mobile={{ primary: (u) => u.email, secondary: (u) => `${u.plan} · ${u.projects} project${u.projects === 1 ? '' : 's'} · $${u.aiCostUsd.toFixed(2)} AI`, trailing: (u) => <div className="flex items-center gap-1"><StatusBadge status={u.status === 'active' ? 'active' : 'failed'} />{actions(u)}</div> }}
         />
       )}
       <CreditDialog user={creditFor} onClose={() => setCreditFor(null)} />
