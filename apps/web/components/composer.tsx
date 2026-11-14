@@ -1,4 +1,5 @@
 'use client';
+import { COLOR_THEMES, themeBrief } from '@mya/shared';
 
 import type { ProjectType } from '@mya/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,6 +33,8 @@ export function Composer({ autoFocus, compact, types, defaultType = 'website', i
   const [name, setName] = useState('');
   const [tone, setTone] = useState('');
   const [color, setColor] = useState('');
+  const [themeId, setThemeId] = useState('');
+  const theme = COLOR_THEMES.find((t) => t.id === themeId);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const planAllowed = useFlag('plan_first_builder');
@@ -42,7 +45,7 @@ export function Composer({ autoFocus, compact, types, defaultType = 'website', i
   const allowed = new Set(overview.data?.entitlements.projectTypes ?? ['website', 'business_website']);
 
   const prompt = () => {
-    const prefs = [tone && `Visual style: ${tone}`, color && `Brand colour: ${color}`].filter(Boolean).join('. ');
+    const prefs = [tone && `Visual style: ${tone}`, theme && themeBrief(theme), color && `Brand colour: ${color}`].filter(Boolean).join('. ');
     return `${idea.trim()}${prefs ? `\n\nPreferences: ${prefs}.` : ''}`;
   };
   const projectName = () => name.trim() || idea.trim().split(/[.,\n]/)[0]!.slice(0, 60) || 'Untitled project';
@@ -115,6 +118,22 @@ export function Composer({ autoFocus, compact, types, defaultType = 'website', i
             <Field label="Brand colour" hint="Optional">
               <div className="flex gap-2"><input type="color" aria-label="Pick brand colour" value={color || '#111111'} onChange={(e) => setColor(e.target.value)} className="h-10 w-12 cursor-pointer rounded-[var(--radius-md)] border border-border bg-surface p-1" /><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="#0F4C5C" /></div>
             </Field>
+            <div className="sm:col-span-3">
+              <div className="mb-2 flex items-baseline justify-between gap-3">
+                <span id="theme-label" className="text-[13px] font-medium">Colour theme <span className="font-normal text-subtle">· optional</span></span>
+                {theme && <button type="button" className="text-xs text-muted hover:text-fg" onClick={() => setThemeId('')}>Clear</button>}
+              </div>
+              <div role="radiogroup" aria-labelledby="theme-label" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {COLOR_THEMES.map((t) => (
+                  <button key={t.id} type="button" role="radio" aria-checked={themeId === t.id} title={`${t.mood}. Good for ${t.bestFor.toLowerCase()}.`}
+                    onClick={() => setThemeId(themeId === t.id ? '' : t.id)}
+                    className={cx('rounded-[var(--radius-md)] border p-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2', themeId === t.id ? 'border-fg' : 'border-border hover:border-fg/30')}>
+                    <span className="flex h-5 overflow-hidden rounded-[4px]" aria-hidden>{t.colors.map((c) => <span key={c.hex} className="flex-1" style={{ background: c.hex }} />)}</span>
+                    <span className="mt-1.5 block truncate text-xs font-medium">{t.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

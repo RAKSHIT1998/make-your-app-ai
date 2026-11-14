@@ -1,3 +1,4 @@
+import { CRAFT_RULES, DESIGN_DIRECTION } from './design-guide.js';
 import { applyPatches, getTemplate, templateForProjectType, templateKey, treeFromTemplate, validateTree, type FilePatch, type FileTree, type GitProjectStore, type PatchSummary, type ProjectTemplate } from '@mya/codegen';
 import type { SandboxProvider } from '@mya/sandbox';
 import { AskAnswerSchema, CodeChangeSchema, DesignSpecSchema, PlanDraftSchema, ProductSpecSchema, QaFixSchema, type AskAnswer, type DesignSpec, type PlanDraft, type ProductSpec } from './contracts.js';
@@ -159,7 +160,7 @@ Keep scope realistic for a first version: 1–8 pages. Mark any third-party inte
         tier: 'fast',
         maxOutputTokens: 3000,
         schema: DesignSpecSchema,
-        role: 'You are the UI/UX Designer. Produce a cohesive, accessible design system (WCAG AA contrast between text and background, and between primaryForeground and primary). Use system font stacks only — no web font downloads.',
+        role: `You are the UI/UX Designer. Produce a cohesive, accessible design system (WCAG AA contrast between text and background, and between primaryForeground and primary). Use system font stacks only — no web font downloads.\n${DESIGN_DIRECTION}`,
         content: wrap('spec', JSON.stringify(spec, null, 2)),
       });
       await r.event('step.completed', `Design: ${design.tone}`, { palette: design.palette }, 'designer');
@@ -183,7 +184,8 @@ Rules:
 - Paths are relative to the project root. Never touch .env files, node_modules or .git.
 - TypeScript must compile under "strict".
 Template rules:
-${template.agentGuide.map((g) => `- ${g}`).join('\n')}`,
+${template.agentGuide.map((g) => `- ${g}`).join('\n')}
+${CRAFT_RULES.map((g) => `- ${g}`).join('\n')}`,
       content: [
         spec ? wrap('spec', JSON.stringify(spec, null, 2)) : '',
         design ? wrap('design', JSON.stringify(design, null, 2)) : '',
@@ -254,7 +256,8 @@ ${template.agentGuide.map((g) => `- ${g}`).join('\n')}`,
         schema: QaFixSchema,
         role: `You are the QA & Debugging engineer. Diagnose the failing checks and return the minimal patches that fix them. "update" patches carry complete file content.
 Template rules:
-${template.agentGuide.map((g) => `- ${g}`).join('\n')}`,
+${template.agentGuide.map((g) => `- ${g}`).join('\n')}
+${CRAFT_RULES.map((g) => `- ${g}`).join('\n')}`,
         content: `${wrap('check_output', tail(problems.join('\n'), 12_000))}\n\nCurrent project files:\n${fileContext(tree)}`,
       });
       ({ tree } = applyPatches(tree, fix.patches));
