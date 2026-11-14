@@ -64,3 +64,8 @@ Owner console → AI routing shows each route's health (ok / open breaker / paus
 ## Routine
 - Weekly: Admin → Overview (revenue, AI cost, margin, failed generations) against the provider dashboards' payouts, plus the reports queue under Admin → Growth.
 - Monthly: `pnpm audit --prod`, provider key review, and a restore test.
+
+## Live check (automated tests of the deployed site)
+
+`.github/workflows/live-check.yml` runs `scripts/live-check.mjs` every 6 hours, 10 minutes after every push to `main`, and on demand (GitHub → Actions → Live check → Run workflow). It is read-only and checks: API and database health; public endpoints; that private data, forged tokens and unsigned billing webhooks are refused; CORS and security headers; customer app-data keys; every public web page, the 404 page, robots/sitemap; and that the website is wired to the live API and Supabase. A failure opens (or comments on) a GitHub issue labelled `live-check`, which GitHub notifies you about; the issue closes itself when checks pass again. Run it locally with `node scripts/live-check.mjs` (`WEB_URL`/`API_URL` override the targets; repo variables `LIVE_WEB_URL`/`LIVE_API_URL` do the same in Actions). It does not sign in or start AI builds: those need a test account and cost credits.
+

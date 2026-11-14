@@ -1,0 +1,49 @@
+name: Live check
+# Tests the deployed site and API: every 6 hours, after each push to main (once Render has had time to deploy),
+# and on demand from the Actions tab. Read-only: it never signs up, pays, builds or changes anything.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: { group: live-check, cancel-in-progress: true }
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      WEB_URL: ${{ vars.LIVE_WEB_URL || 'https://mya-web.onrender.com' }}
+      API_URL: ${{ vars.LIVE_API_URL || 'https://mya-api.onrender.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Wait for Render to deploy this push
+        if: github.event_name == 'push'
+        run: sleep 600
+      - name: Run live checks
+        id: check
+        run: node scripts/live-check.mjs | tee live-check.txt
+      - name: Open or update an issue when something is broken
+        if: failure() && steps.check.outcome == 'failure'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          body="$(printf 'The live check failed on %s (%s).\n\n```\n%s\n```\n\nRun: %s' "$(date -u +'%Y-%m-%d %H:%M UTC')" "${{ github.event_name }}" "$(cat live-check.txt)" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")"
+          existing="$(gh issue list --state open --label live-check --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body "$body";
+          else gh label create live-check --color B60205 --description 'Live site check failures' 2>/dev/null || true
+               gh issue create --title 'Live site check is failing' --label live-check --body "$body"; fi
+      - name: Close the issue once everything passes again
+        if: success()
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          for n in $(gh issue list --state open --label live-check --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "All live checks pass again: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          done
