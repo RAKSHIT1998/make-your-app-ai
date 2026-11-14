@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, HttpExcepti
 import { createHash, randomBytes } from 'node:crypto';
 import type { Prisma, PrismaClient, Project } from '@mya/db';
 import { z } from 'zod';
-import { APP_BACKEND_FILE, buildPreviewDocument } from '@mya/shared';
+import { APP_BACKEND_FILE, STOREFRONT_FILE, buildPreviewDocument } from '@mya/shared';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { PRISMA } from '../prisma.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -42,7 +42,7 @@ export const ReportSchema = z.object({
 
 /** Files never copied into a remix, even if a generator ever wrote them. */
 /** Project types built from the static `web-play` template, which can run in a sandboxed iframe. */
-const PLAYABLE_TYPES = new Set<string>(['game', 'custom_software', 'saas']);
+const PLAYABLE_TYPES = new Set<string>(['game', 'custom_software', 'saas', 'ecommerce']);
 export const SECRET_FILE = /(^|\/)(\.env(\..*)?|\.npmrc|id_rsa.*|.*\.pem|.*\.key|secrets?\.(json|ya?ml))$/i;
 const AUTO_HIDE_REPORTS = 3;
 const RESERVED_HANDLES = new Set(['admin', 'api', 'app', 'explore', 'login', 'pricing', 'settings', 'billing', 'support', 'help', 'about', 'legal', 'mya', 'makeyourapp', 'official', 'staff', 'team']);
@@ -262,9 +262,12 @@ export class ShowcaseService {
     for (const path of [...tree.keys()]) if (SECRET_FILE.test(path)) tree.delete(path);
     // A full-stack app on its public page uses its live data, separate from the builder's preview data.
     const backend = tree.has(APP_BACKEND_FILE) ? { api: `${this.config.PUBLIC_API_URL.replace(/\/$/, '')}/api/v1/appdata/lv_${p.id}`, env: 'live' as const } : undefined;
-    const doc = buildPreviewDocument(tree, backend ? { backend } : {});
+    // An online store's public page reads the live store; checkout is handed to the platform-hosted checkout.
+    const shop = tree.has(STOREFRONT_FILE) ? await this.prisma.store.findFirst({ where: { projectId: p.id, deletedAt: null }, select: { slug: true, status: true } }) : null;
+    const store = shop ? { api: this.generations.storefrontApi(shop.slug), slug: shop.slug, mode: 'live' as const } : undefined;
+    const doc = buildPreviewDocument(tree, { ...(backend ? { backend } : {}), ...(store ? { store } : {}) });
     if (!doc.ok) throw new UnprocessableEntityException(doc.reason);
-    return { html: doc.html, versionNumber: version.number, backend: !!backend };
+    return { html: doc.html, versionNumber: version.number, backend: !!backend, store: shop ? { slug: shop.slug, live: shop.status === 'active' } : null };
   }
 
   /** Counts a view once per viewer per day. Owners' own visits don't count. */

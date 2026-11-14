@@ -19,12 +19,12 @@ const supabaseWs = supabase.replace(/^http/, 'ws');
  */
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"} https://checkout.razorpay.com`,
+  `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"} https://checkout.razorpay.com https://js.stripe.com`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${api} ${supabase} ${supabaseWs} https://api.razorpay.com https://lumberjack.razorpay.com`.replace(/\s+/g, ' ').trim(),
-  'frame-src https://api.razorpay.com https://checkout.razorpay.com',
+  `connect-src 'self' ${api} ${supabase} ${supabaseWs} https://api.razorpay.com https://lumberjack.razorpay.com https://api.stripe.com`.replace(/\s+/g, ' ').trim(),
+  'frame-src https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com',
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
@@ -39,7 +39,7 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // Microphone is used by voice input on our own pages only.
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(), payment=(self "https://checkout.razorpay.com"), usb=()' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(), payment=(self "https://checkout.razorpay.com" "https://js.stripe.com"), usb=()' },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
   ...(isProd ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }] : []),
 ];

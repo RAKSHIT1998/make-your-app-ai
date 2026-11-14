@@ -1,3 +1,4 @@
+import { storefrontScripts, type StorefrontConfig } from './storefront.js';
 /**
  * Builds a single self-contained HTML document from a static web project (index.html + css + classic scripts)
  * so it can run in a sandboxed iframe. Pure string work: nothing here executes the project's code.
@@ -28,7 +29,7 @@ export function isPreviewable(paths: Iterable<string>): boolean {
  * `backend`: for full-stack apps, the page may reach exactly one origin (this app's data endpoint) and gets the `App`
  * SDK injected ahead of its own scripts. Everything else stays blocked.
  */
-export function buildPreviewDocument(files: Record<string, string> | Map<string, string>, opts: { backend?: { api: string; env: 'preview' | 'live' } } = {}): PreviewResult {
+export function buildPreviewDocument(files: Record<string, string> | Map<string, string>, opts: { backend?: { api: string; env: 'preview' | 'live' }; store?: StorefrontConfig } = {}): PreviewResult {
   const get = (p: string) => (files instanceof Map ? files.get(p) : files[p]);
   const index = get('index.html');
   if (index === undefined) return { ok: false, reason: 'This project has no index.html, so there is nothing to run in the browser.' };
@@ -60,6 +61,12 @@ export function buildPreviewDocument(files: Record<string, string> | Map<string,
     const origin = new URL(opts.backend.api).origin;
     csp = csp.replace("connect-src 'none'", `connect-src ${origin}`);
     sdk = `\n${appBackendScripts(opts.backend)}`;
+  }
+  if (opts.store) {
+    // A shop front may reach only its own store API, and show product photos from https links (catalogue images).
+    const origin = new URL(opts.store.api).origin;
+    csp = csp.replace(/connect-src [^;]+/, (m) => (m === "connect-src 'none'" ? `connect-src ${origin}` : m.includes(origin) ? m : `${m} ${origin}`)).replace('img-src data: blob:', 'img-src data: blob: https:');
+    sdk += `\n${storefrontScripts(opts.store)}`;
   }
   const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">${sdk}`;
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => `${m}\n${meta}`) : `${meta}\n${html}`;

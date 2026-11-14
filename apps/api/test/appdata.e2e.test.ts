@@ -1,3 +1,4 @@
+import { templateForProjectType } from '@mya/codegen';
 import request from 'supertest';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -69,7 +70,7 @@ beforeAll(async () => {
   gen = app.get(GenerationsService);
 });
 afterAll(async () => { await app.close(); await prisma.$disconnect(); });
-beforeEach(async () => { await resetDb(prisma, { projectTypes: ['saas', 'game'] }); });
+beforeEach(async () => { await resetDb(prisma, { projectTypes: ['saas', 'game', 'ecommerce'] }); });
 
 async function login(label: string) {
   const u = newIdentity(label);
@@ -496,6 +497,57 @@ describe('free services for full-stack apps', () => {
     expect((await http().post(`${live}/auth/signin`).send({ email: 'rahul@shop.test', password: 'wrong password 1' }).expect(401)).body.code).toBe('invalid_credentials');
     expect((await http().get(`${live}/c/tasks/${task.id}`).set('x-app-session', priya.token).expect(200)).body.done).toBe(true);
     await http().delete(T).set('Authorization', a.auth).send({ email: 'rahul@shop.test' }).expect(404);
+  });
+  it('builds online stores whose shop front reads the real catalogue and hands checkout to the platform', async () => {
+    const a = await login('shop1');
+    const tpl = templateForProjectType('ecommerce')!;
+    const SHOP = JSON.stringify({ summary: 'Shop front', patches: patches({ ...tpl.files, 'app.js': `${tpl.files['app.js']}\n// built by the test` }) });
+    provider.queue([JSON.stringify(SPEC), JSON.stringify(DESIGN), SHOP]);
+    const { id, run } = await build(a.auth, 'A shop for handmade candles', 'ecommerce');
+    expect(run.status, run.error).toBe('succeeded');
+    const store = ((await http().get(`${V}/stores`).set('Authorization', a.auth).expect(200)).body as { id: string; slug: string; projectId: string; status: string }[]).find((s) => s.projectId === id)!;
+    expect(store.status).toBe('draft');
+
+    // Preview: the Store SDK, this store's API, and the project's secret preview key for the draft catalogue.
+    const preview = (await http().get(`${V}/projects/${id}/preview`).set('Authorization', a.auth).expect(200)).body;
+    expect(preview.store).toEqual({ slug: store.slug, live: false });
+    const cfg = JSON.parse(/window\.__STORE__=(\{.*?\});<\/script>/.exec(preview.html)![1]!);
+    expect(cfg).toMatchObject({ slug: store.slug, mode: 'preview', api: expect.stringMatching(new RegExp(`/api/v1/storefront/${store.slug}$`)) });
+    expect(cfg.previewKey).toMatch(/.{20,}/);
+    expect(preview.html).toContain('window.Store = Object.freeze');
+    expect(preview.html).toMatch(/img-src data: blob: https:/);
+    expect(preview.html).toMatch(/connect-src http:\/\/localhost:4000[;"]/);
+
+    const product = (await http().post(`${V}/stores/${store.id}/products`).set('Authorization', a.auth).send({ title: 'Lavender candle', status: 'active', variants: [{ title: 'Large', priceMinor: 49900, inventory: { onHand: 3 } }] }).expect(201)).body;
+    const S = `${V}/storefront/${store.slug}`;
+    // Draft store: invisible to the public, readable with the preview key only.
+    await http().get(S).expect(404);
+    await http().get(S).set('x-store-preview', 'wrong-key-wrong-key-wrong').expect(404);
+    expect((await http().get(S).set('x-store-preview', cfg.previewKey).expect(200)).body.name).toBeTruthy();
+    expect((await http().get(`${S}/products`).set('x-store-preview', cfg.previewKey).expect(200)).body.map((p: { title: string }) => p.title)).toEqual(['Lavender candle']);
+    const q = (await http().post(`${S}/quote`).set('x-store-preview', cfg.previewKey).send({ items: [{ variantId: product.variants[0].id, quantity: 2 }] }).expect(200)).body;
+    expect(q).toMatchObject({ subtotalMinor: 99800, needsShipping: true });
+    // The preview key never allows checkout.
+    await http().post(`${S}/checkout`).set('x-store-preview', cfg.previewKey).send({ items: [{ variantId: product.variants[0].id, quantity: 1 }], checkoutToken: 'x'.repeat(20), email: 'a@b.co' }).expect(404);
+    // Shop fronts run in sandboxed iframes (opaque origin): the store API answers cross-origin, without credentials.
+    const pre = await http().options(`${S}/products`).set('Origin', 'null').set('Access-Control-Request-Method', 'GET').set('Access-Control-Request-Headers', 'x-store-preview').expect(204);
+    expect(pre.headers['access-control-allow-origin']).toBe('*');
+    expect(pre.headers['access-control-allow-headers']).toContain('x-store-preview');
+
+    // Published: the public page gets the live store config (no preview key); the catalogue opens when the store is live.
+    const pub = (await http().put(`${V}/projects/${id}/publishing`).set('Authorization', a.auth).send({ visibility: 'public', publicTitle: 'Candles', publicDescription: 'Handmade candles', category: 'ecommerce' }).expect(200)).body;
+    const play = (await http().get(`${V}/showcase/${pub.slug}/play`).expect(200)).body;
+    expect(play.store).toEqual({ slug: store.slug, live: false });
+    const liveCfg = JSON.parse(/window\.__STORE__=(\{.*?\});<\/script>/.exec(play.html)![1]!);
+    expect(liveCfg).toMatchObject({ slug: store.slug, mode: 'live' });
+    expect(liveCfg.previewKey).toBeUndefined();
+    await http().patch(`${V}/stores/${store.id}`).set('Authorization', a.auth).send({ status: 'active' }).expect(200);
+    expect((await http().get(`${S}/products`).expect(200)).body).toHaveLength(1);
+    expect((await http().get(`${V}/showcase/${pub.slug}/play`).expect(200)).body.store.live).toBe(true);
+
+    // Another workspace's preview key can't open this draft-or-live store's draft data, and strangers can't preview.
+    const stranger = await login('shop-stranger');
+    await http().get(`${V}/projects/${id}/preview`).set('Authorization', stranger.auth).expect(404);
   });
 });
 

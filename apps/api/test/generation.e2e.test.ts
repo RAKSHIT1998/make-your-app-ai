@@ -152,12 +152,11 @@ describe('generation flow', () => {
     expect((await http().get(`/api/v1/projects/${pid}/versions`).set('Authorization', a.auth)).body).toHaveLength(2);
   });
 
-  it('rejects unsupported project types honestly (no fake output)', async () => {
+  it('gives an online store project its own draft store, linked to the project', async () => {
     const a = await login('a');
     const pid = await newProject(a.auth, 'ecommerce');
-    const res = await generate(a.auth, pid, 'a store for gym gear');
-    expect(res.status).toBe(422);
-    expect(res.body.message).toContain('not available yet');
+    const stores = (await http().get('/api/v1/stores').set('Authorization', a.auth).expect(200)).body as { projectId: string; status: string; currency: string }[];
+    expect(stores.filter((s) => s.projectId === pid)).toEqual([expect.objectContaining({ status: 'draft', currency: 'INR' })]);
   });
 
   it('allows only one active run per project', async () => {

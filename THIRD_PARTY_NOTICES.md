@@ -26,6 +26,9 @@ logbook, night audit for no-shows) informed the "Hotel front desk (PMS)" busines
 
 ## Reviewed and not used
 
+- **AyishikD/shopify** (GPL-3.0, commit c870b2495c96156a1639b85422af784758b3d98b): reviewed as a reference for an
+  e-commerce site builder. No code, schema or text was copied, because GPL-3.0 code would impose its terms on the platform
+  and on generated shops. Our Online Store generator is built on our own commerce engine.
 - **frappe/crm** (AGPL-3.0, commit 73ec05a1712909ea2ad0e631e088baa5fa3ea4a5): its public feature list (separate leads and deals, stage
   probability, tasks, call logs, notes, lost reasons) was compared with our CRM kit; no code, schema or text was copied,
   because AGPL-3.0 code would impose its terms on the platform and on generated apps.

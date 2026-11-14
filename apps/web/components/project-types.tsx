@@ -16,7 +16,7 @@ export const PROJECT_TYPE_OPTIONS: ProjectTypeOption[] = [
   { type: 'mobile_app', label: 'Mobile App', description: 'iOS and Android with React Native (Expo)', icon: Smartphone, available: true },
   { type: 'game', label: 'Game', description: 'Playable HTML5 game that runs in any browser', icon: Gamepad2, available: true },
   { type: 'custom_software', label: 'Web App', description: 'Calculators, planners and trackers that run in the browser', icon: Boxes, available: true },
-  { type: 'ecommerce', label: 'Online Store', description: 'Catalog, cart, checkout and store admin', icon: ShoppingBag, available: false },
+  { type: 'ecommerce', label: 'Online Store', description: 'Your products, cart and secure checkout with Razorpay or Stripe', icon: ShoppingBag, available: true },
   { type: 'saas', label: 'Full-stack App', description: 'Sign-up and login, a real database and access rules', icon: LayoutDashboard, available: true },
 ];
 

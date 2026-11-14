@@ -82,3 +82,4 @@ export * from './preview.js';
 export * from './appbackend.js';
 export * from './business-kits.js';
 export * from './color-themes.js';
+export * from './storefront.js';

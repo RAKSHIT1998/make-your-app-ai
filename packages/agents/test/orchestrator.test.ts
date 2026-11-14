@@ -126,7 +126,7 @@ describe('Orchestrator', () => {
   });
 
   it('refuses project types without a template instead of faking output', async () => {
-    await expect(new Orchestrator({ store: await store() }).run({ ...base, projectType: 'ecommerce', projectId: randomUUID(), kind: 'create' }, harness([]).ctx)).rejects.toBeInstanceOf(UnsupportedProjectTypeError);
+    await expect(new Orchestrator({ store: await store() }).run({ ...base, projectType: 'spaceship' as never, projectId: randomUUID(), kind: 'create' }, harness([]).ctx)).rejects.toBeInstanceOf(UnsupportedProjectTypeError);
   });
 
   it('escapes data so a request cannot close its own tag', () => {

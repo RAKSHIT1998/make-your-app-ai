@@ -73,10 +73,10 @@ export class MerchantController {
 export class StorefrontController {
   constructor(@Inject(StorefrontService) private readonly s: StorefrontService) {}
 
-  @Get() info(@Param('slug') slug: string) { return this.s.storeInfo(slug); }
-  @Get('products') products(@Param('slug') slug: string, @Query(new ZodPipe(ProductsQuery)) q: z.infer<typeof ProductsQuery>) { return this.s.products(slug, { query: q.q, collection: q.collection }); }
-  @Get('products/:handle') product(@Param('slug') slug: string, @Param('handle') handle: string) { return this.s.product(slug, handle); }
-  @Post('quote') @HttpCode(200) quote(@Param('slug') slug: string, @Body(new ZodPipe(QuoteSchema)) b: z.infer<typeof QuoteSchema>) { return this.s.quote(slug, b); }
+  @Get() info(@Param('slug') slug: string, @Headers('x-store-preview') pk?: string) { return this.s.storeInfo(slug, pk); }
+  @Get('products') products(@Param('slug') slug: string, @Query(new ZodPipe(ProductsQuery)) q: z.infer<typeof ProductsQuery>, @Headers('x-store-preview') pk?: string) { return this.s.products(slug, { query: q.q, collection: q.collection }, pk); }
+  @Get('products/:handle') product(@Param('slug') slug: string, @Param('handle') handle: string, @Headers('x-store-preview') pk?: string) { return this.s.product(slug, handle, pk); }
+  @Post('quote') @HttpCode(200) quote(@Param('slug') slug: string, @Body(new ZodPipe(QuoteSchema)) b: z.infer<typeof QuoteSchema>, @Headers('x-store-preview') pk?: string) { return this.s.quote(slug, b, pk); }
   @Post('checkout') @Throttle({ default: { limit: () => rateLimits.checkout, ttl: 60_000 } }) checkout(@Param('slug') slug: string, @Body(new ZodPipe(CheckoutSchema)) b: z.infer<typeof CheckoutSchema>) { return this.s.checkout(slug, b); }
   @Get('orders/:orderId') order(@Param('slug') slug: string, @Param('orderId', Uuid) id: string, @Query(new ZodPipe(TokenQuery)) q: z.infer<typeof TokenQuery>) { return this.s.getOrder(slug, id, q.token); }
   @Post('orders/:orderId/razorpay/confirm') @HttpCode(200) confirm(@Param('slug') slug: string, @Param('orderId', Uuid) id: string, @Body(new ZodPipe(RazorpayConfirm)) b: z.infer<typeof RazorpayConfirm>) { return this.s.confirmRazorpay(slug, id, b); }

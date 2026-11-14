@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+import { slugify } from '../commerce/merchant.service.js';
 import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { PrismaClient, Project } from '@mya/db';
 import type { CreateProjectInput, ProjectDto, UpdateProjectInput } from '@mya/shared';
@@ -50,6 +52,13 @@ export class ProjectsService {
         { action: 'project.created', actorId: user.id, organizationId, targetType: 'project', targetId: p.id, ip },
         tx,
       );
+      // An online store project gets its own store (draft, INR) in the commerce engine; the owner manages products and
+      // payments for it in Business Studio, and the generated shop front reads from it.
+      if (p.type === 'ecommerce') {
+        const slug = `${slugify(input.name).slice(0, 32).replace(/-+$/, '')}-${randomBytes(3).toString('hex')}`;
+        const store = await tx.store.create({ data: { organizationId, projectId: p.id, name: input.name.slice(0, 80), slug } });
+        await this.audit.record({ action: 'store.created', actorId: user.id, organizationId, targetType: 'store', targetId: store.id, ip }, tx);
+      }
       return p;
     });
     return toProjectDto(project);

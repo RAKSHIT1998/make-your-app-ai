@@ -56,6 +56,11 @@ Free services (`/appdata/:key/services/*`): exchange rates come from Frankfurter
 ## Store extensions
 Merchants connect their own Razorpay, Stripe and Shiprocket accounts in Business Studio → Extensions. Shiprocket failures come back to the merchant with Shiprocket's own reason (wrong API user, pickup location name not found, empty wallet); a failed booking can simply be retried and never creates a second shipment. If Shiprocket is down, bookings return 503 and nothing is left half-done. Provider calls share `DEPLOY_RATE_LIMIT_PER_MINUTE`. Adoption and parcel counts are in Owner console → Analytics.
 
+## Online Store shop fronts
+- Each online-store project owns one store (created with the project). The shop front reads `/api/v1/storefront/:slug`; a draft store is visible only in the owner's builder preview (secret preview key), never publicly and never for checkout.
+- "Checkout works once your store is live": the seller must add products, connect Razorpay or Stripe and set the store to Active in Business Studio. Nothing else is needed on the platform side.
+- Payments are confirmed only by the provider: Razorpay's signed handler result or webhook, Stripe's webhook. An order stuck in "Waiting for payment confirmation" means the seller's webhook is missing or its secret is wrong (check the store's webhook URL in Business Studio → Settings).
+
 ## AI routing
 Free providers: Owner console → AI routing → Free AI providers shows which free keys are set and the models each provider currently offers for free. Use "Test with one real call" before adding a model, and again whenever a route starts failing. Free quotas reset daily (most at 00:00 UTC); a route that runs out is skipped automatically until then.
 

@@ -22,14 +22,14 @@ describe('Composer', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
   });
 
-  it('only enables project types that are live and requires a real description', () => {
+  it('enables every live project type and requires a real description', () => {
     wrap(<Composer />);
     const website = screen.getByRole('radio', { name: /^Website/ });
     expect((website as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('radio', { name: /Full-stack App/ }) as HTMLButtonElement).disabled).toBe(false);
     const store = screen.getByRole('radio', { name: /Online Store/ });
-    expect((store as HTMLButtonElement).disabled).toBe(true);
-    expect(store.textContent?.toLowerCase()).toContain('soon');
+    expect((store as HTMLButtonElement).disabled).toBe(false);
+    expect(store.textContent?.toLowerCase()).not.toContain('soon');
 
     const generate = screen.getByRole('button', { name: 'Generate' }) as HTMLButtonElement;
     expect(generate.disabled).toBe(true);

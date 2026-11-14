@@ -73,7 +73,7 @@ export const api = {
   events: (runId: string, after = '0') => apiFetch<RunEvent[]>(`/generations/${runId}/events?after=${after}`),
   files: (projectId: string) => apiFetch<{ path: string; sizeBytes: number }[]>(`/projects/${projectId}/files`),
   file: (projectId: string, path: string) => apiFetch<{ path: string; content: string | null }>(`/projects/${projectId}/file?path=${encodeURIComponent(path)}`),
-  preview: (projectId: string) => apiFetch<{ html: string; warnings: string[]; backend?: boolean }>(`/projects/${projectId}/preview`),
+  preview: (projectId: string) => apiFetch<{ html: string; warnings: string[]; backend?: boolean; store?: { slug: string; live: boolean } | null }>(`/projects/${projectId}/preview`),
   appData: (projectId: string, env: AppEnv) => apiFetch<AppDataOverview>(`/projects/${projectId}/data?env=${env}`),
   appRecords: (projectId: string, env: AppEnv, collection: string, cursor?: string) => apiFetch<{ items: AppDataRecord[]; nextCursor: string | null }>(`/projects/${projectId}/data/records?env=${env}&collection=${encodeURIComponent(collection)}${cursor ? `&cursor=${cursor}` : ''}`),
   appUsers: (projectId: string, env: AppEnv) => apiFetch<AppDataUser[]>(`/projects/${projectId}/data/users?env=${env}`),
@@ -252,7 +252,7 @@ const qs = (o: object) => { const p = new URLSearchParams(); for (const [k, v] o
 export const showcase = {
   explore: (q: ExploreQuery) => apiFetch<{ items: ShowcaseCard[]; page: number; hasMore: boolean }>(`/explore${qs(q)}`),
   page: (slug: string) => apiFetch<ShowcasePage>(`/showcase/${slug}`),
-  play: (slug: string) => apiFetch<{ html: string; versionNumber: number; backend?: boolean }>(`/showcase/${slug}/play`),
+  play: (slug: string) => apiFetch<{ html: string; versionNumber: number; backend?: boolean; store?: { slug: string; live: boolean } | null }>(`/showcase/${slug}/play`),
   view: (slug: string) => apiFetch<{ counted: boolean }>(`/showcase/${slug}/view`, { method: 'POST' }),
   like: (slug: string, on: boolean) => apiFetch<{ liked: boolean; likes: number }>(`/showcase/${slug}/like`, { method: on ? 'PUT' : 'DELETE' }),
   remix: (slug: string) => apiFetch<ProjectDto>(`/showcase/${slug}/remix`, { method: 'POST', body: '{}' }),

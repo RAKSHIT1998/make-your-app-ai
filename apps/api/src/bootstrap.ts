@@ -21,6 +21,17 @@ export function configureApp(app: INestApplication, config: AppConfig) {
     if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
     next();
   });
+  // Generated shop fronts run in sandboxed iframes (opaque origin) and read their own public store API. No cookies are
+  // used; draft catalogues need the builder's preview key header.
+  app.use(`/${API_PREFIX}/storefront`, (req: { method: string }, res: { setHeader: (k: string, v: string) => void; statusCode: number; end: () => void }, next: () => void) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type,x-store-preview');
+    res.setHeader('Access-Control-Max-Age', '600');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+    next();
+  });
   app.enableCors({ origin: config.WEB_ORIGIN.split(','), credentials: false, exposedHeaders: ['Content-Disposition'] });
   app.enableShutdownHooks();
 }

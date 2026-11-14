@@ -2,7 +2,7 @@ import { builtinModules } from 'node:module';
 import path from 'node:path';
 import vm from 'node:vm';
 import type { FileTree } from './patch.js';
-import { APP_BACKEND_FILE, parseAppBackend } from '@mya/shared';
+import { APP_BACKEND_FILE, STOREFRONT_FILE, parseAppBackend } from '@mya/shared';
 
 export interface ValidationIssue {
   file: string;
@@ -39,6 +39,7 @@ export function validateTree(tree: FileTree): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (tree.has('index.html')) issues.push(...validateStaticWeb(tree));
   if (tree.has('index.html') || tree.has(APP_BACKEND_FILE)) issues.push(...validateAppBackend(tree));
+  if (tree.has('index.html') || tree.has(STOREFRONT_FILE)) issues.push(...validateStorefront(tree));
   let deps = new Set<string>();
   const pkgRaw = tree.get('package.json');
   if (!pkgRaw) issues.push({ file: 'package.json', message: 'Missing package.json' });
@@ -127,7 +128,7 @@ export function validateStaticWeb(tree: FileTree): ValidationIssue[] {
     }
     const stripped = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const net = NETWORK_API.exec(stripped);
-    if (net) issues.push({ file, message: tree.has(APP_BACKEND_FILE) ? `Uses ${net[1]!.replace(/\s*\($/, '')}. Talk to the backend only through App.db and App.auth.` : `Uses ${net[1]!.replace(/\s*\($/, '')}, which is blocked in the sandboxed preview. Keep state in memory or localStorage.` });
+    if (net) issues.push({ file, message: tree.has(STOREFRONT_FILE) ? `Uses ${net[1]!.replace(/\s*\($/, '')}. Get products, cart totals and checkout only through Store.` : tree.has(APP_BACKEND_FILE) ? `Uses ${net[1]!.replace(/\s*\($/, '')}. Talk to the backend only through App.db and App.auth.` : `Uses ${net[1]!.replace(/\s*\($/, '')}, which is blocked in the sandboxed preview. Keep state in memory or localStorage.` });
   }
   return issues;
 }
@@ -155,3 +156,21 @@ export function validateAppBackend(tree: FileTree): ValidationIssue[] {
   }
   return issues;
 }
+
+/**
+ * Online-store contract: the shop front uses the platform's `Store` object only in a store project, never redefines it,
+ * never collects card details itself, and keeps the storefront marker so the platform injects the right SDK.
+ */
+export function validateStorefront(tree: FileTree): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const isStore = tree.has(STOREFRONT_FILE);
+  for (const [file, code] of tree) {
+    if (!/\.(js|html)$/.test(file)) continue;
+    const uses = /\bStore\.(info|products|product|cart|quote|checkout|money)\b/.test(code);
+    if (uses && !isStore) issues.push({ file, message: `Uses Store but ${STOREFRONT_FILE} is missing. Online store projects keep that file.` });
+    if (/(\bwindow\.Store\s*=|\b(const|let|var|function|class)\s+Store\b)/.test(code)) issues.push({ file, message: 'Redefines Store. The platform provides Store; use it, never define it.' });
+    if (isStore && /\b(card\s*number|cardnumber|cvv|cvc|card-number)\b/i.test(code)) issues.push({ file, message: 'Collects card details. Payment happens on the secure checkout page: call Store.checkout() instead.' });
+  }
+  return issues;
+}
+

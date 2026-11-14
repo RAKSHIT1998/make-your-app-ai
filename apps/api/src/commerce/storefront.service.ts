@@ -37,16 +37,21 @@ export class StorefrontService implements OnModuleInit, OnModuleDestroy {
     if (this.sweeper) clearInterval(this.sweeper);
   }
 
-  private async publicStore(slug: string): Promise<Store> {
-    const store = await this.prisma.store.findFirst({ where: { slug, deletedAt: null, status: 'active' } });
-    if (!store) throw new NotFoundException('Store not found');
-    return store;
+  private async publicStore(slug: string, previewKey?: string): Promise<Store> {
+    const store = await this.prisma.store.findFirst({ where: { slug, deletedAt: null } });
+    if (store?.status === 'active') return store;
+    // The builder's preview may read a draft store's catalogue (never check out) with its project's secret preview key.
+    if (store?.projectId && previewKey && previewKey.length <= 200) {
+      const b = await this.prisma.appBackend.findUnique({ where: { projectId: store.projectId }, select: { previewKey: true } });
+      if (b && sameSecret(b.previewKey, previewKey)) return store;
+    }
+    throw new NotFoundException('Store not found');
   }
 
   // ───────── Catalog ─────────
 
-  async storeInfo(slug: string) {
-    const s = await this.publicStore(slug);
+  async storeInfo(slug: string, previewKey?: string) {
+    const s = await this.publicStore(slug, previewKey);
     const shipping = await this.prisma.shippingConfiguration.findMany({ where: { storeId: s.id, active: true }, select: { id: true, name: true, rateMinor: true, freeOverMinor: true, countries: true } });
     return { name: s.name, slug: s.slug, currency: s.currency, theme: s.theme, pricesIncludeTax: s.pricesIncludeTax, taxRateBps: s.taxRateBps, paymentProvider: s.paymentProvider, shipping };
   }
@@ -62,8 +67,8 @@ export class StorefrontService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async products(slug: string, q: { query?: string | undefined; collection?: string | undefined }) {
-    const s = await this.publicStore(slug);
+  async products(slug: string, q: { query?: string | undefined; collection?: string | undefined }, previewKey?: string) {
+    const s = await this.publicStore(slug, previewKey);
     const rows = await this.prisma.product.findMany({
       where: {
         storeId: s.id, status: 'active', deletedAt: null,
@@ -77,8 +82,8 @@ export class StorefrontService implements OnModuleInit, OnModuleDestroy {
     return rows.map((p) => this.publicProduct(p));
   }
 
-  async product(slug: string, handle: string) {
-    const s = await this.publicStore(slug);
+  async product(slug: string, handle: string, previewKey?: string) {
+    const s = await this.publicStore(slug, previewKey);
     const p = await this.prisma.product.findFirst({ where: { storeId: s.id, handle, status: 'active', deletedAt: null }, include: { variants: { include: { inventory: true }, orderBy: { position: 'asc' } } } });
     if (!p) throw new NotFoundException('Product not found');
     return this.publicProduct(p);
@@ -139,11 +144,12 @@ export class StorefrontService implements OnModuleInit, OnModuleDestroy {
     return { priced, discount, shipping, needsShipping, totals };
   }
 
-  async quote(slug: string, input: { items: Line[]; discountCode?: string | undefined; shippingId?: string | undefined }) {
-    const store = await this.publicStore(slug);
-    const { priced, totals } = await this.priceCart(this.prisma, store, input);
+  async quote(slug: string, input: { items: Line[]; discountCode?: string | undefined; shippingId?: string | undefined }, previewKey?: string) {
+    const store = await this.publicStore(slug, previewKey);
+    const { priced, totals, needsShipping } = await this.priceCart(this.prisma, store, input);
     return {
       currency: store.currency,
+      needsShipping,
       ...totals,
       lines: priced.map((l) => ({ variantId: l.variantId, title: `${l.variant.product.title} — ${l.variant.title}`, quantity: l.quantity, unitPriceMinor: l.variant.priceMinor, available: !l.variant.inventory?.tracked || l.variant.inventory.onHand - l.variant.inventory.reserved >= l.quantity })),
     };

@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, type OnApplicationBootstrap, ty
 import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecord } from '@mya/ai';
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
 import { auditProject, type FilePatch, type FileTree, type GitProjectStore } from '@mya/codegen';
-import { APP_BACKEND_FILE, buildPreviewDocument } from '@mya/shared';
+import { APP_BACKEND_FILE, STOREFRONT_FILE, buildPreviewDocument } from '@mya/shared';
 import type { GenerationRun, Prisma, PrismaClient, Project } from '@mya/db';
 import { createHash, randomUUID } from 'node:crypto';
 import { PRISMA } from '../prisma.service.js';
@@ -406,10 +406,15 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
     const tree = await this.store.readTree(projectId);
     // Full-stack apps get the SDK and may reach only their own preview data (separate from the published app's data).
     const backend = tree.has(APP_BACKEND_FILE) ? { api: this.appData.endpoint(`pv_${await this.appData.previewKey(projectId)}`), env: 'preview' as const } : undefined;
-    const r = buildPreviewDocument(tree, backend ? { backend } : {});
+    // Online stores read their own store's real catalogue, even while it is a draft, using the project's preview key.
+    const shop = tree.has(STOREFRONT_FILE) ? await this.prisma.store.findUnique({ where: { projectId }, select: { slug: true, status: true } }) : null;
+    const storeCfg = shop ? { api: this.storefrontApi(shop.slug), slug: shop.slug, mode: 'preview' as const, previewKey: await this.appData.previewKey(projectId) } : undefined;
+    const r = buildPreviewDocument(tree, { ...(backend ? { backend } : {}), ...(storeCfg ? { store: storeCfg } : {}) });
     if (!r.ok) throw new UnprocessableEntityException(r.reason);
-    return { html: r.html, warnings: r.warnings, backend: !!backend };
+    return { html: r.html, warnings: r.warnings, backend: !!backend, store: shop ? { slug: shop.slug, live: shop.status === 'active' } : null };
   }
+
+  storefrontApi(slug: string) { return `${this.config.PUBLIC_API_URL.replace(/\/$/, '')}/api/v1/storefront/${slug}`; }
 
   /** Static review of the project's current files (SEO, accessibility, performance, security). No AI, no credits. */
   async health(user: AuthUser, projectId: string) {
