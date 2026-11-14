@@ -31,6 +31,12 @@ services:
       - { key: GEMINI_API_KEY, sync: false }
       - { key: OPENROUTER_API_KEY, sync: false }
       - { key: CEREBRAS_API_KEY, sync: false }
+      - { key: CHUTES_API_KEY, sync: false }
+      # Website reader ("Start from your current website"): private service below; same token on both sides.
+      - key: CRAWLER_URL
+        fromService: { type: pserv, name: mya-crawler, property: hostport }
+      - key: CRAWLER_TOKEN
+        fromService: { type: pserv, name: mya-crawler, envVarKey: CRAWLER_TOKEN }
       - { key: PLATFORM_OWNER_EMAILS, sync: false }
       - { key: WEATHER_CONTACT, sync: false }
       - { key: WEB_ORIGIN, sync: false }
@@ -43,6 +49,18 @@ services:
       - { key: STRIPE_WEBHOOK_SECRET, sync: false }
       - { key: VERCEL_TOKEN, sync: false }
       - { key: VERCEL_TEAM_ID, sync: false }
+
+  # Reads customers' own websites with Crawl4AI + headless Chromium. Private: only the API can reach it.
+  # One crawl at a time. If crawls of heavy sites fail with out-of-memory, move it to the standard plan (2 GB).
+  - type: pserv
+    name: mya-crawler
+    runtime: docker
+    dockerfilePath: ./services/crawler/Dockerfile
+    dockerContext: ./services/crawler
+    plan: starter
+    region: singapore
+    envVars:
+      - { key: CRAWLER_TOKEN, generateValue: true }
 
   - type: web
     name: mya-web

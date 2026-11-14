@@ -18,6 +18,7 @@ const EnvSchema = z
     MISTRAL_API_KEY: z.string().optional(),
     TOGETHER_API_KEY: z.string().optional(),
     CEREBRAS_API_KEY: z.string().optional(),
+    CHUTES_API_KEY: z.string().optional(),
     /** Cloudflare Workers AI: account id plus an API token with Workers AI permission. */
     CLOUDFLARE_ACCOUNT_ID: z.string().regex(/^[a-f0-9]{32}$/, 'CLOUDFLARE_ACCOUNT_ID is a 32-character hex id').optional(),
     CLOUDFLARE_API_TOKEN: z.string().optional(),
@@ -44,6 +45,13 @@ const EnvSchema = z
     APP_DATA_MAX_USERS: z.coerce.number().int().positive().default(5_000),
     /** Contact (website or email) sent to MET Norway with weather requests, as their terms require. Defaults to WEB_APP_URL when that is a public https address. */
     WEATHER_CONTACT: z.string().max(200).optional(),
+    /** Website reader (services/crawler, Crawl4AI) for "Start from your current website". Both or neither; off when unset. */
+    // Render passes a private service as "host:port"; accept that and assume http inside the private network.
+    CRAWLER_URL: z.string().trim().optional().transform((v) => (v ? (/^https?:\/\//.test(v) ? v : `http://${v}`) : undefined)).pipe(z.url().optional()),
+    CRAWLER_TOKEN: z.string().min(24).optional(),
+    SITE_IMPORTS_PER_DAY: z.coerce.number().int().min(1).default(10),
+    /** Tests only: lets the importer read sites on private addresses. Refused in production. */
+    SITE_IMPORT_ALLOW_PRIVATE_NETWORKS: z.stringbool().default(false),
     FAILED_RUN_REFUNDS_PER_DAY: z.coerce.number().int().min(0).default(5),
     /** Monthly credit allowance of the default Free plan when plans are first seeded. */
     /** Requests per minute per client (IP + user). In-memory store; switch to Redis storage when running >1 instance. */
@@ -94,6 +102,8 @@ const EnvSchema = z
     if (!e.SUPABASE_URL && !e.SUPABASE_JWT_SECRET) bad('SUPABASE_URL', 'Set SUPABASE_URL (JWKS verification) and/or SUPABASE_JWT_SECRET (legacy HS256).');
     if (e.HOSTING_PROVIDER === 'vercel' && !e.VERCEL_TOKEN) bad('VERCEL_TOKEN', 'HOSTING_PROVIDER=vercel needs VERCEL_TOKEN.');
     if (prod && e.HOSTING_PROVIDER === 'fake') bad('HOSTING_PROVIDER', 'HOSTING_PROVIDER=fake is for development only.');
+    if (!!e.CRAWLER_URL !== !!e.CRAWLER_TOKEN) bad(e.CRAWLER_URL ? 'CRAWLER_TOKEN' : 'CRAWLER_URL', 'Set both CRAWLER_URL and CRAWLER_TOKEN (the same token as the crawler service), or neither.');
+    if (prod && e.SITE_IMPORT_ALLOW_PRIVATE_NETWORKS) bad('SITE_IMPORT_ALLOW_PRIVATE_NETWORKS', 'SITE_IMPORT_ALLOW_PRIVATE_NETWORKS is for tests only and is refused in production.');
     if (prod && e.SANDBOX_PROVIDER === 'local') bad('SANDBOX_PROVIDER', 'SANDBOX_PROVIDER=local is development-only; use docker (or a managed sandbox) in production.');
     if (prod && !e.ENCRYPTION_KEY) bad('ENCRYPTION_KEY', 'ENCRYPTION_KEY is required in production (openssl rand -base64 32).');
     if (prod) {

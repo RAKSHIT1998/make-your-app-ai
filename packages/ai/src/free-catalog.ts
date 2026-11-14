@@ -45,6 +45,12 @@ export const FREE_PROVIDERS: FreeProviderInfo[] = [
     dataNote: 'On the free tier Google may use prompts and responses to improve its products. Your privacy policy must say so, or use the paid tier for customer data.',
   },
   {
+    key: 'chutes', name: 'Chutes', env: ['CHUTES_API_KEY'], signupUrl: 'https://chutes.ai', docsUrl: 'https://chutes.ai/pricing',
+    freeTier: 'Pay-as-you-go platform that also lists some models at $0. Only models priced at $0 in its live catalogue are offered here; which ones are free changes, and Chutes may rate-limit or retire any model.',
+    defaults: { dailyRequestLimit: 500, dailyTokenLimit: null }, accountWideQuota: false,
+    dataNote: 'Chutes says it does not train on your requests. Its terms allow using it inside your own product, not reselling raw access, and ask you to label AI output and not send payment or health data to standard models.',
+  },
+  {
     key: 'cloudflare', name: 'Cloudflare Workers AI', env: ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN'], signupUrl: 'https://dash.cloudflare.com/profile/api-tokens', docsUrl: 'https://developers.cloudflare.com/workers-ai/platform/pricing/',
     freeTier: '10,000 Neurons/day free, shared across all models (resets 00:00 UTC). Small models stretch much further than large ones.',
     defaults: { dailyRequestLimit: null, dailyTokenLimit: null }, accountWideQuota: true, dataNote: null,
@@ -64,6 +70,7 @@ const BASES: Record<string, string> = {
   cerebras: 'https://api.cerebras.ai/v1',
   openrouter: 'https://openrouter.ai/api/v1',
   gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  chutes: 'https://llm.chutes.ai/v1',
 };
 export const cloudflareBaseUrl = (accountId: string) => `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1`;
 
@@ -98,9 +105,10 @@ export async function discoverFreeModels(provider: string, creds: { apiKey: stri
     out = data.flatMap((m): DiscoveredModel[] => {
       const id = String(m.id ?? '').replace(/^models\//, '');
       if (!id || m.active === false) return [];
-      if (provider === 'openrouter') {
+      if (provider === 'openrouter' || provider === 'chutes') {
+        // Both publish per-model prices; only models priced at exactly $0 for input and output count as free.
         const p = (m.pricing ?? {}) as Record<string, unknown>;
-        const free = id.endsWith(':free') || id === 'openrouter/free' || (Number(p.prompt) === 0 && Number(p.completion) === 0 && p.prompt !== undefined);
+        const free = (provider === 'openrouter' && (id.endsWith(':free') || id === 'openrouter/free')) || (p.prompt !== undefined && p.completion !== undefined && Number(p.prompt) === 0 && Number(p.completion) === 0);
         return free ? [{ id, pricing: 'free', contextWindow: num(m.context_length) }] : [];
       }
       return [{ id, pricing: 'free_tier', contextWindow: num(m.context_window) ?? num(m.context_length) }];

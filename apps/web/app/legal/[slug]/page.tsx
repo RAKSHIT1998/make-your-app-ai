@@ -25,7 +25,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
           <section key={h}><h2 className="text-lg font-semibold tracking-[-0.01em]">{h}</h2><p className="mt-2 whitespace-pre-line leading-relaxed text-muted">{body}</p></section>
         ))}
       </div>
-      <nav className="mt-12 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-6 text-sm">{LEGAL_SLUGS.map((s) => <Link key={s} href={`/legal/${s}`} className="text-muted hover:text-fg">{LEGAL[s]!.title}</Link>)}</nav>
+      <nav className="mt-12 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-6 text-sm">{LEGAL_SLUGS.map((s) => <Link key={s} href={`/legal/${s}`} className="text-muted hover:text-fg">{LEGAL[s]!.title}</Link>)}<Link href="/credits" className="text-muted hover:text-fg">Credits</Link></nav>
     </main>
   );
 }

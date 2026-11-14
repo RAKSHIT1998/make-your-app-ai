@@ -46,6 +46,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Incremental edits | ✅ | Patch-based edits, versioned |
 | Ask mode (discuss without changing code) | ✅ (session 13) | Fast tier, answers from the project's files, optional suggested change request |
 | Screenshot-to-app | ⛔ | Needs object storage (R2) + vision-capable key |
+| Start from an existing website (import its content) | ✅ (session 17g) | Crawl4AI website reader as a private service; owner confirms ownership; robots.txt respected; editable brief, no AI cost to import. Needs the `mya-crawler` service (paid Render plan) |
 | Voice-to-app (voice-to-text, spoken edits, confirmation) | ✅ (this session) | Browser speech recognition in Create and workspace chat; dictation only fills text — generation still needs Generate + confirmation. Hidden when unsupported or switched off. Server-side transcription (Whisper-style) not added |
 | Visual editor | ⛔ | Needs live preview |
 | Design variations ×3 | ⛔ | Needs preview to compare meaningfully |
@@ -141,7 +142,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Failed-build guarantee (automatic credit refund for failed runs) | ✅ (session 13) | `refund_failed_builds` flag, daily cap per workspace, idempotent, excluded from route revenue |
 | Free services inside full-stack apps: exchange rates (ECB via Frankfurter), country lists (built-in), weather forecasts (MET Norway) | ✅ (session 16) | Platform-proxied, cached, `app_services` kill switch, MET credit shown in apps. Left out on licensing terms: Nager.Date holidays (commercial use needs paid sponsorship), Open-Meteo (free API non-commercial) |
 | Owner Dashboard per project: visitors, app users, data, store money, pause app, close sign-ups, CSV exports | ✅ (session 17) | Visitors = unique people on the public page per day; no cookies |
-| Free AI provider catalogue (Groq, Cerebras, OpenRouter free, Gemini, Cloudflare Workers AI): live model discovery, one-click $0 routes, real-call test | ✅ (session 16) | Needs your free keys; discovery and probes tested against emulated APIs only |
+| Free AI provider catalogue (Groq, Cerebras, OpenRouter free, Gemini, Chutes $0 models, Cloudflare Workers AI): live model discovery, one-click $0 routes, real-call test | ✅ (session 16) | Needs your free keys; discovery and probes tested against emulated APIs only |
 | Multi-provider AI routing with free/cheap routes, customer billed at the standard tier rate, margin-first selection, quality floors, daily caps, circuit breaker, per-route margin | ✅ | Owner console → AI routing. Needs provider keys + route data from you; adapter not yet run against live providers |
 
 ## §14 Owner admin

@@ -8,6 +8,7 @@ Only the outside services are stand-ins, so a run is free and charges nothing:
 - **Payments:** Razorpay and Stripe emulators. Webhooks are signed exactly as the real services sign them.
 - **Delivery:** a Shiprocket emulator.
 - **Hosting:** a stand-in host.
+- **Website reader:** a stand-in with the same contract as `services/crawler`.
 - **Sign-in:** a stand-in for Supabase auth.
 
 ```
@@ -48,6 +49,7 @@ step that stopped it, the error, and any page errors or server 5xx seen on the w
 | team | Team workspaces and invitations |
 | cloud-studio | Cloud Studio deploys and the template gallery |
 | owner-console | Platform owner console |
+| site-import | Start from your current website (stand-in website reader) |
 
 **Writing a bot:** add `products/<name>.mjs` exporting `meta` (`name`, `product`, `covers`) and `run(bot)`. Use
 `bot.step()` for each thing a customer does. Wait for what a person would wait for, such as a loaded list or a faded

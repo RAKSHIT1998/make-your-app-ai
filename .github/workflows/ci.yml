@@ -32,6 +32,8 @@ jobs:
         run: pnpm --filter @mya/db exec prisma migrate deploy
       - name: Build, typecheck and test
         run: pnpm turbo run build typecheck test --concurrency=2
+      - name: Website reader address guard (Python, standard library only)
+        run: cd services/crawler && python3 -m unittest -v test_guard
       - name: Mobile typecheck
         run: pnpm --filter @mya/mobile typecheck
       - name: Dependency audit (production, high+)

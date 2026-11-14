@@ -1,7 +1,7 @@
 // Boots the real, built API (apps/api/dist) with stand-ins for AI and outside providers. Started by start.mjs.
 // Never point this at a production database: start.mjs creates and owns a throwaway one.
 import { freeGroq, scriptedProvider } from './ai.mjs';
-import { TEST, discoveryFetch, platformBillingFetch, servicesFetch, shiprocketFetch, storeRazorpayFetch } from './emulators.mjs';
+import { TEST, startCrawlerStandIn, discoveryFetch, platformBillingFetch, servicesFetch, shiprocketFetch, storeRazorpayFetch } from './emulators.mjs';
 
 const A = new URL('../../../apps/api/', import.meta.url).href;
 const imp = (p) => import(new URL(p, A).href);
@@ -23,6 +23,8 @@ const { ShiprocketProvider } = await imp('node_modules/@mya/shipping/dist/index.
 
 const env = process.env;
 const port = env.BOTS_API_PORT ?? '4100';
+const crawlerPort = Number(port) + 1;
+await startCrawlerStandIn(crawlerPort);
 const router = new ProviderRouter([scriptedProvider, freeGroq], ['fast', 'balanced', 'deep'].map((tier) => ({ provider: 'scripted', model: `bot-sim-${tier}`, tier, priority: 1, inputCostPerMTokMicros: 2_000_000, outputCostPerMTokMicros: 10_000_000, enabled: true })));
 const config = loadConfig({
   PATH: env.PATH, NODE_ENV: 'development',
@@ -30,6 +32,8 @@ const config = loadConfig({
   STORAGE_DIR: env.BOTS_STORAGE_DIR, SANDBOX_PROVIDER: 'none', API_PORT: port, ENCRYPTION_KEY: Buffer.alloc(32, 5).toString('base64'),
   PLATFORM_OWNER_EMAILS: env.BOTS_OWNER_EMAIL, REPORTING_USD_INR: '85', WEB_APP_URL: env.BOTS_WEB_URL, WEB_ORIGIN: env.BOTS_WEB_URL, PUBLIC_API_URL: `http://localhost:${port}`, HOSTING_PROVIDER: 'fake',
   WEATHER_CONTACT: 'bots@example.com', GROQ_API_KEY: 'bots-groq-key',
+  // Website reader stand-in (same contract as services/crawler). Test addresses don't resolve publicly, so the address check is relaxed here only.
+  CRAWLER_URL: `http://127.0.0.1:${crawlerPort}`, CRAWLER_TOKEN: TEST.crawlerToken, SITE_IMPORT_ALLOW_PRIVATE_NETWORKS: 'true',
   // Every simulated customer comes from this one machine, so per-address limits are lifted; limits are tested in the API suite.
   APP_DATA_RATE_LIMIT_PER_MINUTE: '100000', APP_AUTH_RATE_LIMIT_PER_MINUTE: '100000', RATE_LIMIT_PER_MINUTE: '100000',
   CHECKOUT_RATE_LIMIT_PER_MINUTE: '100000', GENERATION_RATE_LIMIT_PER_MINUTE: '100000', DEPLOY_RATE_LIMIT_PER_MINUTE: '100000', BILLING_RATE_LIMIT_PER_MINUTE: '100000',

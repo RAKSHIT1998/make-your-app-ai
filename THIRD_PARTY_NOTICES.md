@@ -14,6 +14,28 @@ Adapted material:
 
 No code or scripts from the repository are included or executed.
 
+## Crawl4AI (Apache License 2.0, with an attribution requirement)
+
+Source: https://github.com/unclecode/crawl4ai (version 0.9.5; reviewed at commit cae74b203a33994f7e13b9052c3b0d5c93daa0e6).
+Licensed under the Apache License, Version 2.0, plus the project's attribution requirement; full text in
+`licenses/crawl4ai-LICENSE.txt`.
+
+This product includes software developed by UncleCode (https://x.com/unclecode) as part of the Crawl4AI project
+(https://github.com/unclecode/crawl4ai).
+
+Used: installed unmodified from PyPI (`services/crawler/requirements.txt`) as a library in the separate website-reader
+service (`services/crawler`), which powers "Start from your current website". The service code around it is our own.
+The attribution above is also shown on the public Credits page (`/credits`), as the licence asks for web applications.
+
+## awesome-freellm-apis (MIT License)
+
+Source: https://github.com/open-free-llm-api/awesome-freellm-apis (commit a43c20821c8e9b8359083cce52e2778489d0c6c0).
+Copyright (c) 2026 open-free-llm-api. Licensed under the MIT License; full text in `licenses/awesome-freellm-apis-LICENSE.txt`.
+
+Used as a reference list only: we checked each listed provider's own terms before adding any (see "Free AI providers
+reviewed" below). No text or data from the list is included; provider details in `packages/ai/src/free-catalog.ts`
+come from the providers' own pages, and free models are discovered live from each provider.
+
 ## open-hotel-pms (MIT License)
 
 Source: https://github.com/peeraseepat-cell/open-hotel-pms (commit 3f6956a54aa9faef44311f9e943ce7d44b6934e3). Copyright (c) 2026 Peerasee.
@@ -35,3 +57,23 @@ logbook, night audit for no-shows) informed the "Hotel front desk (PMS)" busines
 - **ahmedali5530/restaurant-pos** (POSR Source Available License 1.0): its licence forbids offering it or derivatives as a
   hosted service and using its code or architecture for a competing product, so nothing from it was read beyond the licence
   or used. Our Restaurant kit is based on common restaurant practice.
+
+## Free AI providers reviewed (2026-11-15)
+
+From the awesome-freellm-apis list, checked against each provider's own terms for use inside a paid product that
+serves other people's projects:
+
+| Provider | Decision | Why |
+|---|---|---|
+| Groq, Cerebras, OpenRouter (`:free` and $0 models), Google Gemini, Cloudflare Workers AI | Already supported | Free tiers usable in products, with the data notes shown in the owner console |
+| Chutes | **Added** (only models priced at $0) | Terms allow integrating it into your own product (no resale of raw access), no training on requests |
+| NVIDIA NIM (build.nvidia.com) | Not added | Trial terms: testing and evaluation only, not production |
+| Cohere | Not added | Trial keys may not be used for production or commercial purposes |
+| Mistral (free Experiment plan) | Not added as free | Requests on the free plan may be used for training; paid Mistral keys are already supported |
+| OpenCode Zen | Not added | Terms limit use to your own internal use, not on behalf of others |
+| Kilo Code gateway | Not added | Free models route to providers' trial endpoints (including NVIDIA's) |
+| OVHcloud AI Endpoints | Not added | Free only anonymously at 2 requests/minute; keys need a paid project |
+| Ollama Cloud | Not added | Small starter allowance; commercial terms for the free plan unclear |
+| Z AI (Zhipu), SiliconFlow, ModelScope | Not added | Sign-up needs a Chinese phone number; free-tier commercial terms unclear |
+| LLM7.io, Gonka Broker, Agnes AI, Aion Labs, Glhf.chat, Cline, Grok (xAI) | Not added | Commercial terms of the free access unclear, or no standing free API |
+

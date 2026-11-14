@@ -55,7 +55,11 @@ export interface ActivityItem extends Run { project: { id: string; name: string;
 export interface Estimate { balance: number; maxCreditsPerRun: number; typical: { create: { median: number; p90: number; sample: number } | null; edit: { median: number; p90: number; sample: number } | null } }
 export interface UsageEntry { id: string; amount: number; reason: string; bucket: 'allowance' | 'purchased'; createdAt: string; detail: string | null }
 
+export interface SiteImportResult { url: string; host: string; pages: { url: string; title: string; words: number }[]; skipped: { url: string; reason: string }[]; images: { src: string; alt: string }[]; brief: string }
+
 export const api = {
+  siteImportStatus: () => apiFetch<{ available: boolean; perDay: number; maxPages: number }>('/imports/site'),
+  importSite: (b: { url: string; maxPages?: number; confirmOwnership: true }) => apiFetch<SiteImportResult>('/imports/site', { method: 'POST', body: JSON.stringify(b) }),
   activity: (limit = 12) => apiFetch<ActivityItem[]>(`/activity?limit=${limit}`),
   estimate: () => apiFetch<Estimate>('/generations/estimate'),
   updateMe: (b: { displayName?: string | null; handle?: string; bio?: string }) => apiFetch<Me>('/me', { method: 'PATCH', body: JSON.stringify(b) }),

@@ -29,6 +29,8 @@ import { CommunityService } from './growth/community.service.js';
 import { TeamsService } from './teams/teams.service.js';
 import { TeamsController } from './teams/teams.controller.js';
 import { IdeasService } from './ideas/ideas.service.js';
+import { SiteImportController } from './importer/site-import.controller.js';
+import { SiteImportService } from './importer/site-import.service.js';
 import { IdeasController } from './ideas/ideas.controller.js';
 import { PlatformAdminGuard } from './auth/platform-admin.guard.js';
 import { GatewayRegistry, gatewayFactoryProvider } from './commerce/gateways.js';
@@ -63,7 +65,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: config.RATE_LIMIT_PER_MINUTE }])],
-      controllers: [AppDataController, ProjectDataController, InsightsController, HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, CommunityPublicController, CommunityController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController, TemplatesController, AppStudioController, TeamsController, IdeasController],
+      controllers: [AppDataController, ProjectDataController, InsightsController, HealthController, OrgsController, ProjectsController, CreditsController, GenerationsController, MerchantController, StorefrontController, PaymentWebhooksController, BillingController, BillingWebhooksController, AdminController, ShowcaseController, ShowcaseActionsController, CommunityPublicController, CommunityController, ReferralsController, GrowthAdminController, FlagsController, RetentionController, HostingController, TemplatesController, AppStudioController, TeamsController, IdeasController, SiteImportController],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         prismaProvider,
@@ -101,6 +103,7 @@ export class AppModule {
         TeamsService,
         CommunityService,
         IdeasService,
+        SiteImportService,
         ShowcaseService,
         ReferralsService,
         ModerationService,

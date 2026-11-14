@@ -5,14 +5,23 @@ import Link from 'next/link';
 import { BUSINESS_KITS, type BusinessKit } from '@mya/shared';
 import { BedDouble, Boxes, CalendarClock, Contact, Dumbbell, LifeBuoy, Plane, Receipt, ShoppingCart, Utensils, Wrench, Check } from 'lucide-react';
 import { Composer } from '@/components/composer';
+import { SiteImport } from '@/components/site-import';
+import type { SiteImportResult } from '@/lib/api';
 import { cx } from '@/components/ui';
 
 const KIT_ICONS: Record<BusinessKit['icon'], typeof Contact> = { contact: Contact, 'shopping-cart': ShoppingCart, boxes: Boxes, 'calendar-clock': CalendarClock, receipt: Receipt, 'life-buoy': LifeBuoy, plane: Plane, utensils: Utensils, dumbbell: Dumbbell, wrench: Wrench, bed: BedDouble };
+
+/** "Kashmir Walnut Co. | Fresh walnuts" → "Kashmir Walnut Co."; falls back to the site's host. */
+function siteName(r: SiteImportResult) {
+  const t = (r.pages[0]?.title ?? '').split(/\s[|–—-]\s/)[0]?.trim();
+  return t || r.host.replace(/^www\./, '');
+}
 
 export default function CreatePage() {
   // "Build something like this" from a public page pre-fills the idea (?idea=...).
   const [initial, setInitial] = useState('');
   const [kit, setKit] = useState<BusinessKit | null>(null);
+  const [imported, setImported] = useState<SiteImportResult | null>(null);
   const top = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -20,7 +29,7 @@ export default function CreatePage() {
     if (k) { setKit(k); setInitial(k.prompt); } else setInitial(q.get('idea')?.slice(0, 2000) ?? '');
   }, []);
   const pick = (k: BusinessKit) => {
-    setKit(k); setInitial(k.prompt);
+    setKit(k); setInitial(k.prompt); setImported(null);
     top.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   return (
@@ -31,7 +40,9 @@ export default function CreatePage() {
         <p className="text-sm text-muted">Describe it in your own words. Mention real details — your services, location, audience and the feel you want.</p>
       </div>
       {kit && <p className="text-center text-[13px] text-muted">Starting from the <span className="font-medium text-fg">{kit.name}</span> kit. Edit the description with your business name, products and rules, then build. <button type="button" className="font-medium text-fg underline-offset-4 hover:underline" onClick={() => { setKit(null); setInitial(''); }}>Start blank instead</button></p>}
-      <Composer key={`${kit?.id ?? ''}:${initial}`} autoFocus initialIdea={initial} defaultType={kit ? 'saas' : undefined} />
+      {imported && <p className="text-center text-[13px] text-muted">Imported {imported.pages.length} page{imported.pages.length === 1 ? '' : 's'} from <span className="font-medium text-fg">{imported.host}</span>{imported.skipped.length ? ` (${imported.skipped.length} skipped, mostly pages its robots.txt keeps private)` : ''}. Check the description below, add anything missing, then build. <button type="button" className="font-medium text-fg underline-offset-4 hover:underline" onClick={() => { setImported(null); setInitial(''); }}>Start blank instead</button></p>}
+      <Composer key={`${kit?.id ?? ''}:${initial}`} autoFocus initialIdea={initial} initialName={imported ? siteName(imported) : ''} defaultType={kit ? 'saas' : undefined} />
+      {!imported && <SiteImport onBrief={(brief, r) => { setKit(null); setImported(r); setInitial(brief); top.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} />}
       <section aria-labelledby="kits" className="space-y-3 pt-2">
         <div className="text-center">
           <h2 id="kits" className="text-lg font-semibold tracking-[-0.02em]">Software for your business</h2>

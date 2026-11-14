@@ -2,6 +2,7 @@
 // plugged in under the platform's real adapter classes, so request building, signatures and error handling are real.
 // Test credentials the bots use (never real accounts):
 export const TEST = {
+  crawlerToken: 'bots-crawler-token-bots-crawler-token',
   platformRazorpay: { keyId: 'rzp_test_botplatform', keySecret: 'platform_secret', webhookSecret: 'platform_whsec' },
   storeRazorpay: { keyId: 'rzp_test_demo', keySecret: 'secret_value_1', webhookSecret: 'demo_webhook_secret' },
   shiprocket: { email: 'api-user@example.com', password: 'demo-api-pass' },
@@ -56,3 +57,33 @@ export const servicesFetch = async (url) => {
   if (u.host === 'api.frankfurter.dev') return Response.json({ amount: 1, base: u.searchParams.get('base'), date: '2026-11-13', rates: { INR: 88.4, EUR: 0.86, GBP: 0.76 } });
   return new Response('{}', { status: 404 });
 };
+
+/**
+ * Stand-in for services/crawler (Crawl4AI). Same request and response shapes and token check; serves one fixed
+ * small-business site, and refuses another the way the real reader does when robots.txt forbids it.
+ */
+export async function startCrawlerStandIn(port) {
+  const { createServer } = await import('node:http');
+  const site = 'https://kashmirwalnut.example/';
+  const pages = [
+    { url: site, title: 'Kashmir Walnut Co. | Fresh walnuts from Pulwama', description: 'Family orchard selling Kashmiri walnuts and kernels since 1987.', markdown: '# Kashmir Walnut Co.\nHand-picked walnuts from our family orchard in Pulwama, shipped across India within 3 days.\n![Our orchard](https://kashmirwalnut.example/img/orchard.jpg)', images: [{ src: 'https://kashmirwalnut.example/img/orchard.jpg', alt: 'Our orchard' }], links: [] },
+    { url: `${site}about`, title: 'About us', description: '', markdown: 'Three generations of the Bhat family have tended these trees. We sun-dry every batch and never bleach our nuts.', images: [], links: [] },
+    { url: `${site}products`, title: 'Products', description: '', markdown: '- Snow-white kernels, 500 g — ₹899\n- In-shell walnuts, 1 kg — ₹649\n- Gift box, 750 g — ₹1,299', images: [], links: [] },
+    { url: `${site}contact`, title: 'Contact', description: '', markdown: 'Call +91 94190 12345 or email orders@kashmirwalnut.example. Orchard Road, Pulwama 192301.', images: [], links: [] },
+  ];
+  const server = createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      const send = (status, body) => res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+      if (req.url === '/health') return send(200, { ok: true });
+      if (req.method !== 'POST' || req.url !== '/crawl') return send(404, { detail: 'not found' });
+      if (req.headers['x-crawler-token'] !== TEST.crawlerToken) return send(401, { detail: 'unauthorised' });
+      const { url = '', maxPages = 6 } = JSON.parse(raw || '{}');
+      if (url.includes('kashmirwalnut.example')) return send(200, { url, host: 'kashmirwalnut.example', pages: pages.slice(0, maxPages), skipped: [{ url: `${site}admin/`, reason: 'robots.txt does not allow it' }], seconds: 1.4 });
+      return send(422, { detail: `Couldn't read ${new URL(url).hostname}: robots.txt does not allow it` });
+    });
+  });
+  await new Promise((r) => server.listen(port, '127.0.0.1', r));
+  return server;
+}

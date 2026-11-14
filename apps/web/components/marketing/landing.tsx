@@ -142,7 +142,7 @@ export function Landing() {
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <span>© {new Date().getFullYear()} Make Your App AI</span>
-          <nav className="flex flex-wrap gap-x-5 gap-y-2"><Link href="/explore" className="hover:text-fg">Explore</Link><Link href="/pricing" className="hover:text-fg">Pricing</Link>{LEGAL_SLUGS.map((s) => <Link key={s} href={`/legal/${s}`} className="hover:text-fg">{LEGAL[s]!.title}</Link>)}</nav>
+          <nav className="flex flex-wrap gap-x-5 gap-y-2"><Link href="/explore" className="hover:text-fg">Explore</Link><Link href="/pricing" className="hover:text-fg">Pricing</Link>{LEGAL_SLUGS.map((s) => <Link key={s} href={`/legal/${s}`} className="hover:text-fg">{LEGAL[s]!.title}</Link>)}<Link href="/credits" className="hover:text-fg">Credits</Link></nav>
         </div>
       </footer>
     </div>

@@ -38,6 +38,9 @@ services:
       - { key: GEMINI_API_KEY, sync: false }
       - { key: OPENROUTER_API_KEY, sync: false }
       - { key: CEREBRAS_API_KEY, sync: false }
+      - { key: CHUTES_API_KEY, sync: false }
+      # Website import needs the crawler as a private service, which Render's free plan doesn't offer
+      # (see infra/render.yaml). Until then the Create page hides that option.
       - { key: PLATFORM_OWNER_EMAILS, sync: false }
       - { key: WEATHER_CONTACT, sync: false }
       - { key: WEB_ORIGIN, sync: false }

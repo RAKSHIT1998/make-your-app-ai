@@ -14,7 +14,7 @@ const stub = (routes: Record<string, { status?: number; json: unknown }>) => {
 
 describe('free provider catalogue', () => {
   it('describes every provider with its signup page and env keys', () => {
-    expect(FREE_PROVIDERS.map((p) => p.key)).toEqual(['groq', 'cerebras', 'openrouter', 'gemini', 'cloudflare']);
+    expect(FREE_PROVIDERS.map((p) => p.key)).toEqual(['groq', 'cerebras', 'openrouter', 'gemini', 'chutes', 'cloudflare']);
     for (const p of FREE_PROVIDERS) { expect(p.signupUrl).toMatch(/^https:\/\//); expect(p.env.length).toBeGreaterThan(0); }
   });
 
@@ -28,6 +28,18 @@ describe('free provider catalogue', () => {
     const m = await discoverFreeModels('openrouter', { apiKey: 'or-key' }, f);
     expect(m).toEqual([{ id: 'meta-llama/llama-3.3-70b-instruct:free', pricing: 'free', contextWindow: 131072 }, { id: 'openrouter/free', pricing: 'free', contextWindow: null }]);
     expect(calls[0]!.auth).toBe('Bearer or-key');
+  });
+
+  it('offers only Chutes models priced at exactly $0 (Chutes is pay-as-you-go)', async () => {
+    const { f, calls } = stub({ 'https://llm.chutes.ai/v1/models': { json: { data: [
+      { id: 'zai-org/GLM-4.5-Air-TEE', pricing: { prompt: 0, completion: 0, input_cache_read: 0 }, context_length: 131072 },
+      { id: 'deepseek-ai/DeepSeek-V3.2-TEE', pricing: { prompt: 0.25, completion: 0.38 }, context_length: 163840 },
+      { id: 'Qwen/Qwen3-8B-TEE', pricing: { prompt: 0, completion: 0.05 } },
+      { id: 'unknown/no-price-listed' },
+      { id: 'BAAI/bge-m3-embedding', pricing: { prompt: 0, completion: 0 } },
+    ] } } });
+    expect(await discoverFreeModels('chutes', { apiKey: 'cpk_test' }, f)).toEqual([{ id: 'zai-org/GLM-4.5-Air-TEE', pricing: 'free', contextWindow: 131072 }]);
+    expect(calls[0]).toEqual({ url: 'https://llm.chutes.ai/v1/models', auth: 'Bearer cpk_test' });
   });
 
   it('lists active chat models on free-tier providers and skips audio, guard and embedding models', async () => {

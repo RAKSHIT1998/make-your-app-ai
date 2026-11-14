@@ -59,6 +59,8 @@ Production-like stack: `docker compose -f infra/docker-compose.yml up --build` r
 | `CREDITS_PER_USD`, `MAX_CREDITS_PER_RUN`, `FREE_PLAN_CREDITS`, `REPORTING_USD_INR` | Credit pricing and reporting |
 | `RATE_LIMIT_PER_MINUTE`, `GENERATION_RATE_LIMIT_PER_MINUTE`, `CHECKOUT_RATE_LIMIT_PER_MINUTE`, `DEPLOY_RATE_LIMIT_PER_MINUTE`, `BILLING_RATE_LIMIT_PER_MINUTE`, `MAX_DEPLOYMENTS_PER_DAY`, `CHECKOUT_RESERVATION_MINUTES` | Abuse controls |
 | `RECOVER_INTERRUPTED_RUNS` (default `true`), `RUN_LEASE_SECONDS` (default `60`), `SHUTDOWN_GRACE_SECONDS` (default `25`) | Restart and crash behaviour (see RUNBOOK) |
+| `CRAWLER_URL`, `CRAWLER_TOKEN`, `SITE_IMPORTS_PER_DAY` | "Start from your current website". `infra/render.yaml` creates the private `mya-crawler` service (Crawl4AI + Chromium, `services/crawler`) and wires both values automatically. Not available on Render's free plan (no private services); the option stays hidden until set |
+| `CHUTES_API_KEY` | Chutes as a free AI provider (only its $0 models are offered) |
 | `RATE_LIMIT_STORE` (`memory` default, or `postgres`) | `postgres` shares request limits across API instances |
 
 ### Web (build-time, public)

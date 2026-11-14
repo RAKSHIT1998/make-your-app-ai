@@ -61,6 +61,11 @@ Merchants connect their own Razorpay, Stripe and Shiprocket accounts in Business
 - "Checkout works once your store is live": the seller must add products, connect Razorpay or Stripe and set the store to Active in Business Studio. Nothing else is needed on the platform side.
 - Payments are confirmed only by the provider: Razorpay's signed handler result or webhook, Stripe's webhook. An order stuck in "Waiting for payment confirmation" means the seller's webhook is missing or its secret is wrong (check the store's webhook URL in Business Studio → Settings).
 
+## Website import (crawler)
+- "Start from your current website" calls the private `mya-crawler` service (`services/crawler`, Crawl4AI). If customers see "The website reader isn’t reachable", check that service is running and that `CRAWLER_URL`/`CRAWLER_TOKEN` on the API match it (a 401 from the crawler is logged by the API as a token mismatch).
+- Out-of-memory restarts of the crawler on heavy sites: move it to the standard plan. It reads one site at a time; a busy reader answers 429 and customers are asked to retry.
+- Sites that forbid reading in robots.txt are refused with that reason, by design. Switch the feature off for everyone with the `site_import` flag (Owner console → Feature flags).
+
 ## AI routing
 Free providers: Owner console → AI routing → Free AI providers shows which free keys are set and the models each provider currently offers for free. Use "Test with one real call" before adding a model, and again whenever a route starts failing. Free quotas reset daily (most at 00:00 UTC); a route that runs out is skipped automatically until then.
 
