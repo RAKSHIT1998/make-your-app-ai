@@ -1,6 +1,6 @@
 # Development Status
 
-_Last updated: 2026-11-13, session 16 (free AI providers and free app services). Launch steps: **LAUNCH_CHECKLIST.md**, operations: **RUNBOOK.md**, deploy: **DEPLOYMENT.md**. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
+_Last updated: 2026-11-14, session 17 (owner Dashboard, business kits, team-only apps). Launch steps: **LAUNCH_CHECKLIST.md**, operations: **RUNBOOK.md**, deploy: **DEPLOYMENT.md**. Full feature-by-feature audit of the ecosystem spec: **FEATURE_CHECKLIST.md**._
 _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue from "Next tasks"._
 
 ## Current phase

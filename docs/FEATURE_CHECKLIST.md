@@ -1,6 +1,6 @@
 # Feature Implementation Checklist — "Viral AI Software-Building Ecosystem" spec
 
-_Audit date: 2026-11-13 (sessions 7–16). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
+_Audit date: 2026-11-14 (sessions 7–17). Audited against the code on `main`, not against intentions. Items marked "(this session)" were implemented and tested in session 7._
 Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 partial · ⛔ blocked (needs credentials/infrastructure) · ⬜ not started
 
 ## Architecture audit (spec §1)
