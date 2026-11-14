@@ -32,6 +32,41 @@ export function wrap(tag: string, content: string, attrs = ''): string {
   return `<${tag}${attrs ? ' ' + attrs : ''}>\n${safe}\n</${tag}>`;
 }
 
+const PROSE_LIMIT = 5000;
+
+/** Trims text to `max` characters, at a word boundary when one is near, ending with an ellipsis. */
+export function clipText(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, Math.max(0, max - 1));
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+
+/**
+ * Fixes, in place, the output problems that are about size or colour notation rather than substance: strings over a
+ * prose-sized limit are trimmed, arrays over their limit are cut, and #rgb colours become #rrggbb. Never touches long
+ * fields such as file contents. Returns true if anything changed.
+ */
+export function repairOutput(value: unknown, issues: readonly { code: string; path: PropertyKey[]; maximum?: unknown }[]): boolean {
+  let changed = false;
+  for (const issue of issues) {
+    if (!issue.path.length) continue;
+    let parent: unknown = value;
+    for (const key of issue.path.slice(0, -1)) parent = parent && typeof parent === 'object' ? (parent as Record<PropertyKey, unknown>)[key] : undefined;
+    if (!parent || typeof parent !== 'object') continue;
+    const key = issue.path[issue.path.length - 1]!;
+    const cur = (parent as Record<PropertyKey, unknown>)[key];
+    const max = typeof issue.maximum === 'number' ? issue.maximum : typeof issue.maximum === 'bigint' ? Number(issue.maximum) : NaN;
+    if (issue.code === 'too_big' && typeof cur === 'string' && max <= PROSE_LIMIT) { (parent as Record<PropertyKey, unknown>)[key] = clipText(cur, max); changed = true; }
+    else if (issue.code === 'too_big' && Array.isArray(cur) && Number.isFinite(max)) { cur.length = max; changed = true; }
+    else if (issue.code === 'invalid_format' && typeof cur === 'string' && /^#[0-9a-f]{3}$/i.test(cur.trim())) {
+      (parent as Record<PropertyKey, unknown>)[key] = `#${[...cur.trim().slice(1)].map((c) => c + c).join('')}`;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /**
  * Calls a model for one agent step and returns schema-validated output.
  * Invalid output is retried with the validation errors attached, then fails loudly.
@@ -65,7 +100,11 @@ export async function runAgent<T>(
       raw = res.text;
       served = { provider: res.provider, model: res.routeModel };
       if (res.stopReason === 'max_tokens') throw new AgentOutputError(args.agent, 'response was cut off at the output token limit');
-      const parsed = args.schema.safeParse(extractJson(raw));
+      const value = extractJson(raw);
+      let parsed = args.schema.safeParse(value);
+      // Size limits and colour formats aren't shown to the model (providers reject those schema keywords), so a good
+      // answer can run a little long. Trim prose and lists to their limits and expand #rgb colours instead of failing.
+      if (!parsed.success && repairOutput(value, parsed.error.issues)) parsed = args.schema.safeParse(value);
       ctx.router.reportOutput(res.provider, res.routeModel, parsed.success);
       if (parsed.success) {
         await ctx.reporter.taskFinished(taskId, true, parsed.data);

@@ -71,6 +71,33 @@ describe('Orchestrator', () => {
     expect(h.provider.calls[2]!.req.messages[0]!.content).toContain(base.prompt);
   });
 
+  it('accepts real-model answers that only run long or use short colours, and skips "update" with no content', async () => {
+    // Exactly what a live model sent: a 180-character tone (limit 120, which providers can't be told), a 3-digit
+    // colour, 20 component notes (limit 15), and app/globals.css listed as an update with no content.
+    const longDesign = { ...DESIGN, tone: 'Quiet, heritage-literate and tactile; a restrained layout with one woven-stripe motif that echoes a loom\'s warp and weft, and generous space around every shawl photograph.', palette: { ...DESIGN.palette, surface: '#FFF' }, componentNotes: Array.from({ length: 20 }, (_, i) => `Note ${i}`) };
+    const code = JSON.parse(goodCode) as { summary: string; patches: object[] };
+    code.patches.push({ op: 'update', path: 'app/globals.css', reason: 'No change needed' });
+    const h = harness([json(SPEC), json(longDesign), json(code)]);
+    const s = await store();
+    const id = randomUUID();
+    const out = await new Orchestrator({ store: s }).run({ ...base, projectId: id, kind: 'create' }, h.ctx);
+    expect(out.status, out.status === 'failed' ? out.error : '').toBe('succeeded');
+    expect(h.tasks.map((t) => [t.agent, t.ok])).toEqual([['architect', true], ['designer', true], ['frontend', true]]); // no retries, no extra cost
+    const tree = await s.readTree(id);
+    expect(tree.get('app/globals.css')).toBeTruthy(); // kept as it was
+    const designEvent = h.events.find((e) => e.agent === 'designer' && e.type === 'step.completed')!;
+    expect(designEvent.message.length).toBeLessThan(200);
+  });
+
+  it('asks the engineer again when it creates a file without content', async () => {
+    const bad = JSON.parse(goodCode) as { summary: string; patches: object[] };
+    bad.patches.push({ op: 'create', path: 'app/about/page.tsx', reason: 'About page' });
+    const h = harness([json(SPEC), json(DESIGN), json(bad), goodCode]);
+    const out = await new Orchestrator({ store: await store() }).run({ ...base, projectId: randomUUID(), kind: 'create' }, h.ctx);
+    expect(out.status).toBe('succeeded');
+    expect(h.provider.calls[3]!.req.messages.at(-1)!.content).toContain('create needs the full file content');
+  });
+
   it('retries an agent whose output fails the schema, sending the validation errors back', async () => {
     const h = harness([json({ name: 'x' }), json(SPEC), json(DESIGN), goodCode]);
     const out = await new Orchestrator({ store: await store() }).run({ ...base, projectId: randomUUID(), kind: 'create' }, h.ctx);

@@ -6,6 +6,10 @@ export const FilePatchSchema = z.object({
   path: z.string().min(1).max(300),
   content: z.string().max(400_000).optional(),
   reason: z.string().max(500),
+}).superRefine((p, ctx) => {
+  // Models sometimes list a file they decided not to change as an "update" with no content; that is handled as
+  // "keep it" when the file exists. A "create" without content is a real mistake the agent is asked to correct.
+  if (p.op === 'create' && p.content === undefined) ctx.addIssue({ code: 'custom', path: ['content'], message: 'create needs the full file content' });
 });
 export type FilePatch = z.infer<typeof FilePatchSchema>;
 
@@ -61,7 +65,10 @@ export function applyPatches(tree: FileTree, patches: FilePatch[]): { tree: File
       summary.destructive.push(p);
       continue;
     }
-    if (raw.content === undefined) throw new PatchError(`${raw.op} requires content: ${p}`);
+    if (raw.content === undefined) {
+      if (raw.op === 'update' && next.has(p)) continue; // "update" without content = leave the file as it is
+      throw new PatchError(`${raw.op} requires content: ${p}`);
+    }
     const existing = next.get(p);
     if (raw.op === 'create' && existing !== undefined && existing !== raw.content) {
       // Treat as update so the destructive check still applies.
