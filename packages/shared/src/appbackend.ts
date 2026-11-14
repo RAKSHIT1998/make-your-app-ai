@@ -31,19 +31,27 @@ const CollectionSchema = z.object({
     read: z.enum(['public', 'users', 'owner']),
     /** Who can create records. */
     create: z.enum(['public', 'users']),
-    /** Who can edit or delete a record: the user who created it, or nobody. */
-    modify: z.enum(['owner', 'none']),
+    /** Who can edit or delete a record: the user who created it, any team member ("users", team apps only), or nobody. */
+    modify: z.enum(['owner', 'users', 'none']),
   }).strict(),
 }).strict();
 
 export const AppBackendSchema = z.object({
-  auth: z.object({ enabled: z.boolean() }).strict(),
+  /**
+   * End-user accounts. "open": anyone may sign up. "team": only emails the app's owner has added may sign up or stay
+   * signed in — for business software (CRM, POS, inventory…) shared by a company's staff.
+   */
+  auth: z.object({ enabled: z.boolean(), mode: z.enum(['open', 'team']).default('open') }).strict(),
   collections: z.record(name('Collection'), CollectionSchema).refine((c) => Object.keys(c).length <= 20, 'At most 20 collections.'),
 }).strict().superRefine((b, ctx) => {
   for (const [cname, c] of Object.entries(b.collections)) {
     const needsUsers = c.access.read !== 'public' || c.access.create === 'users' || c.access.modify === 'owner';
     if (needsUsers && !b.auth.enabled) ctx.addIssue({ code: 'custom', path: ['collections', cname, 'access'], message: `"${cname}" needs signed-in users, so set "auth": { "enabled": true }.` });
+    // Shared editing is only safe when the owner controls who has an account.
+    if (c.access.modify === 'users' && b.auth.mode !== 'team') ctx.addIssue({ code: 'custom', path: ['collections', cname, 'access', 'modify'], message: `"${cname}" lets every user edit any record, which needs "auth": { "enabled": true, "mode": "team" } so only the owner's team can sign up.` });
+    if (b.auth.mode === 'team' && (c.access.read === 'public' || c.access.create === 'public')) ctx.addIssue({ code: 'custom', path: ['collections', cname, 'access'], message: `"${cname}" is in a team app, so it can't be public: use "users" or "owner".` });
   }
+  if (b.auth.mode === 'team' && !b.auth.enabled) ctx.addIssue({ code: 'custom', path: ['auth'], message: 'A team app needs accounts: set "enabled": true.' });
 });
 export type AppBackend = z.infer<typeof AppBackendSchema>;
 

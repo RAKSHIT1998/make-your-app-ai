@@ -107,6 +107,18 @@ export class AppDataService {
   }
   private userDto(u: AppUser) { return { id: u.id, email: u.email }; }
 
+  /**
+   * Team apps admit only emails their owner added. Enforced on the live app; the builder's preview stays open so the
+   * owner can test freely with throwaway accounts (preview data is never shown to the team).
+   */
+  private teamGated(ctx: AppContext) { return ctx.env === 'live' && ctx.backend.auth.mode === 'team'; }
+  private async onTeam(ctx: AppContext, email: string) {
+    return !!(await this.prisma.appMember.findUnique({ where: { projectId_env_email: { projectId: ctx.projectId, env: ctx.env, email } }, select: { email: true } }));
+  }
+  private notOnTeam(email: string) {
+    return new ForbiddenException({ message: `This app is for its team only, and ${email} hasn't been added. Ask the app's owner to add you.`, code: 'not_on_team' });
+  }
+
   private async newSession(u: AppUser) {
     const token = `ast_${randomBytes(32).toString('base64url')}`;
     await this.prisma.appSession.create({ data: { tokenHash: sha256(token), appUserId: u.id, expiresAt: new Date(Date.now() + SESSION_DAYS * 864e5) } });
@@ -129,6 +141,7 @@ export class AppDataService {
       const ctl = await this.prisma.appBackend.findUnique({ where: { projectId: ctx.projectId }, select: { signupsOpen: true } });
       if (ctl && !ctl.signupsOpen) throw new ForbiddenException({ message: 'New sign-ups are closed for this app. Existing members can still sign in.', code: 'signups_closed' });
     }
+    if (this.teamGated(ctx) && !(await this.onTeam(ctx, email))) throw this.notOnTeam(email);
     const count = await this.prisma.appUser.count({ where: { projectId: ctx.projectId, env: ctx.env } });
     if (count >= this.config.APP_DATA_MAX_USERS) throw new ConflictException({ message: 'This app has reached its account limit. Please contact the app owner.', code: 'user_limit' });
     try {
@@ -146,6 +159,8 @@ export class AppDataService {
     const u = await this.prisma.appUser.findUnique({ where: { projectId_env_email: { projectId: ctx.projectId, env: ctx.env, email } } });
     const ok = await verifyPassword(password, u?.passwordHash ?? DUMMY_HASH); // same work whether or not the email exists
     if (!u || !ok) throw new UnauthorizedException({ message: 'Wrong email or password.', code: 'invalid_credentials' });
+    // Checked only after the password, so strangers learn nothing about who is on the team.
+    if (this.teamGated(ctx) && !(await this.onTeam(ctx, email))) throw this.notOnTeam(email);
     await this.prisma.appUser.update({ where: { id: u.id }, data: { lastSignInAt: new Date() } });
     return this.newSession(u);
   }
@@ -155,6 +170,7 @@ export class AppDataService {
     if (!token || !ctx.backend.auth.enabled || token.length > 200) return null;
     const s = await this.prisma.appSession.findUnique({ where: { tokenHash: sha256(token) }, include: { user: true } });
     if (!s || s.expiresAt < new Date() || s.user.projectId !== ctx.projectId || s.user.env !== ctx.env) return null;
+    if (this.teamGated(ctx) && !(await this.onTeam(ctx, s.user.email))) return null; // removed from the team: signed out at once
     return s.user;
   }
 
@@ -237,6 +253,7 @@ export class AppDataService {
     const { c, r } = await this.findReadable(ctx, name, id, u);
     if (c.access.modify === 'none') throw new ForbiddenException({ message: 'These records can’t be changed.', code: 'read_only' });
     const me = this.signedIn(u);
+    if (c.access.modify === 'users') return { c, r }; // team apps: any team member may edit shared records
     if (r.ownerId !== me.id) throw new ForbiddenException({ message: 'You can only change your own records.', code: 'not_owner' });
     return { c, r };
   }
@@ -315,5 +332,35 @@ export class AppDataService {
       this.prisma.appUser.deleteMany({ where: { projectId, env } }),
     ]);
     return { records: records.count, users: users.count };
+  }
+
+  // ───────── Team members (team apps) ─────────
+
+  async teamList(projectId: string, env: AppEnv) {
+    const [members, users] = await Promise.all([
+      this.prisma.appMember.findMany({ where: { projectId, env }, orderBy: { addedAt: 'asc' } }),
+      this.prisma.appUser.findMany({ where: { projectId, env }, select: { email: true, lastSignInAt: true } }),
+    ]);
+    const byEmail = new Map(users.map((u) => [u.email, u]));
+    return members.map((m) => ({ email: m.email, addedAt: m.addedAt.toISOString(), hasAccount: byEmail.has(m.email), lastSignInAt: byEmail.get(m.email)?.lastSignInAt?.toISOString() ?? null }));
+  }
+
+  async teamAdd(projectId: string, env: AppEnv, emails: string[]) {
+    const clean = [...new Set(emails.map((e) => e.trim().toLowerCase()))];
+    const bad = clean.find((e) => !/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(e));
+    if (bad !== undefined) throw new BadRequestException({ message: `"${bad}" isn't a valid email address.`, code: 'invalid_email' });
+    const existing = await this.prisma.appMember.count({ where: { projectId, env } });
+    if (existing + clean.length > this.config.APP_DATA_MAX_USERS) throw new ConflictException({ message: `A team can have at most ${this.config.APP_DATA_MAX_USERS} members.`, code: 'team_limit' });
+    const r = await this.prisma.appMember.createMany({ data: clean.map((email) => ({ projectId, env, email })), skipDuplicates: true });
+    return { added: r.count };
+  }
+
+  /** Removes access at once: their sessions end. Their account and the records they created stay (they belong to the business). */
+  async teamRemove(projectId: string, env: AppEnv, email: string) {
+    const e = email.trim().toLowerCase();
+    const r = await this.prisma.appMember.deleteMany({ where: { projectId, env, email: e } });
+    if (!r.count) throw new NotFoundException({ message: 'That email is not on the team.', code: 'not_found' });
+    await this.prisma.appSession.deleteMany({ where: { user: { projectId, env, email: e } } });
+    return { removed: true };
   }
 }

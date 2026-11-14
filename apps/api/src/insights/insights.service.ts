@@ -91,7 +91,7 @@ export class InsightsService {
           }
         : null,
       money: store ? { store: { id: store.id, name: store.name, status: store.status }, ...(await this.merchant.analytics(user, store.id, days)) } : null,
-      controls: backend ? { signupsOpen: controls?.signupsOpen ?? true, paused: controls?.paused ?? false, hasAccounts: backend.auth.enabled } : null,
+      controls: backend ? { signupsOpen: controls?.signupsOpen ?? true, paused: controls?.paused ?? false, hasAccounts: backend.auth.enabled, teamOnly: backend.auth.mode === 'team' } : null,
     };
   }
 

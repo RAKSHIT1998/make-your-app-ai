@@ -458,7 +458,7 @@ export interface OwnerDashboard {
   appUsers: { daily: DayValue[]; newInPeriod: number; changePct: number | null; total: number; active7: number; active30: number; limit: number } | null;
   data: { daily: DayValue[]; newInPeriod: number; collections: { name: string; records: number }[]; total: number; limit: number } | null;
   money: (StoreAnalytics & { store: { id: string; name: string; status: string } }) | null;
-  controls: { signupsOpen: boolean; paused: boolean; hasAccounts: boolean } | null;
+  controls: { signupsOpen: boolean; paused: boolean; hasAccounts: boolean; teamOnly: boolean } | null;
 }
 export interface StoreAnalytics {
   currency: string; days: number; grossSalesMinor: number; refundsMinor: number; netSalesMinor: number; orders: number; averageOrderValueMinor: number; pendingPaymentOrders: number;
@@ -467,6 +467,9 @@ export interface StoreAnalytics {
 export const ownerDashboard = {
   get: (projectId: string, days: number) => apiFetch<OwnerDashboard>(`/projects/${projectId}/insights?days=${days}`),
   setControls: (projectId: string, patch: { signupsOpen?: boolean; paused?: boolean }) => apiFetch<{ signupsOpen: boolean; paused: boolean }>(`/projects/${projectId}/insights/controls`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  team: (projectId: string) => apiFetch<{ email: string; addedAt: string; hasAccount: boolean; lastSignInAt: string | null }[]>(`/projects/${projectId}/insights/team`),
+  teamAdd: (projectId: string, emails: string[]) => apiFetch<{ added: number }>(`/projects/${projectId}/insights/team`, { method: 'POST', body: JSON.stringify({ emails }) }),
+  teamRemove: (projectId: string, email: string) => apiFetch<{ removed: boolean }>(`/projects/${projectId}/insights/team`, { method: 'DELETE', body: JSON.stringify({ email }) }),
   exportUsers: (projectId: string) => downloadFile(`/projects/${projectId}/insights/export/users`, 'app-users.csv'),
   exportRecords: (projectId: string, collection: string) => downloadFile(`/projects/${projectId}/insights/export/records?collection=${encodeURIComponent(collection)}`, `${collection}.csv`),
 };

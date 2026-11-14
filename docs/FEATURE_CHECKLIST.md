@@ -59,7 +59,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | E-commerce stores | 🟡 | Full commerce engine + Business Studio (real orders/payments); storefront generator not yet |
 | Store extensions (payments: Razorpay, Stripe; delivery: Shiprocket rates, booking, labels, tracking) | ✅ (session 14) | Merchant's own accounts, verified on connect, encrypted. Shiprocket tested against an emulated API only; prepaid India shipments |
 | Games (HTML5) and browser-only apps (calculators, planners, trackers) | ✅ (session 11) | `game` / Web app types, `web-play@1`, validated, repaired, previewed in a sandbox. No backend or accounts |
-| CRM, ERP, HR, inventory, restaurant, hotel, booking, marketplace, LMS, membership, SaaS, portals, dashboards, PM, finance | 🟡 | Buildable as Full-stack Apps where the declarative backend fits (accounts, own/shared records); no payments, roles, file uploads or server logic inside generated apps yet |
+| CRM, ERP, HR, inventory, restaurant, hotel, booking, marketplace, LMS, membership, SaaS, portals, dashboards, PM, finance | 🟡 | **10 business kits (session 17b)** build team-only Full-stack Apps (CRM, POS, inventory, appointments, invoices, helpdesk, HR & leave, restaurant orders, memberships, field jobs) with owner-managed staff access and shared editing. No payments, roles beyond team member, file uploads, email, printing or server logic inside generated apps yet |
 
 ## §5 Explore & template marketplace
 | Item | Status | Notes |

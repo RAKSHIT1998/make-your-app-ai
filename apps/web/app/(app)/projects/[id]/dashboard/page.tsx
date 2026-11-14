@@ -1,10 +1,10 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Database, Download, ExternalLink, Eye, Heart, MessageCircle, Pause, Play, ShoppingCart, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Database, Download, ExternalLink, Eye, Heart, MessageCircle, Pause, Play, ShieldCheck, ShoppingCart, Trash2, UserPlus, Users } from 'lucide-react';
 import Link from 'next/link';
 import { use, useState } from 'react';
-import { Badge, Button, Card, ErrorNotice, LinkButton, Meter, Notice, PageHeader, Segmented, Skeleton, Stat, toast, Toggle, useConfirm } from '@/components/ui';
+import { Badge, Button, Card, ErrorNotice, Field, LinkButton, Meter, Notice, PageHeader, Segmented, Skeleton, Stat, Textarea, toast, Toggle, useConfirm } from '@/components/ui';
 import { Bars, Breakdown } from '@/components/charts';
 import { ApiError, money, ownerDashboard, type DayValue, type OwnerDashboard } from '@/lib/api';
 
@@ -79,6 +79,7 @@ function Body({ d, projectId }: { d: OwnerDashboard; projectId: string }) {
         <p className="text-xs text-subtle">Visitors are people who opened your public page, counted once per person per day. Your own and your team's visits aren't counted, and no cookies are used.</p>
       </section>
 
+      {d.controls?.teamOnly && <TeamSection projectId={projectId} />}
       {d.appUsers && <UsersSection d={d} projectId={projectId} />}
       {d.data && <DataSection d={d} projectId={projectId} />}
       {m ? <MoneySection d={d} /> : <NoStore d={d} />}
@@ -247,3 +248,55 @@ function ControlsSection({ d, projectId }: { d: OwnerDashboard; projectId: strin
     </section>
   );
 }
+
+function TeamSection({ projectId }: { projectId: string }) {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const [emails, setEmails] = useState('');
+  const team = useQuery({ queryKey: ['app-team', projectId], queryFn: () => ownerDashboard.team(projectId) });
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['app-team', projectId] }), qc.invalidateQueries({ queryKey: ['owner-dashboard', projectId] })]);
+  const add = useMutation({
+    mutationFn: (list: string[]) => ownerDashboard.teamAdd(projectId, list),
+    onSuccess: async (r) => { setEmails(''); await refresh(); toast.success(r.added ? `Added ${r.added} ${r.added === 1 ? 'person' : 'people'}.` : 'They were already on the team.'); },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not add. Please try again.'),
+  });
+  const remove = useMutation({
+    mutationFn: (email: string) => ownerDashboard.teamRemove(projectId, email),
+    onSuccess: async () => { await refresh(); toast.success('Removed. They were signed out.'); },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not remove. Please try again.'),
+  });
+  const list = emails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean);
+  return (
+    <section aria-labelledby="team" className="space-y-3">
+      <h2 id="team" className="flex items-center gap-2 text-base font-semibold"><ShieldCheck className="size-4" />Team access</h2>
+      <Card className="space-y-5">
+        <p className="text-sm text-muted">This is a team-only app: only the emails below can create an account or stay signed in on your live app. Add yourself too.</p>
+        <form className="flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={(e) => { e.preventDefault(); if (list.length) add.mutate(list); }}>
+          <Field label="Add people by email" hint="Separate several with commas or new lines." className="flex-1">
+            <Textarea rows={2} value={emails} onChange={(e) => setEmails(e.target.value)} placeholder="priya@yourshop.in, rahul@yourshop.in" />
+          </Field>
+          <Button type="submit" loading={add.isPending} disabled={!list.length}><UserPlus className="size-3.5" />Add</Button>
+        </form>
+        {team.error ? <ErrorNotice error={team.error} onRetry={() => team.refetch()} /> : !team.data ? <Skeleton className="h-16" /> : team.data.length === 0 ? (
+          <Notice tone="warning">Nobody can sign in to your live app yet. Add your staff's emails, then share the app's link with them.</Notice>
+        ) : (
+          <ul className="divide-y divide-border text-sm" aria-label="Team members">
+            {team.data.map((m) => (
+              <li key={m.email} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{m.email}</span>
+                  <span className="text-xs text-subtle">{m.hasAccount ? (m.lastSignInAt ? `Last signed in ${new Date(m.lastSignInAt).toLocaleDateString()}` : 'Has an account') : 'Invited · no account yet'}</span>
+                </span>
+                <Button size="sm" variant="ghost" aria-label={`Remove ${m.email}`} disabled={remove.isPending} onClick={async () => {
+                  const ok = await confirm({ title: `Remove ${m.email}?`, body: 'They are signed out at once and can no longer sign in. Records they created stay in the app.', confirmLabel: 'Remove', danger: true });
+                  if (ok.ok) remove.mutate(m.email);
+                }}><Trash2 className="size-3.5" /></Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </section>
+  );
+}
+

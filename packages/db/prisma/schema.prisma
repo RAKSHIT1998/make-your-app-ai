@@ -438,6 +438,7 @@ model Project {
   appBackend     AppBackend?
   appUsers       AppUser[]
   appRecords     AppRecord[]
+  appMembers     AppMember[]
   comments       ProjectComment[]
   showcaseCollectionItems ShowcaseCollectionItem[]
   hostingSite    HostingSite?
@@ -1450,6 +1451,17 @@ model AppUser {
   records      AppRecord[]
 
   @@unique([projectId, env, email])
+}
+
+/// Emails allowed to have an account in a team app ("auth.mode": "team"), per environment. Managed by the app's owner.
+model AppMember {
+  projectId String   @db.Uuid
+  env       String
+  email     String
+  addedAt   DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, env, email])
 }
 
 model AppSession {

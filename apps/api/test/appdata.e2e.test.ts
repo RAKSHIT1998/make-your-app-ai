@@ -88,9 +88,11 @@ async function build(auth: string, prompt: string, type = 'saas') {
 
 
 const keyOf = (html: string) => /\/api\/v1\/appdata\/(pv_[A-Za-z0-9_-]+|lv_[0-9a-f-]+)/.exec(html)![1]!;
-async function fullstack(label: string) {
+const TEAM_BACKEND = { auth: { enabled: true, mode: 'team' }, collections: { tasks: { fields: { title: { type: 'string', required: true, max: 120 }, done: { type: 'boolean' }, priority: { type: 'enum', values: ['low', 'normal', 'high'] } }, access: { read: 'users', create: 'users', modify: 'users' } } } };
+const TEAM = JSON.stringify({ summary: 'Team tasks', patches: patches({ ...TASKS, 'app.backend.json': JSON.stringify(TEAM_BACKEND, null, 2) }) });
+async function fullstack(label: string, response = GOOD) {
   const a = await login(label);
-  provider.queue([JSON.stringify(SPEC), JSON.stringify(DESIGN), GOOD]);
+  provider.queue([JSON.stringify(SPEC), JSON.stringify(DESIGN), response]);
   const { id, run } = await build(a.auth, 'A task app with accounts');
   expect(run.status, run.error).toBe('succeeded');
   const preview = (await http().get(`${V}/projects/${id}/preview`).set('Authorization', a.auth).expect(200)).body;
@@ -409,7 +411,7 @@ describe('free services for full-stack apps', () => {
     expect(d.data.collections).toEqual([{ name: 'tasks', records: 2 }]);
     expect(d.data.newInPeriod).toBe(2);
     expect(d.money).toMatchObject({ store: { id: store.id }, orders: 0, grossSalesMinor: 0, currency: 'INR' });
-    expect(d.controls).toEqual({ signupsOpen: true, paused: false, hasAccounts: true });
+    expect(d.controls).toEqual({ signupsOpen: true, paused: false, hasAccounts: true, teamOnly: false });
 
     // Strangers see nothing and can change nothing; bad input is refused.
     const stranger = await login('dash-stranger');
@@ -449,4 +451,51 @@ describe('free services for full-stack apps', () => {
     expect((await http().get(`${live}/c/tasks`).set('x-app-session', ann.token).expect(200)).body.items).toHaveLength(2);
     await signUp(live, 'carl@dash.test');
   });
+
+  it('runs team-only business apps: only added staff get in, removal signs them out, staff share and edit records', async () => {
+    const { a, id, preview } = await fullstack('team1', TEAM);
+    const pv = `${V}/appdata/${keyOf(preview.html)}`;
+    await signUp(pv, 'tester@anywhere.test'); // the builder's preview stays open for testing
+    await http().put(`${V}/projects/${id}/publishing`).set('Authorization', a.auth).send({ visibility: 'public', publicTitle: 'Team tasks', publicDescription: 'Shared team tasks', category: 'other' }).expect(200);
+    const live = `${V}/appdata/lv_${id}`;
+    const T = `${V}/projects/${id}/insights/team`;
+
+    // Nobody is on the team yet: even the first sign-up is refused, with a message that says what to do.
+    const refused = await http().post(`${live}/auth/signup`).send({ email: 'priya@shop.test', password: 'correct horse 1' }).expect(403);
+    expect(refused.body).toMatchObject({ code: 'not_on_team', message: expect.stringMatching(/Ask the app's owner to add you/) });
+
+    // The owner adds staff (deduplicated, normalised); bad emails are explained; strangers can't manage the team.
+    await http().post(T).set('Authorization', a.auth).send({ emails: ['not-an-email'] }).expect(400);
+    expect((await http().post(T).set('Authorization', a.auth).send({ emails: ['Priya@Shop.test', 'rahul@shop.test', 'priya@shop.test'] }).expect(200)).body).toEqual({ added: 2 });
+    const stranger = await login('team-stranger');
+    await http().post(T).set('Authorization', stranger.auth).send({ emails: ['x@evil.test'] }).expect(404);
+    await http().get(T).set('Authorization', stranger.auth).expect(404);
+
+    const priya = await signUp(live, 'priya@shop.test');
+    const rahul = await signUp(live, 'rahul@shop.test');
+    await http().post(`${live}/auth/signup`).send({ email: 'intruder@evil.test', password: 'correct horse 1' }).expect(403);
+
+    // Shared records: Rahul sees and edits what Priya created; anyone signed out sees nothing.
+    const task = (await http().post(`${live}/c/tasks`).set('x-app-session', priya.token).send({ title: 'Restock rice' }).expect(201)).body;
+    expect((await http().get(`${live}/c/tasks`).set('x-app-session', rahul.token).expect(200)).body.items).toHaveLength(1);
+    await http().patch(`${live}/c/tasks/${task.id}`).set('x-app-session', rahul.token).send({ done: true }).expect(200);
+    await http().get(`${live}/c/tasks`).expect(401);
+
+    const list = (await http().get(T).set('Authorization', a.auth).expect(200)).body;
+    expect(list.map((m: { email: string }) => m.email)).toEqual(['priya@shop.test', 'rahul@shop.test']);
+    expect(list.every((m: { hasAccount: boolean }) => m.hasAccount)).toBe(true);
+    expect((await http().get(`${V}/projects/${id}/insights`).set('Authorization', a.auth).expect(200)).body.controls.teamOnly).toBe(true);
+
+    // Removing Rahul ends his session at once and blocks sign-in; his edits and the shared data stay.
+    await http().delete(T).set('Authorization', a.auth).send({ email: 'RAHUL@shop.test' }).expect(200);
+    await http().get(`${live}/auth/me`).set('x-app-session', rahul.token).expect(401);
+    await http().get(`${live}/c/tasks`).set('x-app-session', rahul.token).expect(401);
+    const back = await http().post(`${live}/auth/signin`).send({ email: 'rahul@shop.test', password: 'correct horse 1' }).expect(403);
+    expect(back.body.code).toBe('not_on_team');
+    // A wrong password still gets the generic answer, so strangers can't probe who is on the team.
+    expect((await http().post(`${live}/auth/signin`).send({ email: 'rahul@shop.test', password: 'wrong password 1' }).expect(401)).body.code).toBe('invalid_credentials');
+    expect((await http().get(`${live}/c/tasks/${task.id}`).set('x-app-session', priya.token).expect(200)).body.done).toBe(true);
+    await http().delete(T).set('Authorization', a.auth).send({ email: 'rahul@shop.test' }).expect(404);
+  });
 });
+
