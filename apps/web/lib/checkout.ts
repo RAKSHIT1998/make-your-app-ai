@@ -21,7 +21,7 @@ function loadRazorpay(): Promise<void> {
  * Opens the provider's hosted payment UI. Completing it does NOT grant anything by itself —
  * the server activates the plan or credits only after the provider's signed webhook arrives.
  */
-export async function openCheckout(p: CheckoutParams, onDismiss: () => void) {
+export async function openCheckout(p: Omit<CheckoutParams, 'checkoutId'>, onDismiss: () => void, onPaid?: () => void) {
   if (p.provider === 'stripe' && p.checkoutUrl) {
     window.location.assign(p.checkoutUrl);
     return;
@@ -30,11 +30,14 @@ export async function openCheckout(p: CheckoutParams, onDismiss: () => void) {
   const rzp = new window.Razorpay!({
     key: p.keyId,
     ...(p.subscriptionId ? { subscription_id: p.subscriptionId } : { order_id: p.orderId, amount: p.amount, currency: p.currency }),
+    // Card mandate for pay-as-you-go: Razorpay saves the card as a token for later debits.
+    ...(p.customerId ? { customer_id: p.customerId, recurring: p.recurring ?? 1 } : {}),
     name: 'Make Your App AI',
     description: p.description ?? 'Subscription',
     prefill: { email: p.email },
     theme: { color: '#0C0C0B' },
     modal: { ondismiss: onDismiss },
+    ...(onPaid ? { handler: onPaid } : {}),
   });
   rzp.open();
 }

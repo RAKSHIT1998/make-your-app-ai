@@ -27,6 +27,8 @@ export const platformBillingFetch = async (url, init) => {
   if (u.endsWith('/subscriptions')) return Response.json({ id: `sub_H${++seq}`, short_url: 'https://rzp.io/i/demo' });
   if (u.endsWith('/cancel')) return Response.json({ status: 'cancelled' });
   if (u.endsWith('/orders')) { const b = JSON.parse(init.body); return Response.json({ id: `order_B${++seq}`, amount: b.amount, currency: b.currency }); }
+  if (u.endsWith('/customers')) return Response.json({ id: `cust_B${++seq}` });
+  if (u.endsWith('/payments/create/recurring')) return Response.json({ razorpay_payment_id: `pay_R${++seq}` });
   return Response.json({});
 };
 

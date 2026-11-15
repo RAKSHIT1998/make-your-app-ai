@@ -1,3 +1,4 @@
+import { premiumRouter } from '../ai/premium.js';
 import { BadRequestException, ConflictException, type OnApplicationBootstrap, type OnApplicationShutdown, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { BudgetExceededError, NoRouteError, type ProviderRouter, type UsageRecord } from '@mya/ai';
 import { supportsProjectType, type AgentName, type GenerationOutcome, type Orchestrator, type RunReporter } from '@mya/agents';
@@ -71,8 +72,10 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
     if (active > ent.maxActiveProjects) {
       throw new HttpException({ message: `This workspace has ${active} active projects but the plan allows ${ent.maxActiveProjects}. Projects are kept safe and read-only for AI changes until you archive some or upgrade.`, code: 'plan_limit_projects' }, HttpStatus.PAYMENT_REQUIRED);
     }
-    if (ent.dailyCreditLimit !== null && (await this.credits.spentToday(project.organizationId)) >= ent.dailyCreditLimit) {
-      throw new HttpException({ message: `You've reached today's AI usage limit for your plan (${ent.dailyCreditLimit} credits). It resets at midnight UTC.`, code: 'plan_limit_daily' }, HttpStatus.TOO_MANY_REQUESTS);
+    // A pay-as-you-go card replaces the plan's daily limit with the customer's own monthly spending cap.
+    const payg = await this.credits.paygState(project.organizationId);
+    if (!payg.active && ent.dailyCreditLimit !== null && (await this.credits.spentToday(project.organizationId)) >= ent.dailyCreditLimit) {
+      throw new HttpException({ message: `You've reached today's AI usage limit for your plan (${ent.dailyCreditLimit} credits). It resets at midnight UTC. Add a card for pay-as-you-go to keep building.`, code: 'plan_limit_daily' }, HttpStatus.TOO_MANY_REQUESTS);
     }
     await this.credits.assertCanSpend(project.organizationId, MIN_CREDITS_TO_START);
     if (this.router.candidates(req.mode === 'ask' ? 'fast' : 'balanced').length === 0) {
@@ -200,12 +203,17 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       });
     };
     const ent = await this.credits.entitlement(orgId);
-    const runCap = Math.min(this.config.MAX_CREDITS_PER_RUN, ent.maxCreditsPerRun);
+    const payg = await this.credits.paygState(orgId);
+    // Pay-as-you-go lifts the plan's per-run cap to the platform maximum; the monthly spending cap still applies.
+    const runCap = payg.active ? this.config.MAX_CREDITS_PER_RUN : Math.min(this.config.MAX_CREDITS_PER_RUN, ent.maxCreditsPerRun);
+    const router = payg.premiumAi ? premiumRouter(this.router) : this.router;
     const checkBudget = async (worstMicros: number) => {
       const worst = this.credits.creditsForCost(worstMicros);
       if (runCredits + worst > runCap) throw new BudgetExceededError(`This run reached its limit of ${runCap} credits.`);
-      const bal = await this.credits.balance(orgId);
-      if (bal < worst) throw new BudgetExceededError(`Not enough credits to continue (balance ${bal}, next step may need up to ${worst}).`);
+      const { balance: bal, spendable, payg: now } = await this.credits.spendable(orgId);
+      if (spendable < worst) {
+        throw new BudgetExceededError(now.active ? `This month's pay-as-you-go spending cap was reached (next step may need up to ${worst} credits). Raise the cap on the Billing page to continue.` : `Not enough credits to continue (balance ${bal}, next step may need up to ${worst}).`);
+      }
     };
 
     let run: GenerationRun | null = null;
@@ -213,7 +221,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       await this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'running', startedAt: new Date(), workerId: this.workerId, heartbeatAt: new Date() } });
       run = await this.prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
       if (run.kind === 'plan') {
-        const draft = await this.orchestrator.plan({ projectType: project.type, projectName: project.name, prompt: run.prompt, templateKey: project.templateId }, { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });
+        const draft = await this.orchestrator.plan({ projectType: project.type, projectName: project.name, prompt: run.prompt, templateKey: project.templateId }, { router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });
         await this.prisma.$transaction([
           this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'succeeded', plan: draft as unknown as Prisma.InputJsonValue, finishedAt: new Date() } }),
           this.prisma.project.update({ where: { id: project.id }, data: { status: 'draft' } }),
@@ -221,7 +229,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
         return;
       }
       if (run.kind === 'ask') {
-        const res = await this.orchestrator.ask({ projectId: project.id, projectType: project.type, projectName: project.name, prompt: run.prompt }, { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });
+        const res = await this.orchestrator.ask({ projectId: project.id, projectType: project.type, projectName: project.name, prompt: run.prompt }, { router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } });
         await this.prisma.$transaction([
           this.prisma.generationRun.update({ where: { id: runId }, data: { status: 'succeeded', answer: res.answer, ...(res.suggestedPrompt ? { plan: { suggestedPrompt: res.suggestedPrompt } } : {}), finishedAt: new Date() } }),
           this.prisma.project.update({ where: { id: project.id }, data: { status: project.status } }),
@@ -242,7 +250,7 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
           design: (project.designSpec as never) ?? null,
           approvedPlan: approved,
         },
-        { router: this.router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } },
+        { router, reporter, budget: { checkBudget, onUsage, onUsageAgent: (a) => (currentAgent = a) } },
       );
       await this.finish(runId, project, run.requestedBy, outcome);
     } catch (e) {
@@ -474,7 +482,8 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
       const sorted = rows.map((r) => r.creditsUsed).sort((a, b) => a - b);
       return { median: sorted[Math.floor(sorted.length / 2)]!, p90: sorted[Math.floor(sorted.length * 0.9)] ?? sorted[sorted.length - 1]!, sample: sorted.length };
     };
-    return { balance: await this.credits.balance(orgId), maxCreditsPerRun: Math.min(this.config.MAX_CREDITS_PER_RUN, ent.maxCreditsPerRun), typical: { create: await typical('create'), edit: await typical('edit') } };
+    const sp = await this.credits.spendable(orgId);
+    return { balance: sp.balance, spendable: sp.spendable, payg: { active: sp.payg.active, premiumAi: sp.payg.premiumAi, headroom: sp.payg.headroom }, maxCreditsPerRun: sp.payg.active ? this.config.MAX_CREDITS_PER_RUN : Math.min(this.config.MAX_CREDITS_PER_RUN, ent.maxCreditsPerRun), typical: { create: await typical('create'), edit: await typical('edit') } };
   }
 
   // ───────────────────────── Approvals ─────────────────────────

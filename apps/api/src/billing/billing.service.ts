@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, type PaymentProvider, type PrismaClient } from '@mya/db';
-import { GatewayError, RazorpayBilling, StripeBilling, WebhookSignatureError, type BillingEvent, type BillingProvider } from '@mya/payments';
+import { GatewayError, WebhookSignatureError, type BillingEvent, type BillingProvider } from '@mya/payments';
+import { BILLING_PROVIDERS, nextInvoiceNumber, providerFor, type BillingProviders } from './billing.shared.js';
+import { PaygService } from './payg.service.js';
 import { PRISMA } from '../prisma.service.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { CreditsService } from '../credits/credits.service.js';
@@ -9,21 +11,7 @@ import { ReferralsService } from '../growth/referrals.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 
-export const BILLING_PROVIDERS = Symbol('BILLING_PROVIDERS');
-export type BillingProviders = Partial<Record<PaymentProvider, BillingProvider>>;
-
-/** Builds the platform's billing providers from env. A provider without credentials is simply absent ("setup required"). */
-export const billingProvidersFactory = {
-  provide: BILLING_PROVIDERS,
-  inject: [APP_CONFIG],
-  useFactory: (c: AppConfig): BillingProviders => ({
-    ...(c.RAZORPAY_KEY_ID && c.RAZORPAY_KEY_SECRET && c.RAZORPAY_WEBHOOK_SECRET ? { razorpay: new RazorpayBilling({ keyId: c.RAZORPAY_KEY_ID, keySecret: c.RAZORPAY_KEY_SECRET, webhookSecret: c.RAZORPAY_WEBHOOK_SECRET }) } : {}),
-    ...(c.STRIPE_SECRET_KEY && c.STRIPE_WEBHOOK_SECRET ? { stripe: new StripeBilling({ secretKey: c.STRIPE_SECRET_KEY, webhookSecret: c.STRIPE_WEBHOOK_SECRET }) } : {}),
-  }),
-};
-
-/** INR is charged through Razorpay; other currencies through Stripe. */
-const providerFor = (currency: string): PaymentProvider => (currency === 'INR' ? 'razorpay' : 'stripe');
+export { BILLING_PROVIDERS, billingProvidersFactory, providerFor, nextInvoiceNumber, type BillingProviders } from './billing.shared.js';
 
 @Injectable()
 export class BillingService {
@@ -37,6 +25,7 @@ export class BillingService {
     @Inject(OrgsService) private readonly orgs: OrgsService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ReferralsService) private readonly referrals: ReferralsService,
+    @Inject(PaygService) private readonly payg: PaygService,
   ) {}
 
   private provider(name: PaymentProvider): BillingProvider {
@@ -229,12 +218,14 @@ export class BillingService {
     return { received: true, outcome };
   }
 
-  private async nextInvoiceNumber(tx: Prisma.TransactionClient) {
-    const [r] = await tx.$queryRaw<{ n: bigint }[]>`SELECT nextval('invoice_number_seq') AS n`;
-    return `MYA-${String(r!.n).padStart(6, '0')}`;
+  private nextInvoiceNumber(tx: Prisma.TransactionClient) {
+    return nextInvoiceNumber(tx);
   }
 
   private async applyEvent(providerName: PaymentProvider, evt: BillingEvent): Promise<string> {
+    // Pay-as-you-go card setups and charges (Razorpay also sends `order.paid` for them, parsed as a top-up).
+    const payg = await this.payg.applyEvent(providerName, evt);
+    if (payg) return payg;
     switch (evt.kind) {
       case 'checkout.linked': {
         if (!evt.providerCheckoutRef || !evt.providerSubscriptionId) return 'ignored';

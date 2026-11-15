@@ -71,6 +71,13 @@ Free providers: Owner console → AI routing → Free AI providers shows which f
 
 Owner console → AI routing shows each route's health (ok / open breaker / paused / capped / no key), 24 h cost, revenue and margin. A route that keeps failing opens its breaker automatically (60 s, doubling to 10 min); a 401/403/404 pauses it for 10 min, so rotate that provider's key. To stop using a provider immediately, toggle its route off or delete it. Customers are always billed the tier rate, so switching routes never changes their price. Breaker and schema-validity state is per instance; usage caps and success rates are shared via the database.
 
+## Pay as you go
+- Charges run every 15 minutes inside the API. To see who owes what: `SELECT "organizationId", status, currency, "monthlyCapMinor", "lastError" FROM "PaygAccount";` and the latest rows of `"PaygCharge"` (`pending` = waiting for the provider's webhook; Razorpay card debits settle about 36 h after the bank's pre-debit notice).
+- A charge stuck `pending` with no `providerRef` for over 10 minutes is released automatically as failed (nothing was sent). One with a `providerRef` waits for the webhook: check the provider dashboard for that order or PaymentIntent before doing anything.
+- A failed payment sets the workspace to `past_due` (pay-as-you-go and Premium AI paused, retried automatically after 72 h, three times). The customer can press **Pay now** on Billing.
+- Emergency stop: Owner console → Flags → `pay_as_you_go` off. New cards and new usage stop; what's already owed is still charged.
+- Never mark a charge paid by hand: only the provider's signed webhook does that. If a webhook was missed, resend it from the provider's dashboard.
+
 ## Routine
 - Weekly: Admin → Overview (revenue, AI cost, margin, failed generations) against the provider dashboards' payouts, plus the reports queue under Admin → Growth.
 - Monthly: `pnpm audit --prod`, provider key review, and a restore test.

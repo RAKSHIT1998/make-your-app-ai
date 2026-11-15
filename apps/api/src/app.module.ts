@@ -21,6 +21,7 @@ import { GenerationsController } from './generation/generations.controller.js';
 import { aiProviders } from './ai/ai.providers.js';
 import { configureRateLimits } from './common/rate-limits.js';
 import { BillingService, billingProvidersFactory } from './billing/billing.service.js';
+import { PaygService } from './billing/payg.service.js';
 import { BillingController, BillingWebhooksController } from './billing/billing.controllers.js';
 import { AdminService } from './admin/admin.service.js';
 import { AiRoutingService, discoveryFetchProvider } from './admin/ai-routing.service.js';
@@ -90,6 +91,7 @@ export class AppModule {
         StorefrontService,
         billingProvidersFactory,
         BillingService,
+        PaygService,
         AdminService,
         AiRoutingService,
         discoveryFetchProvider,

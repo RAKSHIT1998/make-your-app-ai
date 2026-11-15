@@ -28,8 +28,9 @@ Copy `.env.example` to `.env`. **Never commit `.env`.** Values marked *secret* m
 | `CREDITS_PER_USD`, `MAX_CREDITS_PER_RUN`, `FREE_PLAN_CREDITS` | api | optional | Credit economics (plans in the DB override per-plan values) |
 
 ## Provider dashboards
-- **Razorpay (platform):** enable Subscriptions. Add a webhook for `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed` and `order.paid`.
-- **Stripe (platform):** create recurring Prices and paste each `price_…` id on the plan in the Owner console. Add a webhook for `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated` and `customer.subscription.deleted`.
+- **Razorpay (platform):** enable Subscriptions. Add a webhook for `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`, `order.paid`, `payment.captured`, `payment.failed`, `refund.processed`, `token.confirmed` and `token.rejected`. For pay-as-you-go, ask Razorpay to enable **Recurring Payments → Cards** (card e-mandates) on the account.
+- **Stripe (platform):** create recurring Prices and paste each `price_…` id on the plan in the Owner console. Add a webhook for `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `payment_intent.succeeded` and `payment_intent.payment_failed`.
+- **Pay-as-you-go:** priced from the smallest active credit pack in each currency (INR via Razorpay, USD via Stripe), so keep one pack per currency active. Optional tuning: `PAYG_MAX_CAP_INR_MINOR` / `PAYG_MAX_CAP_USD_MINOR` (highest cap a customer may set; INR at most ₹15,000), `PAYG_CHARGE_AT_INR_MINOR` / `PAYG_CHARGE_AT_USD_MINOR` (charge as soon as unpaid usage reaches this), `PAYG_MIN_CHARGE_INR_MINOR` / `PAYG_MIN_CHARGE_USD_MINOR` (smaller amounts roll over). Kill switch: Owner console → Flags → `pay_as_you_go`.
 - **Supabase:** Auth → enable Email (and Google if wanted). Set the site URL to your web app.
 
 

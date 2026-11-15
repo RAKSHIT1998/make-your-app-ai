@@ -38,6 +38,15 @@ const EnvSchema = z
     CREDITS_PER_USD: z.coerce.number().positive().default(100),
     /** Hard cap on credits one generation run may consume. */
     MAX_CREDITS_PER_RUN: z.coerce.number().int().positive().default(500),
+    /** Pay-as-you-go: highest monthly cap a customer may set (₹15,000 is RBI's per-debit limit for card mandates without extra authentication). */
+    PAYG_MAX_CAP_INR_MINOR: z.coerce.number().int().positive().max(1_500_000).default(1_500_000),
+    PAYG_MAX_CAP_USD_MINOR: z.coerce.number().int().positive().default(50_000),
+    /** Charge as soon as unpaid usage reaches this much; otherwise unpaid usage is charged at the start of the next month. */
+    PAYG_CHARGE_AT_INR_MINOR: z.coerce.number().int().positive().default(50_000),
+    PAYG_CHARGE_AT_USD_MINOR: z.coerce.number().int().positive().default(500),
+    /** Smaller amounts roll over to the next charge. */
+    PAYG_MIN_CHARGE_INR_MINOR: z.coerce.number().int().positive().default(1_000),
+    PAYG_MIN_CHARGE_USD_MINOR: z.coerce.number().int().positive().default(100),
     /** Failed-build guarantee: automatic refunds per workspace per 24 h (0 disables refunds). */
     /** Built-in app backends: per-IP request limits and per-app, per-environment storage quotas. */
     APP_DATA_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),

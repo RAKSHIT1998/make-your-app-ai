@@ -9,8 +9,30 @@ type Tx = Prisma.TransactionClient | PrismaClient;
 export interface CreditBalances {
   allowance: number;
   purchased: number;
+  /** Plan + purchased credits the workspace holds (pay-as-you-go usage is not included). */
   total: number;
+  /** Pay-as-you-go credits used and not yet paid for. */
+  owed: number;
 }
+
+/** Pay-as-you-go standing for a workspace: what a saved card lets it spend beyond its credits this month. */
+export interface PaygState {
+  /** A verified card is on file and payments are up to date. */
+  active: boolean;
+  status: 'none' | 'pending' | 'active' | 'past_due' | 'disabled';
+  currency: string | null;
+  monthlyCapMinor: number;
+  /** Price of one credit, from the smallest active credit pack in this currency: credits per `rateMinor` minor units. */
+  rate: { credits: number; priceMinor: number } | null;
+  capCredits: number;
+  usedThisMonth: number;
+  headroom: number;
+  owed: number;
+  premiumAi: boolean;
+}
+
+/** Money for pay-as-you-go credits, rounded up to a whole minor unit. */
+export const paygAmountMinor = (credits: number, rate: { credits: number; priceMinor: number }) => Math.ceil((credits * rate.priceMinor) / rate.credits);
 
 const startOfMonthUtc = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 const addMonthsUtc = (d: Date, n: number) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()));
@@ -19,8 +41,9 @@ const addMonthsUtc = (d: Date, n: number) => new Date(Date.UTC(d.getUTCFullYear(
  * Credit ledger + entitlements. All writes are server-side, append-only and transactional;
  * no customer request can write the ledger or entitlements directly.
  *
- * Buckets: `allowance` (monthly plan credits; unused allowance expires at period end) and
- * `purchased` (top-ups; never expire). Spending consumes allowance first.
+ * Buckets: `allowance` (monthly plan credits; unused allowance expires at period end),
+ * `purchased` (top-ups; never expire) and `payg` (pay-as-you-go usage owed, settled by verified card charges).
+ * Spending consumes allowance first, then purchased, then pay-as-you-go up to the customer's monthly cap.
  */
 @Injectable()
 export class CreditsService {
@@ -64,7 +87,37 @@ export class CreditsService {
     const get = (b: CreditBucket) => rows.find((r) => r.bucket === b)?._sum.amount ?? 0;
     const allowance = get('allowance');
     const purchased = get('purchased');
-    return { allowance, purchased, total: allowance + purchased };
+    return { allowance, purchased, total: allowance + purchased, owed: Math.max(0, -get('payg')) };
+  }
+
+  /** The price pay-as-you-go uses: the smallest active credit pack in that currency (the same price as a top-up). */
+  async paygRate(currency: string, tx: Tx = this.prisma) {
+    const pack = await tx.creditPack.findFirst({ where: { active: true, currency, credits: { gt: 0 }, priceMinor: { gt: 0 } }, orderBy: [{ credits: 'asc' }, { priceMinor: 'asc' }] });
+    return pack ? { credits: pack.credits, priceMinor: pack.priceMinor } : null;
+  }
+
+  async paygState(organizationId: string, tx: Tx = this.prisma): Promise<PaygState> {
+    const acct = await tx.paygAccount.findUnique({ where: { organizationId } });
+    const monthStart = startOfMonthUtc(new Date());
+    const [owedRow, usedRow, refundRow] = await Promise.all([
+      tx.creditLedgerEntry.aggregate({ where: { organizationId, bucket: 'payg' }, _sum: { amount: true } }),
+      tx.creditLedgerEntry.aggregate({ where: { organizationId, bucket: 'payg', reason: 'ai_usage', createdAt: { gte: monthStart } }, _sum: { amount: true } }),
+      tx.creditLedgerEntry.aggregate({ where: { organizationId, bucket: 'payg', reason: 'refund', createdAt: { gte: monthStart } }, _sum: { amount: true } }),
+    ]);
+    const owed = Math.max(0, -(owedRow._sum.amount ?? 0));
+    const usedThisMonth = Math.max(0, -(usedRow._sum.amount ?? 0) - (refundRow._sum.amount ?? 0));
+    if (!acct) return { active: false, status: 'none', currency: null, monthlyCapMinor: 0, rate: null, capCredits: 0, usedThisMonth, headroom: 0, owed, premiumAi: false };
+    const rate = await this.paygRate(acct.currency, tx);
+    const capCredits = rate ? Math.floor((acct.monthlyCapMinor * rate.credits) / rate.priceMinor) : 0;
+    const active = acct.status === 'active' && !!acct.providerToken && !!rate;
+    return { active, status: acct.status, currency: acct.currency, monthlyCapMinor: acct.monthlyCapMinor, rate, capCredits, usedThisMonth, headroom: active ? Math.max(0, capCredits - usedThisMonth) : 0, owed, premiumAi: active && acct.premiumAi };
+  }
+
+  /** Credits the workspace can spend right now: what it holds plus any pay-as-you-go headroom. */
+  async spendable(organizationId: string): Promise<{ balance: number; spendable: number; payg: PaygState }> {
+    const balance = await this.balance(organizationId);
+    const payg = await this.paygState(organizationId);
+    return { balance, spendable: Math.max(0, balance) + payg.headroom, payg };
   }
 
   async balance(organizationId: string, tx: Tx = this.prisma): Promise<number> {
@@ -89,9 +142,14 @@ export class CreditsService {
   }
 
   async assertCanSpend(organizationId: string, needed: number) {
-    const bal = await this.balance(organizationId);
-    if (bal < needed) {
-      throw new HttpException({ message: `Not enough credits (balance ${bal}, needed ${needed}). Top up or upgrade your plan.`, balance: bal, code: 'insufficient_credits' }, HttpStatus.PAYMENT_REQUIRED);
+    const { balance: bal, spendable, payg } = await this.spendable(organizationId);
+    if (spendable < needed) {
+      const message = payg.status === 'past_due'
+        ? `Not enough credits (balance ${bal}, needed ${needed}). Your last pay-as-you-go payment didn't go through: pay it on the Billing page to keep building.`
+        : payg.active
+          ? `You've reached this month's pay-as-you-go spending cap. Raise the cap on the Billing page, top up, or wait for next month.`
+          : `Not enough credits (balance ${bal}, needed ${needed}). Top up, upgrade your plan, or add a card for pay-as-you-go.`;
+      throw new HttpException({ message, balance: bal, code: payg.active ? 'payg_cap_reached' : 'insufficient_credits' }, HttpStatus.PAYMENT_REQUIRED);
     }
   }
 
@@ -109,10 +167,16 @@ export class CreditsService {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${organizationId}))`;
     const bal = await this.balances(organizationId, tx);
     const fromAllowance = Math.max(0, Math.min(amount, bal.allowance));
-    const fromPurchased = amount - fromAllowance;
+    // With an active pay-as-you-go card, usage past plan and purchased credits is recorded as owed and charged later.
+    // Without one, the (small, already budget-checked) overrun stays on the purchased bucket as before.
+    const acct = await tx.paygAccount.findUnique({ where: { organizationId }, select: { status: true, providerToken: true } });
+    const payg = acct?.status === 'active' && !!acct.providerToken;
+    const fromPurchased = payg ? Math.max(0, Math.min(amount - fromAllowance, bal.purchased)) : amount - fromAllowance;
+    const fromPayg = amount - fromAllowance - fromPurchased;
     const rows: Prisma.CreditLedgerEntryCreateManyInput[] = [];
     if (fromAllowance > 0) rows.push({ organizationId, amount: -fromAllowance, reason: 'ai_usage', bucket: 'allowance', idempotencyKey: `${idempotencyKey}:a`, referenceType: ref.type, referenceId: ref.id });
     if (fromPurchased > 0) rows.push({ organizationId, amount: -fromPurchased, reason: 'ai_usage', bucket: 'purchased', idempotencyKey: `${idempotencyKey}:p`, referenceType: ref.type, referenceId: ref.id });
+    if (fromPayg > 0) rows.push({ organizationId, amount: -fromPayg, reason: 'ai_usage', bucket: 'payg', idempotencyKey: `${idempotencyKey}:g`, referenceType: ref.type, referenceId: ref.id });
     await tx.creditLedgerEntry.createMany({ data: rows, skipDuplicates: true });
   }
 

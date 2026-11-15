@@ -20,6 +20,7 @@ export const FLAGS = {
   app_backends: { default: true, description: 'Built-in backends of generated full-stack apps (data, end-user accounts). Off: those apps cannot load or save data.' },
   refund_failed_builds: { default: true, description: 'Failed-build guarantee: return the credits of AI runs that fail without delivering anything (daily cap per workspace).' },
   site_import: { default: true, description: 'Start from your current website: read a customer’s own site (needs the crawler service).' },
+  pay_as_you_go: { default: true, description: 'Pay-as-you-go: customers save a card to unlock Premium AI and keep building past their credits, up to a monthly cap. Off: no new cards or usage (outstanding usage is still charged).' },
   referrals: { default: true, description: 'Linking invite codes to new accounts. Reward amounts live in Growth settings.' },
 } as const;
 export type FlagKey = keyof typeof FLAGS;

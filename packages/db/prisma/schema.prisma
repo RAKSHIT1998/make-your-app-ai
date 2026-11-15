@@ -89,6 +89,8 @@ model Organization {
   invoices          Invoice[]
   invitations       OrganizationInvitation[]
   ideaValidations   IdeaValidation[]
+  paygAccount       PaygAccount?
+  paygCharges       PaygCharge[]
 }
 
 model OrganizationMembership {
@@ -283,6 +285,68 @@ model BillingCheckout {
   @@index([organizationId, createdAt])
 }
 
+enum PaygStatus {
+  /// Card being saved; nothing unlocked until a verified webhook confirms it.
+  pending
+  active
+  /// A charge failed: no new pay-as-you-go usage until it is paid.
+  past_due
+  /// Switched off by the customer (outstanding usage is still charged).
+  disabled
+}
+
+/// Pay-as-you-go: a saved card that is charged for AI usage beyond plan credits, up to a monthly cap the customer sets.
+/// Activation, card details and payment status are written only from verified provider webhooks.
+model PaygAccount {
+  organizationId     String          @id @db.Uuid
+  status             PaygStatus      @default(pending)
+  provider           PaymentProvider
+  currency           String
+  /// Customer-set monthly spend cap, in minor units of `currency`.
+  monthlyCapMinor    Int
+  providerCustomerId String?
+  /// Stripe payment method id, or Razorpay card token id. Never the card number.
+  providerToken      String?
+  /// Stripe setup Checkout Session id, or Razorpay authorisation order id.
+  setupRef           String?         @unique
+  cardLabel          String?
+  /// Route builds to the premium AI tier (only while active).
+  premiumAi          Boolean         @default(false)
+  activatedAt        DateTime?
+  lastError          String?
+  createdById        String          @db.Uuid
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+enum PaygChargeStatus {
+  /// Created at the provider; waiting for the verified result (Razorpay card debits settle ~36 h later).
+  pending
+  paid
+  failed
+}
+
+model PaygCharge {
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @db.Uuid
+  provider          PaymentProvider
+  currency          String
+  amountMinor       Int
+  credits           Int
+  /// Stripe PaymentIntent id, or Razorpay order id.
+  providerRef       String?          @unique
+  providerPaymentId String?
+  status            PaygChargeStatus @default(pending)
+  error             String?
+  invoiceId         String?          @db.Uuid
+  createdAt         DateTime         @default(now())
+  settledAt         DateTime?
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
 model CreditPack {
   id         String   @id @default(uuid()) @db.Uuid
   name       String
@@ -344,6 +408,8 @@ enum LedgerReason {
 enum CreditBucket {
   allowance
   purchased
+  /// Pay-as-you-go: usage beyond plan and purchased credits (negative = owed), settled by verified card charges.
+  payg
 }
 
 /// Append-only. Balance = SUM(amount). Writes happen inside transactions with an idempotency key.

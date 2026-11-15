@@ -54,7 +54,7 @@ export class IdeasService {
     const organizationId = input.organizationId ?? user.personalOrgId;
     await this.orgs.assertRole(user.id, organizationId, 'member');
     const ent = await this.credits.entitlement(organizationId);
-    if (ent.dailyCreditLimit !== null && (await this.credits.spentToday(organizationId)) >= ent.dailyCreditLimit) {
+    if (!(await this.credits.paygState(organizationId)).active && ent.dailyCreditLimit !== null && (await this.credits.spentToday(organizationId)) >= ent.dailyCreditLimit) {
       throw new HttpException({ message: `You've reached today's AI usage limit for your plan (${ent.dailyCreditLimit} credits). It resets at midnight UTC.`, code: 'plan_limit_daily' }, HttpStatus.TOO_MANY_REQUESTS);
     }
     await this.credits.assertCanSpend(organizationId, MIN_CREDITS_TO_START);
@@ -80,8 +80,8 @@ Respond with a single JSON object. No prose, no markdown fences.`;
             checkBudget: async (worstMicros) => {
               const worst = this.credits.creditsForCost(worstMicros);
               if (charged + worst > MAX_CREDITS_PER_VALIDATION) throw new BudgetExceededError(`This check reached its limit of ${MAX_CREDITS_PER_VALIDATION} credits.`);
-              const bal = await this.credits.balance(organizationId);
-              if (bal < worst) throw new BudgetExceededError(`Not enough credits (balance ${bal}).`);
+              const { balance: bal, spendable } = await this.credits.spendable(organizationId);
+              if (spendable < worst) throw new BudgetExceededError(`Not enough credits (balance ${bal}).`);
             },
             onUsage: async (u) => {
               const credits = this.credits.creditsForCost(u.chargeMicros);

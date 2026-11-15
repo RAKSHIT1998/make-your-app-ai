@@ -70,8 +70,8 @@ Production-like stack: `docker compose -f infra/docker-compose.yml up --build` r
 `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Set them per environment with `eas env:create`. A release build without them shows a setup notice; it never silently calls localhost.
 
 ## Billing webhooks (platform)
-- **Razorpay:** Dashboard → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/razorpay`, with the secret = `RAZORPAY_WEBHOOK_SECRET`. Events: `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`, `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`.
-- **Stripe:** Developers → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/stripe`, then copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Events: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`.
+- **Razorpay:** Dashboard → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/razorpay`, with the secret = `RAZORPAY_WEBHOOK_SECRET`. Events: `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`, `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `token.confirmed`, `token.rejected` (the last two for pay-as-you-go card mandates; enable **Recurring Payments → Cards** on the account).
+- **Stripe:** Developers → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/stripe`, then copy the signing secret into `STRIPE_WEBHOOK_SECRET`. Events: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `payment_intent.succeeded`, `payment_intent.payment_failed` (the last two for pay-as-you-go).
 - Only verified webhooks grant plans or credits. The browser can never change entitlements.
 
 ## Merchant payment setup (per store, in Stores → Settings)

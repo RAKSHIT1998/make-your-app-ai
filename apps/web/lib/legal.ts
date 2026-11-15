@@ -56,6 +56,7 @@ export const LEGAL: Record<string, Doc> = {
     sections: [
       ['Subscriptions', `You can cancel any time; your plan stays active until the end of the paid period. A first subscription payment can be refunded within ${LEGAL_INFO.refundDays} days if you contact us and have used little of the plan; renewals are not refunded.`],
       ['Credit top-ups', `Purchased credits are non-refundable once used. Unused top-ups may be refunded within ${LEGAL_INFO.refundDays} days on request.`],
+      ['Pay-as-you-go usage', 'Pay-as-you-go charges are for AI work already done and are not refunded, except where a build failed and its credits were returned automatically under the failed-build guarantee (those credits reduce what is charged).'],
       ['Failed or duplicate charges', 'Duplicate or erroneous charges are refunded in full to the original payment method.'],
       ['How', `Contact ${LEGAL_INFO.email} with your invoice number (e.g. MYA-000123).`],
     ],
@@ -67,6 +68,7 @@ export const LEGAL: Record<string, Doc> = {
       ['Activation', 'A plan becomes active only after the payment provider confirms payment to our servers.'],
       ['Allowances', 'Each billing period grants the plan\'s AI credit allowance. Unused allowance expires at the end of the period. Purchased credits are used after the allowance.'],
       ['Upgrades and downgrades', 'Changing plan starts a new subscription immediately at the new price; the previous subscription stops renewing. Unused time on the previous plan is not prorated.'],
+      ['Pay as you go (optional)', 'If you save a card for pay-as-you-go, AI usage beyond your plan and purchased credits is charged to that card at the price of the smallest credit pack in your currency, never above the monthly cap you set. Unpaid usage is charged once it reaches the amount shown on the Billing page, or at the start of the next month. In India the card is saved as an RBI-compliant e-mandate through Razorpay (a ₹1 card check, a pre-debit notice from your bank before each debit, and at most ₹15,000 per debit). You can lower the cap or switch pay-as-you-go off at any time; usage already made is still charged. If a payment fails, pay-as-you-go and Premium AI pause until it is paid.'],
       ['Failed payments and expiry', 'If a renewal fails, the provider retries; if the subscription is halted or ends, your workspace moves to the Free plan. Projects are never deleted. If you have more active projects than the Free plan allows, they stay safe and viewable, but AI changes are paused until you archive projects or upgrade.'],
     ],
   },

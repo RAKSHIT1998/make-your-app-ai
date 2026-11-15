@@ -128,6 +128,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Free/Creator/Pro/Studio, admin-configurable prices & limits | ✅ |
 | Monthly + annual, upgrades, downgrades, cancellation | ✅ (no proration) |
 | Payment history, invoices, top-ups, wallet, ledger, metering, webhooks, entitlement checks | ✅ |
+| Pay as you go: saved card (Stripe setup / Razorpay card e-mandate), monthly cap, Premium AI, lifted daily/per-run limits, automatic off-session charges, failed-payment pause and Pay now | ✅ (session 17j; emulated providers only) |
 | Live payment acceptance | ⛔ needs your live Razorpay/Stripe keys |
 
 ## §13 Cost control

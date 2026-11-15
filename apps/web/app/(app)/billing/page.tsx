@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, HelpCircle, Loader2, Receipt, Server, Smartphone } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { PayAsYouGo } from '@/components/payg';
 import { PlanCards } from '@/components/plan-cards';
 import { Badge, Button, Card, EmptyState, ErrorNotice, Meter, Notice, PageHeader, SectionTitle, Skeleton, SoonBadge, StatusBadge, toast, useConfirm } from '@/components/ui';
 import { DataTable } from '@/components/ui/table';
@@ -11,6 +12,7 @@ import { billing, money, type CheckoutParams, type UsageEntry } from '@/lib/api'
 import { openCheckout } from '@/lib/checkout';
 
 const REASONS: Record<string, string> = { plan_grant: 'Monthly allowance', purchase: 'Credit top-up', ai_usage: 'AI usage', infra_usage: 'Infrastructure', refund: 'Refund', adjustment: 'Adjustment', expiry: 'Allowance reset', referral: 'Referral bonus' };
+const reason = (u: UsageEntry) => (u.bucket === 'payg' && u.reason === 'purchase' ? 'Pay-as-you-go payment' : REASONS[u.reason] ?? u.reason);
 const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 function BillingInner() {
@@ -133,12 +135,17 @@ function BillingInner() {
         </div>
       )}
 
+      <section id="payg" className="scroll-mt-6">
+        <SectionTitle>Pay as you go</SectionTitle>
+        <PayAsYouGo />
+      </section>
+
       <section>
         <SectionTitle>How credits work</SectionTitle>
         <Card className="grid grid-cols-1 gap-5 text-[13px] text-muted md:grid-cols-3">
           <p><span className="block font-medium text-fg">Credits measure AI work.</span>Each generation or edit uses credits based on how much the AI actually processed. You see the cost on every run.</p>
           <p><span className="block font-medium text-fg">Allowance first, then top-ups.</span>Your monthly allowance is used before purchased credits. The allowance resets each period and doesn't roll over.</p>
-          <p><span className="block font-medium text-fg">Never surprise charges.</span>Runs stop at your plan's per-run and daily limits. You're only billed for your plan and the top-ups you buy.</p>
+          <p><span className="block font-medium text-fg">Never surprise charges.</span>Runs stop at your plan's per-run and daily limits. You're billed for your plan, the top-ups you buy and, only if you add a card, pay-as-you-go usage up to the monthly cap you set.</p>
         </Card>
       </section>
 
@@ -151,11 +158,11 @@ function BillingInner() {
             empty={<Card padded={false}><EmptyState compact title="No credit activity yet" body="Every credit grant, top-up and AI run appears here." /></Card>}
             columns={[
               { key: 'd', header: 'Date', cell: (u) => <span className="text-muted">{date(u.createdAt)}</span> },
-              { key: 'r', header: 'Activity', cell: (u) => <div className="min-w-0"><div>{REASONS[u.reason] ?? u.reason}</div>{u.detail && <div className="max-w-[340px] truncate text-xs text-muted">{u.detail}</div>}</div> },
-              { key: 'b', header: 'Bucket', cell: (u) => <Badge>{u.bucket === 'purchased' ? 'Top-up' : 'Allowance'}</Badge> },
+              { key: 'r', header: 'Activity', cell: (u) => <div className="min-w-0"><div>{reason(u)}</div>{u.detail && <div className="max-w-[340px] truncate text-xs text-muted">{u.detail}</div>}</div> },
+              { key: 'b', header: 'Bucket', cell: (u) => <Badge>{u.bucket === 'purchased' ? 'Top-up' : u.bucket === 'payg' ? 'Pay as you go' : 'Allowance'}</Badge> },
               { key: 'a', header: 'Credits', align: 'right', cell: (u) => <span className={u.amount > 0 ? 'font-medium tabular-nums text-success' : 'tabular-nums'}>{u.amount > 0 ? '+' : ''}{u.amount.toLocaleString()}</span> },
             ]}
-            mobile={{ primary: (u) => REASONS[u.reason] ?? u.reason, secondary: (u) => `${date(u.createdAt)}${u.detail ? ` · ${u.detail}` : ''}`, trailing: (u) => <span className={u.amount > 0 ? 'font-medium tabular-nums text-success' : 'tabular-nums'}>{u.amount > 0 ? '+' : ''}{u.amount}</span> }}
+            mobile={{ primary: (u) => reason(u), secondary: (u) => `${date(u.createdAt)}${u.detail ? ` · ${u.detail}` : ''}`, trailing: (u) => <span className={u.amount > 0 ? 'font-medium tabular-nums text-success' : 'tabular-nums'}>{u.amount > 0 ? '+' : ''}{u.amount}</span> }}
           />
         )}
         {usage.data && usage.data.length > 10 && <div className="mt-3 flex justify-center"><Button size="sm" variant="ghost" onClick={() => setAllUsage((v) => !v)}>{allUsage ? 'Show less' : `Show ${usage.data.length - 10} more`}</Button></div>}

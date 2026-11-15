@@ -53,7 +53,7 @@ export interface Approval { id: string; action: string; status: string; summary:
 
 export interface ActivityItem extends Run { project: { id: string; name: string; type: string } }
 export interface Estimate { balance: number; maxCreditsPerRun: number; typical: { create: { median: number; p90: number; sample: number } | null; edit: { median: number; p90: number; sample: number } | null } }
-export interface UsageEntry { id: string; amount: number; reason: string; bucket: 'allowance' | 'purchased'; createdAt: string; detail: string | null }
+export interface UsageEntry { id: string; amount: number; reason: string; bucket: 'allowance' | 'purchased' | 'payg'; createdAt: string; detail: string | null }
 
 export interface SiteImportResult { url: string; host: string; pages: { url: string; title: string; words: number }[]; skipped: { url: string; reason: string }[]; images: { src: string; alt: string }[]; brief: string }
 
@@ -183,7 +183,29 @@ export interface BillingOverview {
   usage: { activeProjects: number };
   invoices: { id: string; number: string; description: string; currency: string; totalMinor: number; refundedMinor: number; status: string; paidAt: string }[];
 }
-export type CheckoutParams = { checkoutId: string; provider: 'razorpay' | 'stripe'; keyId?: string; subscriptionId?: string; orderId?: string; amount?: number; currency?: string; description?: string; email?: string; checkoutUrl?: string };
+export type CheckoutParams = { checkoutId: string; provider: 'razorpay' | 'stripe'; keyId?: string; subscriptionId?: string; orderId?: string; amount?: number; currency?: string; description?: string; email?: string; checkoutUrl?: string; customerId?: string; recurring?: number };
+export interface PaygView {
+  enabled: boolean;
+  status: 'none' | 'pending' | 'active' | 'past_due' | 'disabled';
+  active: boolean;
+  currency: 'INR' | 'USD' | null;
+  provider: 'razorpay' | 'stripe' | null;
+  cardLabel: string | null;
+  cardSaved: boolean;
+  monthlyCapMinor: number;
+  capCredits: number;
+  usedThisMonth: number;
+  headroom: number;
+  owedCredits: number;
+  owedMinor: number;
+  rate: { credits: number; priceMinor: number } | null;
+  premiumAi: boolean;
+  premiumAvailable: boolean;
+  lastError: string | null;
+  chargesAt: number | null;
+  currencies: { currency: 'INR' | 'USD'; provider: 'razorpay' | 'stripe'; available: boolean; rate: { credits: number; priceMinor: number } | null; minCapMinor: number; maxCapMinor: number }[];
+  charges: { id: string; status: 'pending' | 'paid' | 'failed'; amountMinor: number; currency: string; credits: number; error: string | null; createdAt: string; settledAt: string | null }[];
+}
 
 export const billing = {
   catalogue: () => apiFetch<Catalogue>('/billing/plans', {}, async () => null),
@@ -193,6 +215,12 @@ export const billing = {
   checkout: (id: string) => apiFetch<{ id: string; kind: string; status: 'created' | 'completed' | 'expired' | 'failed' }>(`/billing/checkouts/${id}`),
   usage: (limit = 50) => apiFetch<UsageEntry[]>(`/billing/usage?limit=${limit}`),
   cancel: () => apiFetch<{ cancelAtPeriodEnd: boolean; currentPeriodEnd: string | null }>('/billing/subscription/cancel', { method: 'POST', body: '{}' }),
+  payg: () => apiFetch<PaygView>('/billing/payg'),
+  paygSetup: (currency: 'INR' | 'USD', monthlyCapMinor: number) => apiFetch<Omit<CheckoutParams, 'checkoutId'>>('/billing/payg/setup', { method: 'POST', body: JSON.stringify({ currency, monthlyCapMinor }) }),
+  paygSettings: (b: { monthlyCapMinor?: number; premiumAi?: boolean }) => apiFetch<PaygView>('/billing/payg/settings', { method: 'POST', body: JSON.stringify(b) }),
+  paygDisable: () => apiFetch<PaygView>('/billing/payg/disable', { method: 'POST', body: '{}' }),
+  paygEnable: () => apiFetch<PaygView>('/billing/payg/enable', { method: 'POST', body: '{}' }),
+  paygPay: () => apiFetch<PaygView>('/billing/payg/pay', { method: 'POST', body: '{}' }),
 };
 
 // ───────── Owner admin ─────────
