@@ -45,7 +45,7 @@ describe('free AI providers', () => {
     const owner = await login('o', OWNER);
     await http().put(`${V}/admin/ai/routes`).set('Authorization', owner.auth).send({ provider: 'groq', model: 'openai/gpt-oss-120b', tier: 'fast', inputCostPerMTokMicros: 0, outputCostPerMTokMicros: 0, quality: 60 }).expect(200);
     const list = (await http().get(`${V}/admin/ai/free-providers`).set('Authorization', owner.auth).expect(200)).body as { key: string; configured: boolean; models: { id: string; route: unknown }[]; error: string | null; freeTier: string }[];
-    expect(list.map((p) => p.key)).toEqual(['groq', 'cerebras', 'openrouter', 'gemini', 'chutes', 'cloudflare']);
+    expect(list.map((p) => p.key)).toEqual(['groq', 'cerebras', 'openrouter', 'gemini', 'chutes', 'cloudflare', 'sambanova']);
     const g = list.find((p) => p.key === 'groq')!;
     expect(g.configured).toBe(true);
     expect(g.models).toEqual([{ id: 'openai/gpt-oss-120b', pricing: 'free_tier', contextWindow: 131072, route: { tier: 'fast', enabled: true } }]);

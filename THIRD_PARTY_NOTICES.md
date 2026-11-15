@@ -77,3 +77,17 @@ serves other people's projects:
 | Z AI (Zhipu), SiliconFlow, ModelScope | Not added | Sign-up needs a Chinese phone number; free-tier commercial terms unclear |
 | LLM7.io, Gonka Broker, Agnes AI, Aion Labs, Glhf.chat, Cline, Grok (xAI) | Not added | Commercial terms of the free access unclear, or no standing free API |
 
+Second web search (2026-11-15), beyond that list:
+
+| Provider | Decision | Why |
+|---|---|---|
+| SambaNova Cloud | **Added** | Standing free tier while no payment method is linked; its terms cover use by your service and its users, and let it use usage logs but not request content. Limits are very small (about 20 requests/day per model) |
+| Chutes | Kept, notes corrected | Free tier ended for new sign-ups in 2026; only $0 models are offered, so new accounts usually see none |
+| Cerebras | Kept, notes corrected | New free accounts are reported to need a payment method on file |
+| GitHub Models | Not added | Free use was for prototyping only, and GitHub retired the service in July 2026 |
+| Hugging Face Inference Providers | Not added | Free accounts no longer get monthly credits (since October 2026) |
+| Together AI | Not added as free | Its "-Free" endpoints are no longer on the serverless API; paid keys are already supported |
+| Vercel AI Gateway | Not added | $5/month credit on a subset of models, but Vercel's free Hobby plan is for non-commercial use |
+| Scaleway Generative APIs | Not added | First 1M tokens free, then billed automatically; needs a payment method, so it is not a free route |
+| Inference.net | Not added | No published free-tier quota or commercial terms for free use |
+

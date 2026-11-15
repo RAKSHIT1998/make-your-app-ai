@@ -42,7 +42,7 @@ export class AiRoutingService {
 
   private credsFor(provider: string): { apiKey: string; accountId?: string } | null {
     const c = this.config;
-    const key: Record<string, string | undefined> = { groq: c.GROQ_API_KEY, cerebras: c.CEREBRAS_API_KEY, chutes: c.CHUTES_API_KEY, openrouter: c.OPENROUTER_API_KEY, gemini: c.GEMINI_API_KEY, cloudflare: c.CLOUDFLARE_ACCOUNT_ID ? c.CLOUDFLARE_API_TOKEN : undefined };
+    const key: Record<string, string | undefined> = { groq: c.GROQ_API_KEY, cerebras: c.CEREBRAS_API_KEY, chutes: c.CHUTES_API_KEY, sambanova: c.SAMBANOVA_API_KEY, openrouter: c.OPENROUTER_API_KEY, gemini: c.GEMINI_API_KEY, cloudflare: c.CLOUDFLARE_ACCOUNT_ID ? c.CLOUDFLARE_API_TOKEN : undefined };
     const apiKey = key[provider];
     return apiKey ? { apiKey, ...(provider === 'cloudflare' ? { accountId: c.CLOUDFLARE_ACCOUNT_ID! } : {}) } : null;
   }

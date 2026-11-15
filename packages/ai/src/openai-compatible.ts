@@ -14,6 +14,7 @@ export const OPENAI_COMPATIBLE_PRESETS: Record<string, string> = {
   together: 'https://api.together.xyz/v1',
   cerebras: 'https://api.cerebras.ai/v1',
   chutes: 'https://llm.chutes.ai/v1',
+  sambanova: 'https://api.sambanova.ai/v1',
 };
 
 export interface OpenAiCompatibleOptions {

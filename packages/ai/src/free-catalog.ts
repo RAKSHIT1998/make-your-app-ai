@@ -29,7 +29,7 @@ export const FREE_PROVIDERS: FreeProviderInfo[] = [
   },
   {
     key: 'cerebras', name: 'Cerebras', env: ['CEREBRAS_API_KEY'], signupUrl: 'https://cloud.cerebras.ai', docsUrl: 'https://inference-docs.cerebras.ai/support/rate-limits',
-    freeTier: 'Free tier, no card, around 1M tokens/day. Free-tier context windows are smaller than paid ones.',
+    freeTier: 'Free tier of around 1M tokens/day. Free-tier context windows are smaller than paid ones. New accounts are reported to need a payment method on file before the free tier works; check your Cerebras console.',
     defaults: { dailyRequestLimit: null, dailyTokenLimit: 1_000_000 }, accountWideQuota: true, dataNote: null,
   },
   {
@@ -46,7 +46,7 @@ export const FREE_PROVIDERS: FreeProviderInfo[] = [
   },
   {
     key: 'chutes', name: 'Chutes', env: ['CHUTES_API_KEY'], signupUrl: 'https://chutes.ai', docsUrl: 'https://chutes.ai/pricing',
-    freeTier: 'Pay-as-you-go platform that also lists some models at $0. Only models priced at $0 in its live catalogue are offered here; which ones are free changes, and Chutes may rate-limit or retire any model.',
+    freeTier: 'Paid platform: Chutes ended its free tier for new sign-ups in 2026 (plans start around $3-10/month). Only models priced at $0 in its live catalogue are offered here, so a new account will usually show none.',
     defaults: { dailyRequestLimit: 500, dailyTokenLimit: null }, accountWideQuota: false,
     dataNote: 'Chutes says it does not train on your requests. Its terms allow using it inside your own product, not reselling raw access, and ask you to label AI output and not send payment or health data to standard models.',
   },
@@ -54,6 +54,12 @@ export const FREE_PROVIDERS: FreeProviderInfo[] = [
     key: 'cloudflare', name: 'Cloudflare Workers AI', env: ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN'], signupUrl: 'https://dash.cloudflare.com/profile/api-tokens', docsUrl: 'https://developers.cloudflare.com/workers-ai/platform/pricing/',
     freeTier: '10,000 Neurons/day free, shared across all models (resets 00:00 UTC). Small models stretch much further than large ones.',
     defaults: { dailyRequestLimit: null, dailyTokenLimit: null }, accountWideQuota: true, dataNote: null,
+  },
+  {
+    key: 'sambanova', name: 'SambaNova Cloud', env: ['SAMBANOVA_API_KEY'], signupUrl: 'https://cloud.sambanova.ai/apis', docsUrl: 'https://docs.sambanova.ai/docs/en/models/rate-limits',
+    freeTier: 'Free tier while no payment method is linked: very small per-model limits (reported as about 20 requests/min, 20 requests/day and 200K tokens/day). Good as a fast fallback, too small to carry builds on its own.',
+    defaults: { dailyRequestLimit: 20, dailyTokenLimit: 200_000 }, accountWideQuota: false,
+    dataNote: 'SambaNova\'s terms let it use query logs and usage data to run and improve its service, but not the content of your requests.',
   },
 ];
 
@@ -71,6 +77,7 @@ const BASES: Record<string, string> = {
   openrouter: 'https://openrouter.ai/api/v1',
   gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
   chutes: 'https://llm.chutes.ai/v1',
+  sambanova: 'https://api.sambanova.ai/v1',
 };
 export const cloudflareBaseUrl = (accountId: string) => `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1`;
 

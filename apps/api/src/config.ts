@@ -19,6 +19,7 @@ const EnvSchema = z
     TOGETHER_API_KEY: z.string().optional(),
     CEREBRAS_API_KEY: z.string().optional(),
     CHUTES_API_KEY: z.string().optional(),
+    SAMBANOVA_API_KEY: z.string().optional(),
     /** Cloudflare Workers AI: account id plus an API token with Workers AI permission. */
     CLOUDFLARE_ACCOUNT_ID: z.string().regex(/^[a-f0-9]{32}$/, 'CLOUDFLARE_ACCOUNT_ID is a 32-character hex id').optional(),
     CLOUDFLARE_API_TOKEN: z.string().optional(),

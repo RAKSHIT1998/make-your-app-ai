@@ -14,7 +14,7 @@ const stub = (routes: Record<string, { status?: number; json: unknown }>) => {
 
 describe('free provider catalogue', () => {
   it('describes every provider with its signup page and env keys', () => {
-    expect(FREE_PROVIDERS.map((p) => p.key)).toEqual(['groq', 'cerebras', 'openrouter', 'gemini', 'chutes', 'cloudflare']);
+    expect(FREE_PROVIDERS.map((p) => p.key)).toEqual(['groq', 'cerebras', 'openrouter', 'gemini', 'chutes', 'cloudflare', 'sambanova']);
     for (const p of FREE_PROVIDERS) { expect(p.signupUrl).toMatch(/^https:\/\//); expect(p.env.length).toBeGreaterThan(0); }
   });
 
@@ -51,6 +51,9 @@ describe('free provider catalogue', () => {
     expect((await discoverFreeModels('gemini', { apiKey: 'k' }, g.f)).map((m) => m.id)).toEqual(['gemini-2.5-flash']);
     const cf = stub({ 'https://api.cloudflare.com/client/v4/accounts/acc1/ai/models/search': { json: { result: [{ name: '@cf/meta/llama-3.1-8b-instruct' }, { name: '@cf/baai/bge-large-en-v1.5' }] } } });
     expect((await discoverFreeModels('cloudflare', { apiKey: 'cf', accountId: 'acc1' }, cf.f)).map((m) => m.id)).toEqual(['@cf/meta/llama-3.1-8b-instruct']);
+    const sn = stub({ 'https://api.sambanova.ai/v1/models': { json: { data: [{ id: 'DeepSeek-V3.1', context_length: 131072 }, { id: 'Whisper-Large-v3' }, { id: 'E5-Mistral-7B-Instruct-embedding' }] } } });
+    expect(await discoverFreeModels('sambanova', { apiKey: 'sn' }, sn.f)).toEqual([{ id: 'DeepSeek-V3.1', pricing: 'free_tier', contextWindow: 131072 }]);
+    expect(sn.calls[0]).toEqual({ url: 'https://api.sambanova.ai/v1/models', auth: 'Bearer sn' });
   });
 
   it('reports a rejected key clearly without echoing it', async () => {
