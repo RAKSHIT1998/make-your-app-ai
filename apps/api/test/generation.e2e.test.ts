@@ -137,7 +137,7 @@ describe('generation flow', () => {
     const pid = await newProject(a.auth);
     provider.queue(CREATE_SCRIPT);
     await generate(a.auth, pid, 'hotel site');
-    provider.queue([json({ summary: 'Remove rooms page', patches: [{ op: 'delete', path: 'app/rooms/page.tsx', reason: '' }] })]);
+    provider.queue([json({ summary: 'Remove rooms page', patches: [{ op: 'delete', path: 'app/rooms/page.tsx', content: '', reason: '' }] })]);
     const run = await generate(member.auth, pid, 'remove the rooms page');
     expect((await http().get(`/api/v1/generations/${run.body.id}`).set('Authorization', a.auth)).body.status).toBe('awaiting_approval');
     expect((await http().get(`/api/v1/projects/${pid}/versions`).set('Authorization', a.auth)).body).toHaveLength(1);

@@ -65,7 +65,7 @@ export function applyPatches(tree: FileTree, patches: FilePatch[]): { tree: File
       summary.destructive.push(p);
       continue;
     }
-    if (raw.content === undefined) {
+    if (raw.content === undefined || (raw.content === '' && raw.op === 'update')) {
       if (raw.op === 'update' && next.has(p)) continue; // "update" without content = leave the file as it is
       throw new PatchError(`${raw.op} requires content: ${p}`);
     }

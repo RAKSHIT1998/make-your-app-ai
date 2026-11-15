@@ -76,7 +76,7 @@ describe('Orchestrator', () => {
     // colour, 20 component notes (limit 15), and app/globals.css listed as an update with no content.
     const longDesign = { ...DESIGN, tone: 'Quiet, heritage-literate and tactile; a restrained layout with one woven-stripe motif that echoes a loom\'s warp and weft, and generous space around every shawl photograph.', palette: { ...DESIGN.palette, surface: '#FFF' }, componentNotes: Array.from({ length: 20 }, (_, i) => `Note ${i}`) };
     const code = JSON.parse(goodCode) as { summary: string; patches: object[] };
-    code.patches.push({ op: 'update', path: 'app/globals.css', reason: 'No change needed' });
+    code.patches.push({ op: 'update', path: 'app/globals.css', content: '', reason: 'No change needed' });
     const h = harness([json(SPEC), json(longDesign), json(code)]);
     const s = await store();
     const id = randomUUID();
@@ -89,13 +89,45 @@ describe('Orchestrator', () => {
     expect(designEvent.message.length).toBeLessThan(200);
   });
 
+  it('writes bigger first versions in parts, and splits a part that is still too long for one answer', async () => {
+    // A live 7-page shop build ran past the 48k output limit in one answer.
+    const routes = ['/', '/shop', '/shop/product', '/cart', '/our-story', '/contact', '/policies'];
+    const spec7 = { ...SPEC, pages: routes.map((route) => ({ route, title: route, purpose: 'Page', sections: ['Main'] })) };
+    const page = (route: string) => ({ op: 'create', path: `app${route === '/' ? '' : route}/page.tsx`, content: `export default function Page() { return <main>${route}</main>; }\n`, reason: route });
+    const part = (rs: string[], extra: object[] = []) => json({ summary: `Pages ${rs.join(' ')}`, patches: [...extra, ...rs.map(page)] });
+    const h = harness([
+      json(spec7), json(DESIGN),
+      part(['/', '/shop'], [{ op: 'create', path: 'components/Nav.tsx', content: 'export function Nav() { return null; }\n', reason: 'Shared nav' }]),
+      ScriptedProvider.CUT_OFF, // part 2 (3 pages) too long → split into single pages
+      part(['/shop/product']), part(['/cart']), part(['/our-story']),
+      part(['/contact', '/policies']),
+    ]);
+    const s = await store();
+    const id = randomUUID();
+    const out = await new Orchestrator({ store: s }).run({ ...base, projectId: id, kind: 'create' }, h.ctx);
+    expect(out.status, out.status === 'failed' ? out.error : '').toBe('succeeded');
+    const tree = await s.readTree(id);
+    for (const r of routes) expect(tree.has(`app${r === '/' ? '' : r}/page.tsx`), r).toBe(true);
+    expect(tree.has('components/Nav.tsx')).toBe(true);
+    const starts = h.events.filter((e) => e.type === 'step.started' && e.agent === 'frontend').map((e) => e.message);
+    expect(starts[0]).toBe('Writing the code (part 1 of 3: /, /shop)');
+    expect(starts.at(-1)).toBe('Writing the code (part 5 of 5: /contact, /policies)');
+    // Later parts see the files written so far, so they reuse the shared components.
+    expect(h.provider.calls[3]!.req.messages[0]!.content).toContain('path="components/Nav.tsx"');
+    expect(h.provider.calls[3]!.req.messages[0]!.content).toContain('Add ONLY these pages: /shop/product, /cart, /our-story');
+    expect(h.provider.calls[2]!.req.messages[0]!.content).toContain('navigation linking to ALL routes');
+  });
+
   it('asks the engineer again when it creates a file without content', async () => {
     const bad = JSON.parse(goodCode) as { summary: string; patches: object[] };
-    bad.patches.push({ op: 'create', path: 'app/about/page.tsx', reason: 'About page' });
+    bad.patches.push({ op: 'create', path: 'app/about/page.tsx', content: '', reason: 'About page' });
     const h = harness([json(SPEC), json(DESIGN), json(bad), goodCode]);
     const out = await new Orchestrator({ store: await store() }).run({ ...base, projectId: randomUUID(), kind: 'create' }, h.ctx);
     expect(out.status).toBe('succeeded');
     expect(h.provider.calls[3]!.req.messages.at(-1)!.content).toContain('create needs the full file content');
+    // The code agents are told content is required, so structured output can't silently drop it.
+    const patchItems = (h.provider.calls[2]!.req.jsonSchema as { properties: { patches: { items: { required: string[] } } } }).properties.patches.items;
+    expect(patchItems.required).toEqual(expect.arrayContaining(['op', 'path', 'content', 'reason']));
   });
 
   it('retries an agent whose output fails the schema, sending the validation errors back', async () => {
@@ -149,7 +181,7 @@ describe('Orchestrator', () => {
     const s = await store();
     const id = randomUUID();
     await new Orchestrator({ store: s }).run({ ...base, projectId: id, kind: 'create' }, harness([json(SPEC), json(DESIGN), goodCode]).ctx);
-    const destructive = json({ summary: 'Remove rooms', patches: [{ op: 'delete', path: 'app/rooms/page.tsx', reason: '' }] });
+    const destructive = json({ summary: 'Remove rooms', patches: [{ op: 'delete', path: 'app/rooms/page.tsx', content: '', reason: '' }] });
     const out = await new Orchestrator({ store: s }).run({ ...base, projectId: id, kind: 'edit', prompt: 'remove rooms', templateKey: 'nextjs-site@1' }, harness([destructive]).ctx);
     expect(out).toMatchObject({ status: 'awaiting_approval', changes: { destructive: ['app/rooms/page.tsx'] } });
     expect(await s.log(id)).toHaveLength(1);

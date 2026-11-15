@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { FilePatchSchema } from '@mya/codegen';
 
 export const AGENT_NAMES = ['architect', 'designer', 'frontend', 'backend', 'qa', 'release'] as const;
 export type AgentName = (typeof AGENT_NAMES)[number];
@@ -52,14 +51,28 @@ export const DesignSpecSchema = z.object({
 });
 export type DesignSpec = z.infer<typeof DesignSpecSchema>;
 
+/**
+ * File changes as the model writes them. `content` is required (an empty string for "delete"): providers enforce
+ * structured output only for required fields, and with an optional field a real model left out the code of most
+ * new files on a large site. "update" with empty content on an existing file means "keep it".
+ */
+export const ModelPatchSchema = z.object({
+  op: z.enum(['create', 'update', 'delete']),
+  path: z.string().min(1).max(300),
+  content: z.string().max(400_000),
+  reason: z.string().max(500),
+}).superRefine((p, ctx) => {
+  if (p.op === 'create' && p.content === '') ctx.addIssue({ code: 'custom', path: ['content'], message: 'create needs the full file content' });
+});
+
 export const CodeChangeSchema = z.object({
   summary: z.string().max(1500),
-  patches: z.array(FilePatchSchema).max(60),
+  patches: z.array(ModelPatchSchema).max(60),
 });
 export type CodeChange = z.infer<typeof CodeChangeSchema>;
 
 export const QaFixSchema = z.object({
   diagnosis: z.string().max(2000),
-  patches: z.array(FilePatchSchema).max(30),
+  patches: z.array(ModelPatchSchema).max(30),
 });
 export type QaFix = z.infer<typeof QaFixSchema>;

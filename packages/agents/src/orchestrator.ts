@@ -1,8 +1,8 @@
 import { CRAFT_RULES, DESIGN_DIRECTION } from './design-guide.js';
 import { applyPatches, getTemplate, templateForProjectType, templateKey, treeFromTemplate, validateTree, type FilePatch, type FileTree, type GitProjectStore, type PatchSummary, type ProjectTemplate } from '@mya/codegen';
 import type { SandboxProvider } from '@mya/sandbox';
-import { AskAnswerSchema, CodeChangeSchema, DesignSpecSchema, PlanDraftSchema, ProductSpecSchema, QaFixSchema, type AskAnswer, type DesignSpec, type PlanDraft, type ProductSpec } from './contracts.js';
-import { runAgent, wrap, type AgentCallContext } from './runner.js';
+import { AskAnswerSchema, CodeChangeSchema, DesignSpecSchema, PlanDraftSchema, ProductSpecSchema, QaFixSchema, type AskAnswer, type CodeChange, type DesignSpec, type PlanDraft, type ProductSpec } from './contracts.js';
+import { AgentOutputError, runAgent, wrap, type AgentCallContext } from './runner.js';
 
 export interface GenerationInput {
   projectId: string;
@@ -43,6 +43,16 @@ const TEXT_FILE = /\.(tsx?|jsx?|mjs|cjs|css|json|md|txt|svg|html|ya?ml)$/;
 
 export function supportsProjectType(type: string) {
   return templateForProjectType(type) !== undefined;
+}
+
+/** Up to this many pages are written in one answer; bigger first versions are written in parts. */
+export const SINGLE_PASS_MAX_PAGES = 4;
+
+/** Splits routes into build parts: the first part (with the foundation) takes 2 pages, later parts up to 3. */
+export function pageBatches(routes: string[]): string[][] {
+  const out = [routes.slice(0, 2)];
+  for (let i = 2; i < routes.length; i += 3) out.push(routes.slice(i, i + 3));
+  return out.filter((b) => b.length);
 }
 
 function fileContext(tree: FileTree): string {
@@ -170,34 +180,79 @@ Keep scope realistic for a first version: 1–8 pages. Mark any third-party inte
       if (base.size === 0) base = treeFromTemplate(template);
     }
 
-    await r.event('step.started', input.kind === 'create' ? 'Writing the code' : 'Applying your change', {}, 'frontend');
-    const change = await runAgent(ctx, {
-      agent: 'frontend',
-      tier: 'balanced',
-      maxOutputTokens: 48_000,
-      schema: CodeChangeSchema,
-      role: `You are a senior frontend engineer. You modify an existing project by returning file patches.
+    const engineerRole = `You are a senior frontend engineer. You modify an existing project by returning file patches.
 Rules:
 - Return the MINIMUM set of patches that fulfils the request. Do not rewrite files you don't need to change.
-- "create"/"update" patches carry the COMPLETE new file content. Never use placeholders like "// ...rest unchanged".
+- "create"/"update" patches carry the COMPLETE new file content. Never use placeholders like "// ...rest unchanged". Every file you create must include its code. Use an empty content string only for "delete"; leave files you don't change out of the patch list.
 - Every import must resolve: a file in the project (existing or created in this same response) or a package listed in package.json.
 - Paths are relative to the project root. Never touch .env files, node_modules or .git.
 - TypeScript must compile under "strict".
 Template rules:
 ${template.agentGuide.map((g) => `- ${g}`).join('\n')}
-${CRAFT_RULES.map((g) => `- ${g}`).join('\n')}`,
+${CRAFT_RULES.map((g) => `- ${g}`).join('\n')}`;
+    const writeCode = (current: FileTree, task: string, maxOutputTokens: number) => runAgent(ctx, {
+      agent: 'frontend',
+      tier: 'balanced',
+      maxOutputTokens,
+      schema: CodeChangeSchema,
+      role: engineerRole,
       content: [
         spec ? wrap('spec', JSON.stringify(spec, null, 2)) : '',
         design ? wrap('design', JSON.stringify(design, null, 2)) : '',
-        `Current project files:\n${fileContext(base)}`,
-        input.kind === 'create'
-          ? `Implement the full first version of this product from the spec and design. The customer's own request is below: where it is more specific than the spec (access, rules, fields, wording), follow the request.\n${wrap('customer_request', input.prompt)}`
-          : `Apply this change requested by the customer:\n${wrap('customer_request', input.prompt)}`,
+        `Current project files:\n${fileContext(current)}`,
+        task,
       ].filter(Boolean).join('\n\n'),
     });
+    const request = wrap('customer_request', input.prompt);
 
-    let { tree, summary } = applyPatches(base, change.patches);
-    await r.event('files.changed', change.summary, { ...summary }, 'frontend');
+    // A whole multi-page site doesn't fit in one model answer (a live 7-page build ran past 48k output tokens), so
+    // larger first versions are written in parts: the foundation with the first pages, then a few pages at a time,
+    // each part seeing the files already written.
+    const parts = input.kind === 'create' && spec && spec.pages.length > SINGLE_PASS_MAX_PAGES ? pageBatches(spec.pages.map((p) => p.route)) : null;
+    let change: CodeChange;
+    let tree: FileTree;
+    let summary: PatchSummary;
+    if (!parts) {
+      await r.event('step.started', input.kind === 'create' ? 'Writing the code' : 'Applying your change', {}, 'frontend');
+      change = await writeCode(base, input.kind === 'create'
+        ? `Implement the full first version of this product from the spec and design. The customer's own request is below: where it is more specific than the spec (access, rules, fields, wording), follow the request.\n${request}`
+        : `Apply this change requested by the customer:\n${request}`, 48_000);
+      ({ tree, summary } = applyPatches(base, change.patches));
+    } else {
+      tree = base;
+      summary = { created: [], updated: [], deleted: [], destructive: [] };
+      const notes: string[] = [];
+      const allPatches: CodeChange['patches'] = [];
+      const queue = [...parts];
+      for (let i = 0; i < queue.length; i++) {
+        const routes = queue[i]!;
+        await r.event('step.started', `Writing the code (part ${i + 1} of ${queue.length}: ${routes.join(', ')})`, { part: i + 1, of: queue.length, routes }, 'frontend');
+        const task = i === 0
+          ? `Build the first version in ${queue.length} parts. This is part 1: the shared foundation (layout, global styles, header and footer navigation linking to ALL routes in the spec, shared components and data) plus ONLY these pages: ${routes.join(', ')}. Later parts will add the other pages and can reuse what you write now, so put anything shared in components. The customer's own request is below: where it is more specific than the spec, follow the request.\n${request}`
+          : `Part ${i + 1} of ${queue.length} of the first version. The foundation and earlier pages already exist (see the current files). Add ONLY these pages: ${routes.join(', ')}. Reuse the existing layout, components and styles; change an existing file only when one of these pages truly needs a small shared addition (then send that file's complete new content). The customer's request, for reference:\n${request}`;
+        let part: CodeChange;
+        try {
+          part = await writeCode(tree, task, 32_000);
+        } catch (e) {
+          // Still too long for one answer: split this part into one page each and carry on.
+          if (e instanceof AgentOutputError && /cut off/.test(e.message) && routes.length > 1) {
+            await r.event('step.completed', `Part ${i + 1} was too large for one step; writing its pages one at a time`, { routes }, 'frontend');
+            queue.splice(i, 1, ...routes.map((route) => [route]));
+            i--;
+            continue;
+          }
+          throw e;
+        }
+        const applied = applyPatches(tree, part.patches);
+        tree = applied.tree;
+        for (const k of ['created', 'updated', 'deleted', 'destructive'] as const) summary[k] = [...new Set([...summary[k], ...applied.summary[k]])];
+        allPatches.push(...part.patches);
+        notes.push(part.summary);
+        await r.event('files.changed', part.summary, { ...applied.summary }, 'frontend');
+      }
+      change = { summary: notes.join(' ').slice(0, 1500), patches: allPatches };
+    }
+    if (!parts) await r.event('files.changed', change.summary, { ...summary }, 'frontend');
 
     if (input.kind === 'edit' && summary.destructive.length > 0) {
       await r.event('approval.required', `This change removes or rewrites existing files: ${summary.destructive.join(', ')}`, { files: summary.destructive });
@@ -254,7 +309,7 @@ ${CRAFT_RULES.map((g) => `- ${g}`).join('\n')}`,
         tier: 'balanced',
         maxOutputTokens: 32_000,
         schema: QaFixSchema,
-        role: `You are the QA & Debugging engineer. Diagnose the failing checks and return the minimal patches that fix them. "update" patches carry complete file content.
+        role: `You are the QA & Debugging engineer. Diagnose the failing checks and return the minimal patches that fix them. "create"/"update" patches carry complete file content; use an empty content string only for "delete".
 Template rules:
 ${template.agentGuide.map((g) => `- ${g}`).join('\n')}
 ${CRAFT_RULES.map((g) => `- ${g}`).join('\n')}`,

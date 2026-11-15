@@ -7,6 +7,7 @@ export type FakeReply = string | ProviderError | ((req: CompletionRequest) => st
  * it replays scripted replies in order. Never registered in production config.
  */
 export class ScriptedProvider implements AiProvider {
+  static readonly CUT_OFF = '<<scripted:cut-off-at-output-limit>>';
   readonly calls: { model: string; req: CompletionRequest }[] = [];
   constructor(
     readonly name: string,
@@ -22,6 +23,8 @@ export class ScriptedProvider implements AiProvider {
     if (next === undefined) throw new ProviderError('ScriptedProvider ran out of replies', this.name, false);
     if (next instanceof ProviderError) throw next;
     const text = typeof next === 'function' ? next(req) : next;
-    return { text, provider: this.name, model, inputTokens: Math.ceil(JSON.stringify(req).length / 4), outputTokens: Math.ceil(text.length / 4), stopReason: 'end_turn', latencyMs: 1 };
+    // Tests can simulate an answer cut off at the output limit by replying with this marker.
+    const cutOff = text === ScriptedProvider.CUT_OFF;
+    return { text: cutOff ? '{"summary": "' : text, provider: this.name, model, inputTokens: Math.ceil(JSON.stringify(req).length / 4), outputTokens: cutOff ? req.maxOutputTokens : Math.ceil(text.length / 4), stopReason: cutOff ? 'max_tokens' : 'end_turn', latencyMs: 1 };
   }
 }
