@@ -50,7 +50,7 @@ None. The session ended at a clean commit.
 |---|---|
 | Phase 2 live acceptance (real payment → entitlement) | Platform `RAZORPAY_KEY_ID/SECRET/WEBHOOK_SECRET` (Subscriptions enabled), `STRIPE_SECRET_KEY/WEBHOOK_SECRET`, plus Stripe Price ids saved on plans |
 | Live AI generation check | `ANTHROPIC_API_KEY` |
-| Free / cheap routes | Free keys in env (`GROQ_API_KEY`, `CEREBRAS_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`), then Owner console → AI routing → Free AI providers: add discovered models and test each one. Paid keys (`OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CUSTOM_AI_*`) still need prices entered by you |
+| Free / cheap routes | Free keys in env (`GROQ_API_KEY`, `CEREBRAS_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `SAMBANOVA_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`), then Owner console → AI routing → Free AI providers: add discovered models and test each one. Paid keys (`OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CUSTOM_AI_*`) still need prices entered by you |
 | Live Shiprocket check | A Shiprocket account with an API user (Settings → API), a saved pickup address and wallet balance; then book one real parcel from an order |
 | Real auth | Supabase project keys |
 | Docker sandbox run | A host with a Docker daemon |
