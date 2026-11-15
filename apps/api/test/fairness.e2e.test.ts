@@ -1,3 +1,4 @@
+import { CreditsService } from '../src/credits/credits.service.js';
 import request from 'supertest';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -80,6 +81,17 @@ describe('failed-build guarantee', () => {
     const ledger = await prisma.creditLedgerEntry.findMany({ where: { reason: 'refund', referenceId: run.id } });
     expect(ledger.reduce((n, l) => n + l.amount, 0)).toBe(run.creditsUsed);
     expect(ledger.every((l) => l.bucket === 'allowance')).toBe(true);
+    // A refunded failure doesn't use up the plan's daily limit (found live: one failed build blocked the rest of the day).
+    expect(await app.get(CreditsService).spentToday(await orgOf(id))).toBe(0);
+    await prisma.subscriptionEntitlement.update({ where: { organizationId: await orgOf(id) }, data: { dailyCreditLimit: run.creditsUsed } });
+    provider.queue([JSON.stringify(SPEC), JSON.stringify(DESIGN), GOOD]);
+    const next = await http().post(`${V}/projects/${id}/generations`).set('Authorization', a.auth).send({ prompt: 'Try the game again' });
+    expect(next.status, JSON.stringify(next.body)).toBe(202);
+    for (let i = 0; i < 100; i++) {
+      const r = (await http().get(`${V}/generations/${next.body.id ?? next.body.runId}`).set('Authorization', a.auth)).body;
+      if (!['queued', 'running'].includes(r.status)) break;
+      await new Promise((res) => setTimeout(res, 50));
+    }
   });
 
   it('successful runs stay charged, and so do runs stopped by the customer’s own credit limit', async () => {

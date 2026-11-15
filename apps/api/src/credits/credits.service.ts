@@ -80,8 +80,12 @@ export class CreditsService {
   async spentToday(organizationId: string): Promise<number> {
     const since = new Date();
     since.setUTCHours(0, 0, 0, 0);
-    const agg = await this.prisma.creditLedgerEntry.aggregate({ where: { organizationId, reason: 'ai_usage', createdAt: { gte: since } }, _sum: { amount: true } });
-    return -(agg._sum.amount ?? 0);
+    const [used, refunded] = await Promise.all([
+      this.prisma.creditLedgerEntry.aggregate({ where: { organizationId, reason: 'ai_usage', createdAt: { gte: since } }, _sum: { amount: true } }),
+      // Credits given back by the failed-build guarantee don't count against today's limit: the customer got nothing.
+      this.prisma.creditLedgerEntry.aggregate({ where: { organizationId, reason: 'refund', referenceType: 'generation_run', createdAt: { gte: since } }, _sum: { amount: true } }),
+    ]);
+    return Math.max(0, -(used._sum.amount ?? 0) - (refunded._sum.amount ?? 0));
   }
 
   async assertCanSpend(organizationId: string, needed: number) {
