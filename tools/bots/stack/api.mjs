@@ -30,7 +30,7 @@ const config = loadConfig({
   PATH: env.PATH, NODE_ENV: 'development',
   DATABASE_URL: env.BOTS_DATABASE_URL, SUPABASE_URL: `http://localhost:${env.BOTS_AUTH_PORT}`, SUPABASE_JWT_SECRET: env.BOTS_JWT_SECRET,
   STORAGE_DIR: env.BOTS_STORAGE_DIR, SANDBOX_PROVIDER: 'none', API_PORT: port, ENCRYPTION_KEY: Buffer.alloc(32, 5).toString('base64'),
-  PLATFORM_OWNER_EMAILS: env.BOTS_OWNER_EMAIL, REPORTING_USD_INR: '85', WEB_APP_URL: env.BOTS_WEB_URL, WEB_ORIGIN: env.BOTS_WEB_URL, PUBLIC_API_URL: `http://localhost:${port}`, HOSTING_PROVIDER: 'fake',
+  PLATFORM_OWNER_EMAILS: env.BOTS_OWNER_EMAIL, REPORTING_USD_INR: '85', WEB_APP_URL: env.BOTS_WEB_URL, WEB_ORIGIN: [env.BOTS_WEB_URL, env.BOTS_PHONE_URL].filter(Boolean).join(','), PUBLIC_API_URL: `http://localhost:${port}`, HOSTING_PROVIDER: 'fake',
   WEATHER_CONTACT: 'bots@example.com', GROQ_API_KEY: 'bots-groq-key',
   // Website reader stand-in (same contract as services/crawler). Test addresses don't resolve publicly, so the address check is relaxed here only.
   CRAWLER_URL: `http://127.0.0.1:${crawlerPort}`, CRAWLER_TOKEN: TEST.crawlerToken, SITE_IMPORT_ALLOW_PRIVATE_NETWORKS: 'true',

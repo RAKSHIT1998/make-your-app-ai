@@ -11,6 +11,7 @@ import { AuthService } from './auth/auth.service.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { OrgsService } from './orgs/orgs.service.js';
 import { OrgsController } from './orgs/orgs.controller.js';
+import { AccountService, accountFetchProvider } from './orgs/account.service.js';
 import { ProjectsService } from './projects/projects.service.js';
 import { ProjectsController } from './projects/projects.controller.js';
 import { HealthController } from './health.controller.js';
@@ -76,6 +77,8 @@ export class AppModule {
         TokenVerifier,
         AuthService,
         OrgsService,
+        AccountService,
+        accountFetchProvider,
         ProjectsService,
         CreditsService,
         GenerationsService,

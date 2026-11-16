@@ -25,7 +25,7 @@ pnpm bots --list                    # what each bot covers
 - Chrome or Chromium: Playwright's own (`pnpm --filter @mya/bots exec playwright install chromium`), or set
   `BOTS_CHROME=/path/to/chrome`.
 
-**Ports:** web 3100, API 4100, auth 54400. Change them with `BOTS_WEB_PORT`, `BOTS_API_PORT` and `BOTS_AUTH_PORT`.
+**Ports:** web 3100, phone app 3200, API 4100, auth 54400. Change them with `BOTS_WEB_PORT`, `BOTS_PHONE_PORT`, `BOTS_API_PORT` and `BOTS_AUTH_PORT`.
 
 **Report:** `tools/bots/report/report.md` lists every step with its time. When a bot fails, the report names the
 step that stopped it, the error, and any page errors or server 5xx seen on the way. Screenshots are in
@@ -50,6 +50,9 @@ step that stopped it, the error, and any page errors or server 5xx seen on the w
 | cloud-studio | Cloud Studio deploys and the template gallery |
 | owner-console | Platform owner console |
 | site-import | Start from your current website (stand-in website reader) |
+| challenges | Weekly challenges, voting and leaderboards |
+| pay-as-you-go | Saved card, Premium AI, off-session charges |
+| phone-app | The iOS/Android app, built for the browser, on a phone screen only |
 
 **Writing a bot:** add `products/<name>.mjs` exporting `meta` (`name`, `product`, `covers`) and `run(bot)`. Use
 `bot.step()` for each thing a customer does. Wait for what a person would wait for, such as a loaded list or a faded

@@ -1,11 +1,11 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Monitor, Moon, Sun } from 'lucide-react';
+import { LogOut, Monitor, Moon, Sun, UserX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Badge, Button, Card, ErrorNotice, Field, Input, Kbd, PageHeader, Segmented, Skeleton, Textarea, toast } from '@/components/ui';
+import { Badge, Button, Card, Dialog, ErrorNotice, Field, Input, Kbd, PageHeader, Segmented, Skeleton, Textarea, toast } from '@/components/ui';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -85,7 +85,43 @@ export default function SettingsPage() {
         <Row title="Session">
           <Button variant="secondary" onClick={async () => { await supabase?.auth.signOut(); qc.clear(); router.replace('/login'); }}><LogOut className="size-4" />Sign out</Button>
         </Row>
+        <Row title="Delete account" description="Permanently removes your account and your own workspaces.">
+          <DeleteAccount email={me.data?.email ?? ''} onDeleted={async () => { await supabase?.auth.signOut(); qc.clear(); router.replace('/login'); }} />
+        </Row>
       </Card>
     </div>
+  );
+}
+
+function DeleteAccount({ email, onDeleted }: { email: string; onDeleted: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const preview = useQuery({ queryKey: ['deletion'], queryFn: api.deletionPreview, enabled: open });
+  const del = useMutation({ mutationFn: () => api.deleteAccount(typed.trim()), onSuccess: async () => { toast.success('Your account has been deleted.'); await onDeleted(); } });
+  const d = preview.data;
+  const matches = !!email && typed.trim().toLowerCase() === email.toLowerCase();
+  return (
+    <>
+      <Button variant="danger" onClick={() => { setTyped(''); setOpen(true); }}><UserX className="size-4" />Delete account…</Button>
+      <Dialog open={open} onOpenChange={setOpen} title="Delete your account?" description="This can’t be undone."
+        footer={d && !d.blockers.length ? <><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button variant="danger" disabled={!matches} loading={del.isPending} onClick={() => del.mutate()}>Delete account</Button></> : <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>}>
+        {preview.error ? <ErrorNotice error={preview.error} onRetry={() => preview.refetch()} /> : !d ? <Skeleton className="h-24" /> : d.blockers.length ? (
+          <div className="space-y-2 text-sm">{d.blockers.map((b) => <p key={b}>{b}</p>)}</div>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Your profile, handle and sign-in</li>
+              <li>{d.projects} {d.projects === 1 ? 'project' : 'projects'} in {d.workspaces.length === 1 ? 'your personal workspace' : `${d.workspaces.length} workspaces only you use`}, and their public pages</li>
+              <li>Your likes, follows, votes, comments and collections</li>
+              {d.subscriptionsToCancel ? <li>Your subscription stops renewing; you won’t be charged again</li> : null}
+              <li>You leave any team you belong to; the team keeps its work</li>
+            </ul>
+            <p className="text-muted">We keep invoices and payment records as tax law requires, without your profile. Orders placed in your shops stay with those orders. Sites deployed to an outside host stay there until you remove them.</p>
+            <Field label={`Type ${email} to confirm`}><Input value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="none" spellCheck={false} /></Field>
+            {del.error ? <ErrorNotice error={del.error} /> : null}
+          </div>
+        )}
+      </Dialog>
+    </>
   );
 }

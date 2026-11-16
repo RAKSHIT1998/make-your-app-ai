@@ -7,6 +7,8 @@ const EnvSchema = z
     DATABASE_URL: z.string().min(1),
     SUPABASE_URL: z.url().optional(),
     SUPABASE_JWT_SECRET: z.string().min(16).optional(),
+    /** Server-only. Lets account deletion also delete the person's Supabase sign-in. Never sent to a browser or app. */
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
     WEB_ORIGIN: z.string().default('http://localhost:3000'),
     ANTHROPIC_API_KEY: z.string().optional(),
     /** Extra model providers (OpenAI-compatible APIs). Each is used only if its key is set; add routes in Owner console -> AI routing. */

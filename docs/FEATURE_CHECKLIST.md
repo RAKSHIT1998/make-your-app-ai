@@ -6,7 +6,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 ## Architecture audit (spec §1)
 | Area | What exists |
 |---|---|
-| Frontend | Next.js 16 web app (App Router, Tailwind v4, design system v2), Expo mobile app (older UI) |
+| Frontend | Next.js 16 web app (App Router, Tailwind v4, design system v2), Expo mobile app (design system v2, session 17l) |
 | Backend | NestJS 12 API `/api/v1`, zod validation on every body/query, ThrottlerGuard, audit log |
 | Database | Postgres 16 + Prisma 7, RLS (deny-by-default for direct clients), 7 migrations |
 | Auth | Supabase JWT (JWKS or HS256), personal workspace per user, org roles owner/admin/member/viewer, platform roles user/support/admin/superadmin |
@@ -121,6 +121,20 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Icons & splash images | ⛔ | Colours set; image upload needs R2 storage |
 | EAS builds, build logs, artifacts, test builds | ⛔ | Needs `EXPO_TOKEN` + build runner (eas-cli in sandbox); customers can run `eas build` on the download today |
 | Customer Apple/Google account submission flows | ⬜ | Customer-controlled; never auto-published |
+
+## Our own iOS and Android app (session 17l)
+| Item | Status | Notes |
+|---|---|---|
+| Design system v2 (ink, ember, warm neutrals, light/dark), tab bar with central Create | ✅ | Same tokens as the web |
+| Home (credits, streak, live challenge, recent projects and activity), Projects (search, archived) | ✅ | |
+| Create: every project type the plan allows, business kits, style and colour themes, plan first | ✅ | Locked types shown, never sold in the app |
+| Project: chat with live steps, plan review with questions, build from plan, Ask mode, approvals, files, versions/restore, publish and share, rename/archive/delete | ✅ | Live preview, data, dashboard and deploys open the web builder |
+| Explore (search, sorts, types), project pages (like, remix, share, report, hide creator), challenges (enter, vote), top creators, badges and streak | ✅ | Hidden creators are kept on the device |
+| Plan and usage (read only), profile, workspace switcher, appearance, legal links | ✅ | No purchases in the app (store rules) |
+| Owner: business overview, kill switches, audit | ✅ | Plans, prices, AI routes and moderation stay on the web |
+| Account deletion in the app and on the web | ✅ | `DELETE /me`; sign-in removed when `SUPABASE_SERVICE_ROLE_KEY` is set |
+| Store builds and submission | ⛔ | Needs Expo/EAS, Apple Developer and Google Play accounts |
+| Push notifications, password reset, offline | ⬜ | |
 
 ## §12 Monetization
 | Item | Status |

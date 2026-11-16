@@ -8,7 +8,9 @@ Copy `.env.example` to `.env`. **Never commit `.env`.** Values marked *secret* m
 | `SUPABASE_URL` | api | yes* | JWKS verification of Supabase tokens |
 | `SUPABASE_JWT_SECRET` *secret* | api | legacy projects | HS256 verification |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web | yes | Sign-in |
+| `SUPABASE_SERVICE_ROLE_KEY` *secret* | api | recommended | Account deletion also deletes the Supabase sign-in. Server only |
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_URL` | mobile | yes | Sign-in, API |
+| `EXPO_PUBLIC_WEB_URL` | mobile | yes for stores | Legal pages, public project links, "Open in the web builder" (hidden when empty) |
 | `NEXT_PUBLIC_API_URL` | web | yes | API base (the `/api/v1` suffix is added by the client) |
 | `ANTHROPIC_API_KEY` *secret* | api | for generation | AI provider |
 | `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CEREBRAS_API_KEY`, `SAMBANOVA_API_KEY`, `CHUTES_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CUSTOM_AI_*` *secret* | api | optional | Extra routes for smart routing (see Owner console → AI routing) |

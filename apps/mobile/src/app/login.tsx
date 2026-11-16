@@ -1,7 +1,10 @@
+import * as Linking from 'expo-linking';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Body, Button, Card, ErrorText, Field, Screen, Title } from '@/components/ui';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BrandMark } from '@/components/bits';
+import { Body, Button, Caption, Card, ErrorText, Field, H1, Muted, Screen, Segmented } from '@/components/ui';
+import { WEB_URL } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -9,18 +12,23 @@ import { useTheme } from '@/lib/theme';
 export default function Login() {
   const { configured } = useAuth();
   const { c } = useTheme();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   async function submit() {
     if (!supabase) return;
     setBusy(true);
     setError(null);
-    const { data, error } = mode === 'signin' ? await supabase.auth.signInWithPassword({ email: email.trim(), password }) : await supabase.auth.signUp({ email: email.trim(), password });
+    setNotice(null);
+    const { data, error } = mode === 'signin'
+      ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      : await supabase.auth.signUp({ email: email.trim(), password });
     setBusy(false);
     if (error) setError(error);
     else if (mode === 'signup' && !data.session) setNotice('Check your inbox to confirm your email, then sign in.');
@@ -28,36 +36,38 @@ export default function Login() {
 
   return (
     <Screen>
-      <SafeAreaView style={{ flex: 1 }}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, gap: 24 }} keyboardShouldPersistTaps="handled">
-            <View style={{ alignItems: 'center', gap: 8 }}>
-              <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: c.brand, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: c.brandFg, fontSize: 26, fontWeight: '800' }}>M</Text>
-              </View>
-              <Title>Make Your App AI</Title>
-              <Body muted>Build Anything. From Anywhere.</Body>
-            </View>
-            <Card style={{ gap: 16 }}>
-              {!configured ? (
-                <Body muted>Sign-in isn&apos;t configured yet. Set EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY and EXPO_PUBLIC_API_URL and restart.</Body>
-              ) : (
-                <>
-                  <Text style={{ color: c.text, fontSize: 20, fontWeight: '700' }}>{mode === 'signin' ? 'Welcome back' : 'Create your account'}</Text>
-                  <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" />
-                  <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'signin' ? 'password' : 'new-password'} />
-                  <ErrorText error={error} />
-                  {notice && <Body style={{ color: c.brand }}>{notice}</Body>}
-                  <Button title={mode === 'signin' ? 'Sign in' : 'Create account'} onPress={submit} loading={busy} disabled={!email || password.length < 8} />
-                  <Pressable onPress={() => setMode(mode === 'signin' ? 'signup' : 'signin')} accessibilityRole="button">
-                    <Text style={{ color: c.brand, textAlign: 'center', fontWeight: '600' }}>{mode === 'signin' ? 'New here? Create an account' : 'Have an account? Sign in'}</Text>
-                  </Pressable>
-                </>
-              )}
-            </Card>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, paddingTop: insets.top + 24, gap: 28 }} keyboardShouldPersistTaps="handled">
+          <View style={{ gap: 14 }}>
+            <BrandMark size={52} />
+            <H1 style={{ fontSize: 34, lineHeight: 40 }}>Build anything.{'\n'}From anywhere.</H1>
+            <Muted>Describe an idea and get a working website, app, game or shop you own.</Muted>
+          </View>
+          <Card style={{ gap: 16, padding: 20 }}>
+            {!configured ? (
+              <Body muted>This build isn't connected to a server yet. Set EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY and EXPO_PUBLIC_API_URL, then rebuild.</Body>
+            ) : (
+              <>
+                <Segmented label="Sign in or create an account" value={mode} onChange={(m) => { setMode(m); setError(null); setNotice(null); }} options={[{ value: 'signin', label: 'Sign in' }, { value: 'signup', label: 'Create account' }]} />
+                <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} autoComplete="email" keyboardType="email-address" textContentType="emailAddress" returnKeyType="next" />
+                <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'signin' ? 'password' : 'new-password'} textContentType={mode === 'signin' ? 'password' : 'newPassword'}
+                  hint={mode === 'signup' ? 'At least 8 characters.' : undefined} onSubmitEditing={() => validEmail && password.length >= 8 && void submit()} returnKeyType="go" />
+                <ErrorText error={error} />
+                {notice ? <Text accessibilityRole="alert" style={{ color: c.success, fontSize: 14 }}>{notice}</Text> : null}
+                <Button title={mode === 'signin' ? 'Sign in' : 'Create account'} onPress={submit} loading={busy} disabled={!validEmail || password.length < 8} full />
+              </>
+            )}
+          </Card>
+          {WEB_URL ? (
+            <Caption style={{ textAlign: 'center' }}>
+              By continuing you agree to the{' '}
+              <Text accessibilityRole="link" onPress={() => void Linking.openURL(`${WEB_URL}/legal/terms`)} style={{ color: c.text, textDecorationLine: 'underline' }}>Terms</Text>
+              {' '}and{' '}
+              <Text accessibilityRole="link" onPress={() => void Linking.openURL(`${WEB_URL}/legal/privacy`)} style={{ color: c.text, textDecorationLine: 'underline' }}>Privacy Policy</Text>.
+            </Caption>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

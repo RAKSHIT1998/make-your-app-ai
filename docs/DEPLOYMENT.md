@@ -67,7 +67,7 @@ Production-like stack: `docker compose -f infra/docker-compose.yml up --build` r
 `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the legal details `NEXT_PUBLIC_LEGAL_COMPANY`, `_ADDRESS`, `_EMAIL`, `_GRIEVANCE_OFFICER`, `_JURISDICTION`, `_REFUND_DAYS`. Until every legal value is set, the policy pages show a visible "draft" banner and "[… to be completed]" placeholders.
 
 ### Mobile (EAS environment variables)
-`EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Set them per environment with `eas env:create`. A release build without them shows a setup notice; it never silently calls localhost.
+`EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_WEB_URL`. Set them per environment with `eas env:create`. A release build without them shows a setup notice; it never silently calls localhost.
 
 ## Billing webhooks (platform)
 - **Razorpay:** Dashboard → Webhooks → `https://api.<domain>/api/v1/webhooks/billing/razorpay`, with the secret = `RAZORPAY_WEBHOOK_SECRET`. Events: `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`, `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `token.confirmed`, `token.rejected` (the last two for pay-as-you-go card mandates; enable **Recurring Payments → Cards** on the account).
@@ -88,6 +88,10 @@ eas submit -p ios --profile production       # App Store Connect (TestFlight)
 eas submit -p android --profile production   # Play Console, internal track, as a draft
 ```
 Store approval is decided by Apple and Google. Nothing here publishes to the public stores automatically.
+
+What the app already does for store review: in-app account deletion (Account → Delete account), report and hide for other people's projects, links to the privacy policy and terms, email sign-in only (no third-party sign-in, so Sign in with Apple isn't required). **No purchases happen in the app**: it shows plan, credits and invoices read-only and never links to a payment page, so Apple/Google in-app purchase rules aren't triggered. Selling plans or credits inside the app later would need StoreKit / Play Billing.
+
+You still fill in: App Store "App Privacy" and Play "Data safety" (email address, user content, purchase history; no tracking), age rating, screenshots, a support URL, and a review account (email + password) for Apple's reviewer.
 
 ## Scaling note
 Run **one API instance** on Render (its persistent disk attaches to a single instance). The API itself is safe to replicate; see RUNBOOK → Scaling for what a multi-instance setup needs.

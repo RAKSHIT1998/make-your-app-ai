@@ -63,6 +63,8 @@ export const api = {
   activity: (limit = 12) => apiFetch<ActivityItem[]>(`/activity?limit=${limit}`),
   estimate: () => apiFetch<Estimate>('/generations/estimate'),
   updateMe: (b: { displayName?: string | null; handle?: string; bio?: string }) => apiFetch<Me>('/me', { method: 'PATCH', body: JSON.stringify(b) }),
+  deletionPreview: () => apiFetch<{ workspaces: { id: string; name: string; personal: boolean }[]; projects: number; subscriptionsToCancel: number; blockers: string[] }>('/me/deletion'),
+  deleteAccount: (confirmEmail: string) => apiFetch<{ deleted: boolean; signInRemoved: boolean }>('/me', { method: 'DELETE', body: JSON.stringify({ confirmEmail }) }),
   restoreProject: (id: string) => apiFetch<ProjectDto>(`/projects/${id}/restore`, { method: 'POST' }),
   archiveProject: (id: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'archived' }) }),
   renameProject: (id: string, name: string) => apiFetch<ProjectDto>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),

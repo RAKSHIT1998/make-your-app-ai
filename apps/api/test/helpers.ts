@@ -25,8 +25,10 @@ export async function createTestApp(opts: { env?: Record<string, string>; overri
 }
 
 /** Mints a token shaped like a Supabase Auth access token (HS256 legacy mode). */
-export async function tokenFor(sub: string, email: string, opts: { secret?: string; aud?: string } = {}) {
-  return new SignJWT({ email, role: 'authenticated' })
+export async function tokenFor(sub: string, email: string, opts: { secret?: string; aud?: string; iss?: string } = {}) {
+  const jwt = new SignJWT({ email, role: 'authenticated' });
+  if (opts.iss) jwt.setIssuer(opts.iss);
+  return jwt
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(sub)
     .setAudience(opts.aud ?? 'authenticated')

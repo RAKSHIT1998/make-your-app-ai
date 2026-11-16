@@ -42,7 +42,9 @@ Tick these in order. Items marked **(you)** need accounts, decisions or legal si
 - [ ] Read `docs/RUNBOOK.md`; you know where the flag switches are
 
 ## 6. Mobile (when ready)
-- [ ] `eas init`, then `eas env:create` for `EXPO_PUBLIC_*`
+- [ ] `eas init`, then `eas env:create` for `EXPO_PUBLIC_*` (including `EXPO_PUBLIC_WEB_URL`)
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` on the API, so in-app account deletion also removes the sign-in
+- [ ] A demo account for Apple's reviewer
 - [ ] `eas build --profile preview` installed on real devices
 - [ ] Store listings: screenshots, description, privacy policy URL, support URL, data-safety / privacy-nutrition answers
 - [ ] `eas build --profile production` → `eas submit` → TestFlight / Play internal testing → submit for review (approval is up to Apple/Google)

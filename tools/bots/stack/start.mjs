@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,12 +20,13 @@ export function stackConfig(env = process.env) {
   const apiPort = env.BOTS_API_PORT ?? '4100';
   const webPort = env.BOTS_WEB_PORT ?? '3100';
   const authPort = env.BOTS_AUTH_PORT ?? '54400';
+  const phonePort = env.BOTS_PHONE_PORT ?? '3200';
   const admin = env.BOTS_ADMIN_DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/postgres';
   const dbName = env.BOTS_DATABASE_NAME ?? 'mya_bots';
   const u = new URL(admin); u.pathname = `/${dbName}`;
   return {
-    apiPort, webPort, authPort, admin, dbName, databaseUrl: u.toString(),
-    apiUrl: `http://localhost:${apiPort}`, webUrl: `http://localhost:${webPort}`, authUrl: `http://localhost:${authPort}`,
+    apiPort, webPort, authPort, phonePort, admin, dbName, databaseUrl: u.toString(),
+    apiUrl: `http://localhost:${apiPort}`, webUrl: `http://localhost:${webPort}`, authUrl: `http://localhost:${authPort}`, phoneUrl: `http://localhost:${phonePort}`,
     jwtSecret: 'bots-secret-bots-secret-bots-secret-1234', storageDir: path.join(tmpdir(), 'mya-bots-storage'),
   };
 }
@@ -80,6 +82,21 @@ function run(cmd, args, env, cwd) {
   });
 }
 
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.ico': 'image/x-icon', '.png': 'image/png', '.ttf': 'font/ttf', '.svg': 'image/svg+xml' };
+/** Serves the phone app's web build: files as they are, every other path gets index.html (the app routes itself). */
+function servePhoneApp(dir, port) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '');
+      let file = path.join(dir, rel);
+      if (!file.startsWith(dir) || !existsSync(file) || rel === '' || !path.extname(file)) file = path.join(dir, 'index.html');
+      res.setHeader('Content-Type', TYPES[path.extname(file)] ?? 'application/octet-stream');
+      res.end(readFileSync(file));
+    });
+    server.listen(Number(port), () => resolve(server));
+  });
+}
+
 /**
  * Starts everything and returns addresses plus stop(). The API and web app must already be built
  * (`pnpm build`); the web app is rebuilt here because its public addresses are fixed at build time.
@@ -90,10 +107,11 @@ export async function startStack({ log = console.log, buildWeb = process.env.BOT
   rmSync(c.storageDir, { recursive: true, force: true }); mkdirSync(c.storageDir, { recursive: true });
   const env = {
     BOTS_DATABASE_URL: c.databaseUrl, BOTS_JWT_SECRET: c.jwtSecret, BOTS_STORAGE_DIR: c.storageDir, BOTS_OWNER_EMAIL: OWNER_EMAIL,
-    BOTS_API_PORT: c.apiPort, BOTS_AUTH_PORT: c.authPort, BOTS_WEB_URL: c.webUrl,
+    BOTS_API_PORT: c.apiPort, BOTS_AUTH_PORT: c.authPort, BOTS_WEB_URL: c.webUrl, BOTS_PHONE_URL: c.phoneUrl,
   };
   const kids = [];
-  const stop = async () => { for (const k of kids) k.kill('SIGTERM'); await sleep(500); for (const k of kids) if (k.exitCode == null) k.kill('SIGKILL'); };
+  let phoneServer;
+  const stop = async () => { phoneServer?.close(); for (const k of kids) k.kill('SIGTERM'); await sleep(500); for (const k of kids) if (k.exitCode == null) k.kill('SIGKILL'); };
   try {
     const auth = start('auth', [path.join(ROOT, 'tools/bots/stack/auth.mjs')], env, ROOT, logDir && path.join(logDir, 'auth.log')); kids.push(auth);
     const api = start('api', [path.join(ROOT, 'tools/bots/stack/api.mjs')], env, ROOT, logDir && path.join(logDir, 'api.log')); kids.push(api);
@@ -117,7 +135,16 @@ export async function startStack({ log = console.log, buildWeb = process.env.BOT
     }
     const next = start('web', [require.resolve('next/dist/bin/next', { paths: [web] }), 'start', '-p', c.webPort], webEnv, web, logDir && path.join(logDir, 'web.log')); kids.push(next);
     await waitFor(`${c.webUrl}/login`, 'web', next);
-    log(`stack up: web ${c.webUrl} · api ${c.apiUrl}`);
+
+    // The iOS/Android app, built for the browser with the same code, so the phone-app bot can use it like a phone.
+    const phoneDir = path.join(tmpdir(), 'mya-bots-phone-app');
+    const phoneEnv = { EXPO_PUBLIC_API_URL: c.apiUrl, EXPO_PUBLIC_SUPABASE_URL: c.authUrl, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'anon', EXPO_PUBLIC_WEB_URL: c.webUrl, CI: '1', EXPO_NO_TELEMETRY: '1' };
+    log('building the phone app for the browser…');
+    rmSync(phoneDir, { recursive: true, force: true });
+    const mobile = path.join(ROOT, 'apps/mobile');
+    await run(process.execPath, [require.resolve('expo/bin/cli', { paths: [mobile] }), 'export', '--platform', 'web', '--output-dir', phoneDir, '--clear'], phoneEnv, mobile);
+    phoneServer = await servePhoneApp(phoneDir, c.phonePort);
+    log(`stack up: web ${c.webUrl} · phone app ${c.phoneUrl} · api ${c.apiUrl}`);
     return { ...c, ownerEmail: OWNER_EMAIL, stop };
   } catch (e) { await stop(); throw e; }
 }

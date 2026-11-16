@@ -1,4 +1,5 @@
-import { Body, ConflictException, Controller, Get, Inject, Patch } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, Get, HttpCode, Inject, Ip, Patch } from '@nestjs/common';
+import { AccountService, DeleteAccountSchema } from './account.service.js';
 import type { PrismaClient } from '@mya/db';
 import { z } from 'zod';
 import { PRISMA } from '../prisma.service.js';
@@ -15,6 +16,7 @@ export class OrgsController {
   constructor(
     @Inject(OrgsService) private readonly orgs: OrgsService,
     @Inject(PRISMA) private readonly prisma: PrismaClient,
+    @Inject(AccountService) private readonly account: AccountService,
   ) {}
 
   @Get('me')
@@ -42,5 +44,17 @@ export class OrgsController {
     }
     await this.prisma.user.update({ where: { id: user.id }, data: body });
     return this.me(user);
+  }
+
+  /** What deleting the account would close, and anything blocking it. */
+  @Get('me/deletion')
+  deletion(@CurrentUser() user: AuthUser) {
+    return this.account.preview(user);
+  }
+
+  @Delete('me')
+  @HttpCode(200)
+  deleteMe(@CurrentUser() user: AuthUser, @Body(new ZodPipe(DeleteAccountSchema)) body: z.infer<typeof DeleteAccountSchema>, @Ip() ip: string) {
+    return this.account.delete(user, body, ip ?? null);
   }
 }
