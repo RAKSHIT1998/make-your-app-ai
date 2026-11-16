@@ -42,7 +42,7 @@ _If context is lost: read this file, then IMPLEMENTATION_PLAN.md, and continue f
 | New read-only endpoints backing the redesign: `GET /activity`, `GET /generations/estimate`, `GET /billing/usage`, `GET /stores/:id/customers?q=` | 2 new API e2e tests (incl. tenant isolation) |
 | Earlier sessions: AI engine + website generation, commerce engine + merchant dashboard, web and mobile apps | see git history; all tests green |
 
-**Test totals (this run):** api 148, shipping 6, hosting 2, codegen 41, ai 32, crawler guard 6 (Python), agents 8 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 34/34. Product bots 38/38 (19 bots × desktop and phone). `pnpm audit --prod`: 1 moderate (minimatch inside Expo's build tooling), 0 high. Mobile typecheck OK. `next build` OK. **0 failing.**
+**Test totals (this run):** api 160, shipping 6, hosting 2, codegen 41, ai 32, crawler guard 6 (Python), agents 11 (+1 sandbox integration), payments 6, web 6, sandbox 1 (+1 integration). `turbo build typecheck test` 32/32. Product bots 38/38 (19 bots × desktop and phone). `pnpm audit --prod`: 1 moderate (minimatch inside Expo's build tooling), 0 high. Mobile typecheck OK. `next build` OK. **0 failing.**
 
 ## In progress
 None. The session ended at a clean commit.
@@ -81,7 +81,7 @@ None.
 - Mobile app has no billing or owner screens yet (web only). It compiles against the new tokens (brand aliases) but has not been visually redesigned.
 - Redesign items shown as **"soon"** because no backend exists yet (never faked): workspace Preview, Database, Integrations, Testing and Builds tabs; the Website Studio visual editor (canvas, component tree, properties, undo/redo, publish); Hosting and Templates; Marketing in Business Studio; app build credits and hosting usage in Billing; App Studio generation. File attachment on Create is omitted (no upload API).
 - Growth: no live previews/screenshots on public pages for websites and mobile apps (needs hosting; games and browser apps are playable there); the "Made with" badge is shown on public pages but can't be injected into deployed sites until hosting exists; trending is computed per request (fine at current scale; cache it when Explore grows).
-- Growth spec received only up to §3F; challenges, voting and badges remain phase G2 (comments, follows, collections are done).
+- Growth spec received only up to §3F. Challenge prizes are whatever the owner writes and are not fulfilled by the platform; notifications (likes, comments, remixes, challenge results) don't exist yet, so people learn results by visiting the page.
 
 ## Missing credentials (complete list)
 Supabase (URL, anon key, DB URLs, JWT secret if legacy) · `ANTHROPIC_API_KEY` · `ENCRYPTION_KEY` · `PLATFORM_OWNER_EMAILS` · platform Razorpay keys and webhook secret · platform Stripe keys and webhook secret · `REPORTING_USD_INR` (optional). Later: Upstash Redis, Inngest, Cloudflare R2, Render, Expo/EAS, Vercel or Cloudflare, Sentry.
