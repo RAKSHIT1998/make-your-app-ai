@@ -44,7 +44,7 @@ export class RetentionService {
       const v = r?.[field] as Date | null | undefined;
       return v ? v.toISOString() : null;
     };
-    const [firstProject, firstBuild, firstPublish, firstLike, firstRemix, firstStore, firstSale, firstReferral, runDays] = await Promise.all([
+    const [firstProject, firstBuild, firstPublish, firstLike, firstRemix, firstStore, firstSale, firstReferral, runDays, firstEntry, firstPodium] = await Promise.all([
       first(this.prisma.project.findFirst({ where: { createdById: user.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } })),
       first(this.prisma.generationRun.findFirst({ where: { requestedBy: user.id, status: 'succeeded', kind: { in: ['create', 'edit'] } }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } })),
       first(this.prisma.auditLog.findFirst({ where: { actorId: user.id, action: 'project.published' }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } })),
@@ -54,6 +54,13 @@ export class RetentionService {
       first(this.prisma.order.findFirst({ where: { store: { organizationId: { in: orgIds } }, status: { in: ['paid', 'partially_refunded', 'refunded'] } }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } })),
       first(this.prisma.referral.findFirst({ where: { referrerId: user.id, status: 'rewarded' }, orderBy: { qualifiedAt: 'asc' }, select: { qualifiedAt: true } }), 'qualifiedAt'),
       this.prisma.$queryRaw<{ day: Date }[]>`SELECT DISTINCT date_trunc('day', "finishedAt") AS day FROM "GenerationRun" WHERE "requestedBy" = ${user.id}::uuid AND status = 'succeeded' AND kind IN ('create','edit') AND "finishedAt" > now() - interval '400 days' ORDER BY day`,
+      first(this.prisma.challengeEntry.findFirst({ where: { submittedById: user.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } })),
+      // Top three (with at least one vote) in a challenge whose voting has closed.
+      this.prisma.$queryRaw<{ at: Date }[]>`SELECT min(c."votingClosesAt") AS at FROM (
+          SELECT e."challengeId", e."organizationId", e."voteCount", rank() OVER (PARTITION BY e."challengeId" ORDER BY e."voteCount" DESC) AS rk
+          FROM "ChallengeEntry" e WHERE e."hiddenAt" IS NULL) w
+        JOIN "Challenge" c ON c.id = w."challengeId"
+        WHERE w.rk <= 3 AND w."voteCount" > 0 AND c.status = 'published' AND c."votingClosesAt" <= now() AND w."organizationId" = ANY(${orgIds}::uuid[])`.then((r) => r[0]?.at?.toISOString() ?? null),
     ]);
     const streak = this.streak(runDays.map((r) => dayKey(new Date(r.day))));
     const badges = [
@@ -65,6 +72,8 @@ export class RetentionService {
       { key: 'first_store', title: 'Shop open', description: 'Created a store in Business Studio.', earnedAt: firstStore },
       { key: 'first_customer', title: 'First customer', description: 'A customer paid for an order in your store.', earnedAt: firstSale },
       { key: 'first_referral', title: 'Connector', description: 'Someone you invited became a customer.', earnedAt: firstReferral },
+      { key: 'challenge_entrant', title: 'Challenger', description: 'Entered a weekly challenge.', earnedAt: firstEntry },
+      { key: 'challenge_podium', title: 'Podium finish', description: 'Finished in the top three of a challenge.', earnedAt: firstPodium },
       { key: 'streak_7', title: '7-day streak', description: 'Built something 7 days in a row.', earnedAt: streak.sevenDayAt },
     ];
     return { badges, streak: { current: streak.current, longest: streak.longest, last30: streak.last30 } };

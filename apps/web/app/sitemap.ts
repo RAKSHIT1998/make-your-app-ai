@@ -10,6 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const fixed: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: 'weekly', priority: 1 },
     { url: `${SITE_URL}/explore`, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${SITE_URL}/challenges`, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${SITE_URL}/leaderboard`, changeFrequency: 'daily', priority: 0.5 },
     { url: `${SITE_URL}/pricing`, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${SITE_URL}/credits`, changeFrequency: 'yearly' as const, priority: 0.2 },
     ...LEGAL_SLUGS.map((s) => ({ url: `${SITE_URL}/legal/${s}`, changeFrequency: 'yearly' as const, priority: 0.2 })),

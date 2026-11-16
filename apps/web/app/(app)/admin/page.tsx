@@ -7,10 +7,11 @@ import { Badge, Button, Card, Dialog, EmptyState, ErrorNotice, Field, Input, Men
 import { DataTable } from '@/components/ui/table';
 import { AiRoutingPanel } from '@/components/ai-routing';
 import { AdminAnalyticsPanel } from '@/components/admin-analytics';
+import { AdminChallengesPanel } from '@/components/admin-challenges';
 import Link from 'next/link';
 import { admin, api, community, flags as flagsApi, growthAdmin, templatesApi, money, type AdminPlan, type AdminUser, type GrowthSettings } from '@/lib/api';
 
-type Tab = 'overview' | 'analytics' | 'plans' | 'customers' | 'growth' | 'templates' | 'ai' | 'flags' | 'audit';
+type Tab = 'overview' | 'analytics' | 'plans' | 'customers' | 'growth' | 'challenges' | 'templates' | 'ai' | 'flags' | 'audit';
 const intOk = (v: string, allowNeg = false) => (allowNeg ? /^-?\d+$/ : /^\d+$/).test(v.trim());
 
 export default function AdminPage() {
@@ -20,8 +21,8 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Owner" title="Owner console" description={<span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5" />Platform-wide business data. Every action is recorded in the audit log.</span>} />
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'analytics', label: 'Analytics' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'growth', label: 'Growth' }, { value: 'templates', label: 'Templates' }, { value: 'ai', label: 'AI routing' }, { value: 'flags', label: 'Feature flags' }, { value: 'audit', label: 'Audit log' }]} />
-      {tab === 'overview' ? <Overview /> : tab === 'analytics' ? <AdminAnalyticsPanel /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : tab === 'growth' ? <Growth /> : tab === 'ai' ? <AiRoutingPanel /> : tab === 'flags' ? <Flags /> : tab === 'templates' ? <TemplateReviews /> : <Audit />}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} items={[{ value: 'overview', label: 'Overview' }, { value: 'analytics', label: 'Analytics' }, { value: 'plans', label: 'Plans' }, { value: 'customers', label: 'Customers' }, { value: 'growth', label: 'Growth' }, { value: 'challenges', label: 'Challenges' }, { value: 'templates', label: 'Templates' }, { value: 'ai', label: 'AI routing' }, { value: 'flags', label: 'Feature flags' }, { value: 'audit', label: 'Audit log' }]} />
+      {tab === 'overview' ? <Overview /> : tab === 'analytics' ? <AdminAnalyticsPanel /> : tab === 'plans' ? <Plans /> : tab === 'customers' ? <Customers /> : tab === 'growth' ? <Growth /> : tab === 'challenges' ? <AdminChallengesPanel /> : tab === 'ai' ? <AiRoutingPanel /> : tab === 'flags' ? <Flags /> : tab === 'templates' ? <TemplateReviews /> : <Audit />}
     </div>
   );
 }

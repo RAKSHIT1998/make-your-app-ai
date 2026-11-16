@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Command } from 'cmdk';
-import { Compass, CreditCard, Gift, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Lightbulb, Settings, Shield, ShoppingBag, Smartphone, Sun, Users, type LucideIcon } from 'lucide-react';
+import { Compass, CreditCard, Gift, FolderKanban, Globe, Home, LayoutGrid, LayoutTemplate, LogOut, Monitor, Moon, PanelLeft, Plus, Search, Server, Lightbulb, Settings, Shield, ShoppingBag, Smartphone, Sun, Users, type LucideIcon, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -35,6 +35,7 @@ const PLATFORM: NavItem[] = [
 ];
 const COMMUNITY: NavItem[] = [
   { href: '/explore', label: 'Explore', icon: Compass, live: true },
+  { href: '/challenges', label: 'Challenges', icon: Trophy, live: true },
   { href: '/invite', label: 'Invite & earn', icon: Gift, live: true },
 ];
 const TEAM: NavItem = { href: '/team', label: 'Team', icon: Users, live: true };

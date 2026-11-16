@@ -64,6 +64,7 @@ model User {
   following       UserFollow[]             @relation("Follower")
   followers       UserFollow[]             @relation("Followed")
   showcaseCollections ShowcaseCollection[]
+  challengeVotes  ChallengeVote[]
 }
 
 model Organization {
@@ -521,6 +522,7 @@ model Project {
   publishing     PublishingRecord[]
   approvals      ApprovalRequest[]
   store          Store?
+  challengeEntries ChallengeEntry[]
 
   @@index([organizationId, deletedAt])
 
@@ -1275,6 +1277,71 @@ model PaymentWebhookEvent {
 enum ProjectVisibility {
   private
   public
+}
+
+enum ChallengeStatus {
+  draft
+  published
+  cancelled
+}
+
+/// A themed building challenge run by the platform owner: entries are published projects, ranked by community votes.
+model Challenge {
+  id                 String          @id @default(uuid()) @db.Uuid
+  slug               String          @unique
+  title              String
+  /// The brief creators build to (plain text).
+  brief              String
+  /// Project types that may enter; empty = any.
+  projectTypes       ProjectType[]
+  /// What the winners get, written by the owner. Shown as-is; null when there is no prize.
+  prize              String?
+  startsAt           DateTime
+  submissionsCloseAt DateTime
+  votingClosesAt     DateTime
+  /// How many different entries one person may vote for.
+  votesPerUser       Int             @default(3)
+  status             ChallengeStatus @default(draft)
+  createdById        String          @db.Uuid
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  entries            ChallengeEntry[]
+
+  @@index([status, startsAt])
+}
+
+model ChallengeEntry {
+  id             String          @id @default(uuid()) @db.Uuid
+  challengeId    String          @db.Uuid
+  projectId      String          @db.Uuid
+  organizationId String          @db.Uuid
+  submittedById  String          @db.Uuid
+  note           String          @default("")
+  /// Hidden by a moderator: not listed, not ranked, no votes.
+  hiddenAt       DateTime?
+  hiddenNote     String?
+  voteCount      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  challenge      Challenge       @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  votes          ChallengeVote[]
+
+  @@unique([challengeId, projectId])
+  /// One entry per workspace per challenge.
+  @@unique([challengeId, organizationId])
+  @@index([challengeId, voteCount])
+}
+
+model ChallengeVote {
+  entryId     String         @db.Uuid
+  userId      String         @db.Uuid
+  challengeId String         @db.Uuid
+  createdAt   DateTime       @default(now())
+  entry       ChallengeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, userId])
+  @@index([challengeId, userId])
 }
 
 model ProjectLike {

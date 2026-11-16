@@ -31,8 +31,8 @@ _Status as of 2026-11-13. Source spec ended mid-way through §3F; later sections
 - Owner console → Growth: open reports, hide (with a note shown to the creator; blocks republishing), restore, dismiss, feature/unfeature. Everything is audited.
 - Public payloads never include emails or private data; rate limits on views, likes, remix, report and claim.
 
-## Next (phase G2 — community)
-Weekly challenges with submissions, community voting and leaderboards; comments with moderation and spam limits; follows; collections; achievement badges; notification of new likes/remixes.
+## Phase G2 — community
+Done: weekly challenges with entries, community voting and winners (session 17k), creator leaderboard, comments with moderation and spam limits, follows, collections, achievement badges. Next: notifications of new likes, comments, remixes and challenge results.
 
 ## Next (phase G3 — AI building experience, §3)
 | Feature | Status / dependency |

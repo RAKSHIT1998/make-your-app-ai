@@ -29,7 +29,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Social metadata + OG images; share to WhatsApp/LinkedIn/X/Instagram | ✅ | Instagram via native share/copy (no web intent exists) |
 | "Made with" attribution; paid plans can hide | 🟡 | Enforced on public pages; injection into deployed sites waits for hosting |
 | Referral programme (codes, URL, dashboard, tracking, conversion, rewards, history, limits, anti-abuse, admin config) | ✅ | Rewards only after verified first payment |
-| Weekly challenges, voting, submissions, leaderboards | ⬜ | Phase 3 remaining |
+| Weekly challenges, voting, submissions, leaderboards | ✅ (session 17k) | Owner-run challenges with entries from published projects, limited community voting (no self-votes, new accounts wait a day), ranking, winners and badges; 30-day top-creators leaderboard; `challenges` flag |
 | Comments, follows, collections | ✅ | Threaded comments with per-creator toggle, report → auto-hide at 3 + admin queue, follow + Following feed, public collections; behind the `comments` flag |
 | Achievement badges | ✅ (this session) | Computed from real activity |
 | Moderation, reporting, spam protection | ✅ | Reports, auto-hide after 3, owner moderation, rate limits |
@@ -152,7 +152,7 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Users, MRR/ARR, revenue, AI cost, margin, subscriptions, plans, credits, audit log, moderation, referrals | ✅ |
 | AI routing console (tier rates, routes, health, margin; audited) | ✅ |
 | Analytics tab: daily revenue, sign-ups, projects, builds, credits; project mix; customer-store sales and parcels; extensions in use; top workspaces | ✅ (session 14) |
-| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, refund_failed_builds, app_backends, app_services), enforced by the API (503 `feature_disabled`), audited, owner console tab |
+| Feature flags (kill switches) | ✅ (this session) | platform flags (ai_generation, plan_first_builder, voice_input, publishing, explore, remix, referrals, templates, hosting, team_workspaces, comments, challenges, refund_failed_builds, app_backends, app_services, site_import, pay_as_you_go), enforced by the API (503 `feature_disabled`), audited, owner console tab |
 | Churn, conversion, ARPU, cost per project, completion time, deployment rate, fraud signals, system health | 🟡 partial / ⬜ |
 
 ## §15 Onboarding

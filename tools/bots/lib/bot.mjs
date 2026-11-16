@@ -1,6 +1,7 @@
 // What every product bot gets: a browser on a desktop or phone screen, a fresh customer, steps that are timed and
 // reported, screenshots, page-error and layout checks, and small helpers for the platform's own flows.
 import { createHmac, randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { TEST } from '../stack/emulators.mjs';
 
@@ -174,6 +175,16 @@ export function createBot({ name, device, browser, stack, outDir }) {
       for (const c of contexts) for (const pg of c.pages()) await bot.shot(pg, `failed-window-${++i}`).catch(() => {});
     },
 
+    /**
+     * Moves time for one thing in the bots' own throwaway database, for rules that wait on the clock
+     * (a new account may vote a day after signing up; a challenge ends). Never used for anything a customer could do.
+     */
+    async sql(text, params = []) {
+      const pg = createRequire(path.resolve(import.meta.dirname, '../../../packages/db/package.json'))('pg');
+      const db = new pg.Client({ connectionString: stack.databaseUrl });
+      await db.connect();
+      try { return (await db.query(text, params)).rows; } finally { await db.end(); }
+    },
     async close() { for (const c of contexts) await c.close().catch(() => {}); },
   };
   return bot;

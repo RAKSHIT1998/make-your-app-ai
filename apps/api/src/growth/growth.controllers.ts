@@ -8,6 +8,7 @@ import { ZodPipe } from '../common/zod.pipe.js';
 import { ExploreQuerySchema, PublishSchema, ReportSchema, ShowcaseService, type PublishInput } from './showcase.service.js';
 import { GrowthSettingsSchema, ReferralsService } from './referrals.service.js';
 import { ModerationService } from './moderation.service.js';
+import { ChallengePatchSchema, ChallengeSchema, ChallengesService, EntrySchema, type ChallengeInput } from './challenges.service.js';
 import { CollectionPatchSchema, CollectionSchema, CommentReportSchema, CommentSchema, CommunityService } from './community.service.js';
 
 const Slug = z.string().regex(/^[a-z0-9-]{1,80}$/);
@@ -110,4 +111,38 @@ export class CommunityController {
   @Delete('collections/:id') @HttpCode(204) async deleteCollection(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string) { await this.c.deleteCollection(u, id); }
   @Put('collections/:id/items/:slug') @Throttle({ default: { limit: 60, ttl: 60_000 } }) addItem(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string, @Param('slug', SlugPipe) slug: string) { return this.c.setItem(u, id, slug, true); }
   @Delete('collections/:id/items/:slug') @Throttle({ default: { limit: 60, ttl: 60_000 } }) removeItem(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string, @Param('slug', SlugPipe) slug: string) { return this.c.setItem(u, id, slug, false); }
+}
+
+const ChallengeSlug = new ZodPipe(z.string().regex(/^[a-z0-9-]{3,60}$/));
+const EntryHideBody = z.object({ note: z.string().trim().min(3).max(300) });
+
+/** Challenges and leaderboards: public reads (signed-in viewers see their votes), signed-in entry and voting. */
+@Controller()
+export class ChallengesController {
+  constructor(@Inject(ChallengesService) private readonly c: ChallengesService) {}
+  @Public() @Get('challenges') list() { return this.c.list(); }
+  @Public() @Get('challenges/:slug') detail(@Param('slug', ChallengeSlug) slug: string, @OptionalUser() u: AuthUser | null) { return this.c.detail(slug, u); }
+  @Public() @Get('leaderboards/creators') creators() { return this.c.creatorLeaderboard(); }
+  @Get('challenges/:slug/eligible') eligible(@CurrentUser() u: AuthUser, @Param('slug', ChallengeSlug) slug: string) { return this.c.eligible(slug, u); }
+  @Post('challenges/:slug/entries') @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  enter(@CurrentUser() u: AuthUser, @Param('slug', ChallengeSlug) slug: string, @Body(new ZodPipe(EntrySchema)) b: z.infer<typeof EntrySchema>) { return this.c.enter(slug, u, b); }
+  @Delete('challenges/:slug/entries/:id') @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  withdraw(@CurrentUser() u: AuthUser, @Param('slug', ChallengeSlug) slug: string, @Param('id', Uuid) id: string) { return this.c.withdraw(slug, u, id); }
+  @Put('challenges/:slug/entries/:id/vote') @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  vote(@CurrentUser() u: AuthUser, @Param('slug', ChallengeSlug) slug: string, @Param('id', Uuid) id: string) { return this.c.vote(slug, u, id, true); }
+  @Delete('challenges/:slug/entries/:id/vote') @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  unvote(@CurrentUser() u: AuthUser, @Param('slug', ChallengeSlug) slug: string, @Param('id', Uuid) id: string) { return this.c.vote(slug, u, id, false); }
+}
+
+@Controller('admin/challenges')
+@UseGuards(PlatformAdminGuard)
+@RequirePlatformRole('support')
+export class ChallengesAdminController {
+  constructor(@Inject(ChallengesService) private readonly c: ChallengesService) {}
+  @Get() list() { return this.c.adminList(); }
+  @Get(':id/entries') entries(@Param('id', Uuid) id: string) { return this.c.adminEntries(id); }
+  @RequirePlatformRole('admin') @Post() create(@CurrentUser() u: AuthUser, @Body(new ZodPipe(ChallengeSchema)) b: ChallengeInput) { return this.c.create(u, b); }
+  @RequirePlatformRole('admin') @Patch(':id') update(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string, @Body(new ZodPipe(ChallengePatchSchema)) b: z.infer<typeof ChallengePatchSchema>) { return this.c.update(u, id, b); }
+  @RequirePlatformRole('admin') @Post('entries/:id/hide') @HttpCode(200) hide(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string, @Body(new ZodPipe(EntryHideBody)) b: z.infer<typeof EntryHideBody>) { return this.c.moderateEntry(u, id, true, b.note); }
+  @RequirePlatformRole('admin') @Post('entries/:id/restore') @HttpCode(200) restore(@CurrentUser() u: AuthUser, @Param('id', Uuid) id: string) { return this.c.moderateEntry(u, id, false); }
 }

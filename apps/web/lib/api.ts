@@ -506,3 +506,32 @@ export const ownerDashboard = {
   exportRecords: (projectId: string, collection: string) => downloadFile(`/projects/${projectId}/insights/export/records?collection=${encodeURIComponent(collection)}`, `${collection}.csv`),
 };
 
+
+// ───────── Challenges and leaderboards ─────────
+export type ChallengePhase = 'upcoming' | 'open' | 'voting' | 'ended' | 'cancelled' | 'draft';
+export interface ChallengeSummary {
+  slug: string; title: string; brief: string; projectTypes: ProjectType[]; prize: string | null;
+  startsAt: string; submissionsCloseAt: string; votingClosesAt: string; votesPerUser: number; phase: ChallengePhase; entries: number;
+}
+export interface ChallengeEntry { id: string; rank: number; votes: number; note: string; submittedAt: string; winner: boolean; mine: boolean; votedByMe: boolean; project: ShowcaseCard }
+export interface ChallengeDetail extends Omit<ChallengeSummary, 'entries'> { entries: ChallengeEntry[]; myVotesLeft: number | null; myEntry: string | null }
+export interface CreatorRank { rank: number; handle: string; name: string; likes: number; remixes: number; podiums: number; score: number }
+export interface AdminChallenge extends ChallengeSummary { id: string; status: 'draft' | 'published' | 'cancelled' }
+export type ChallengeInput = Omit<ChallengeSummary, 'phase' | 'entries'> & { status: 'draft' | 'published' | 'cancelled' };
+export const challenges = {
+  list: () => apiFetch<{ enabled: boolean; current: ChallengeSummary[]; upcoming: ChallengeSummary[]; past: ChallengeSummary[] }>('/challenges'),
+  get: (slug: string) => apiFetch<ChallengeDetail>(`/challenges/${slug}`),
+  eligible: (slug: string) => apiFetch<{ id: string; title: string; slug: string | null; type: ProjectType }[]>(`/challenges/${slug}/eligible`),
+  enter: (slug: string, projectId: string, note: string) => apiFetch<ChallengeDetail>(`/challenges/${slug}/entries`, { method: 'POST', body: JSON.stringify({ projectId, note }) }),
+  withdraw: (slug: string, id: string) => apiFetch<ChallengeDetail>(`/challenges/${slug}/entries/${id}`, { method: 'DELETE' }),
+  vote: (slug: string, id: string, on: boolean) => apiFetch<ChallengeDetail>(`/challenges/${slug}/entries/${id}/vote`, { method: on ? 'PUT' : 'DELETE' }),
+  creators: () => apiFetch<CreatorRank[]>('/leaderboards/creators'),
+};
+export const challengesAdmin = {
+  list: () => apiFetch<AdminChallenge[]>('/admin/challenges'),
+  create: (b: ChallengeInput) => apiFetch<AdminChallenge>('/admin/challenges', { method: 'POST', body: JSON.stringify(b) }),
+  update: (id: string, b: Partial<ChallengeInput>) => apiFetch<AdminChallenge>(`/admin/challenges/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
+  entries: (id: string) => apiFetch<{ id: string; votes: number; hidden: boolean; hiddenNote: string | null; note: string; submittedAt: string; project: ShowcaseCard | null }[]>(`/admin/challenges/${id}/entries`),
+  hide: (entryId: string, note: string) => apiFetch<{ ok: true }>(`/admin/challenges/entries/${entryId}/hide`, { method: 'POST', body: JSON.stringify({ note }) }),
+  restore: (entryId: string) => apiFetch<{ ok: true }>(`/admin/challenges/entries/${entryId}/restore`, { method: 'POST', body: '{}' }),
+};
