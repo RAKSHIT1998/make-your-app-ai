@@ -9,12 +9,12 @@ import { Button, ErrorNotice, Field, Input, Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
-const POINTS = ['Describe a website — get real, editable code', 'Refine it by chatting, with every change versioned', 'Run a store with products, orders and payments'];
+const POINTS = ['Describe an idea — get a working website, app, game or shop you own', 'See a plan first, then refine by chatting, with every change versioned', 'Run a store, a team app or a business tool with real data and payments'];
 
 export default function LoginPage() {
   const { session, configured } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -39,6 +39,13 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     setNotice(null);
+    if (mode === 'reset') {
+      // Same answer whether or not the address has an account, so this can't be used to find accounts.
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/reset-password` });
+      setBusy(false);
+      if (error) return setError(error);
+      return setNotice('If that email has an account, a link to choose a new password is on its way. It works once and expires soon.');
+    }
     const { data, error } = mode === 'signin' ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password });
     setBusy(false);
     if (error) return setError(error);
@@ -64,22 +71,26 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={submit} className="space-y-5">
               <div>
-                <h1 className="text-2xl font-semibold tracking-[-0.02em]">{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h1>
-                <p className="mt-1.5 text-sm text-muted">{mode === 'signin' ? 'Sign in to continue building.' : 'Start free — no card required.'}</p>
+                <h1 className="text-2xl font-semibold tracking-[-0.02em]">{mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create your account' : 'Reset your password'}</h1>
+                <p className="mt-1.5 text-sm text-muted">{mode === 'signin' ? 'Sign in to continue building.' : mode === 'signup' ? 'Start free — no card required.' : 'We’ll email you a link to choose a new one.'}</p>
               </div>
-              <Button type="button" variant="secondary" size="lg" className="w-full" onClick={google}>
+              {mode !== 'reset' && <><Button type="button" variant="secondary" size="lg" className="w-full" onClick={google}>
                 <svg viewBox="0 0 24 24" className="size-4" aria-hidden><path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8Z" /><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1-3.7 1-2.9 0-5.3-1.9-6.2-4.5H2.1v2.8A11 11 0 0 0 12 23Z" /><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.1a11 11 0 0 0 0 9.8l3.7-2.8Z" /><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1A11 11 0 0 0 2.1 7.1l3.7 2.8C6.7 7.3 9.1 5.4 12 5.4Z" /></svg>
                 Continue with Google
               </Button>
-              <div className="flex items-center gap-3 text-xs text-subtle"><span className="h-px flex-1 bg-border" />or with email<span className="h-px flex-1 bg-border" /></div>
+              <div className="flex items-center gap-3 text-xs text-subtle"><span className="h-px flex-1 bg-border" />or with email<span className="h-px flex-1 bg-border" /></div></>}
               <Field label="Email"><Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></Field>
-              <Field label="Password" hint={mode === 'signup' ? 'At least 8 characters.' : undefined}><Input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+              {mode !== 'reset' && (
+                <Field label="Password" hint={mode === 'signup' ? 'At least 8 characters.' : <button type="button" className="font-medium text-fg underline-offset-4 hover:underline" onClick={() => { setMode('reset'); setError(null); setNotice(null); }}>Forgot your password?</button>}>
+                  <Input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
+                </Field>
+              )}
               {invited && <Notice tone="success">You’ve been invited. Create your account — you’ll both get bonus credits after your first purchase.</Notice>}
               {error ? <ErrorNotice error={error} /> : null}
               {notice && <Notice tone="success">{notice}</Notice>}
-              <Button type="submit" size="lg" className="w-full" loading={busy}>{mode === 'signin' ? 'Sign in' : 'Create account'}</Button>
+              <Button type="submit" size="lg" className="w-full" loading={busy}>{mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}</Button>
               <p className="text-center text-sm text-muted">
-                {mode === 'signin' ? 'New here? ' : 'Already have an account? '}
+                {mode === 'signin' ? 'New here? ' : mode === 'signup' ? 'Already have an account? ' : 'Remembered it? '}
                 <button type="button" className="font-medium text-fg underline-offset-4 hover:underline" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setNotice(null); }}>
                   {mode === 'signin' ? 'Create an account' : 'Sign in'}
                 </button>
@@ -97,7 +108,7 @@ export default function LoginPage() {
             {POINTS.map((p) => <li key={p} className="flex gap-3"><Check className="mt-0.5 size-4 shrink-0 text-[#FF6A33]" />{p}</li>)}
           </ul>
         </div>
-        <div className="text-xs text-[#F3F2EF]/45">Websites and stores today · apps coming next</div>
+        <div className="text-xs text-[#F3F2EF]/70">Websites · web apps · games · online stores · business software · mobile apps</div>
         <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-40 size-[520px] rounded-full border border-[#F3F2EF]/[0.06]" />
         <div aria-hidden className="pointer-events-none absolute -bottom-20 -right-20 size-[320px] rounded-full border border-[#F3F2EF]/[0.08]" />
       </aside>

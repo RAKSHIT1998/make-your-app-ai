@@ -11,6 +11,8 @@ services:
     numInstances: 1
     healthCheckPath: /api/v1/health
     preDeployCommand: cd /migrate && npx prisma migrate deploy
+    # Optional since customer code is also kept in the database (PROJECT_REPO_MIRROR=postgres): the disk is only a cache.
+    # Remove these two lines to save the disk fee; keep them for faster first loads after a deploy.
     disk: { name: projects, mountPath: /data, sizeGB: 5 } # grow later in the dashboard (it can't shrink)
     envVars:
       - { key: NODE_ENV, value: production }

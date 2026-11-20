@@ -24,6 +24,9 @@ pnpm --filter @mya/mobile start   # Expo
 Production-like stack: `docker compose -f infra/docker-compose.yml up --build` runs Postgres, then migrations, then the API and web.
 
 ## Production deploy (Render + Supabase)
+
+Costs, free-tier limits and the database move before Render's free database expires: **LAUNCH_PLAN.md**.
+
 1. **Supabase:** create a project. Copy the pooled connection string (`DATABASE_URL`), the direct connection string (`DIRECT_URL`), the project URL and anon key, and the JWT secret if the project uses HS256. Under Auth → URL configuration, set the Site URL and add `https://<domain>/home` as a redirect URL (Google sign-in returns there).
 2. **Render:** create a Blueprint from this repo, pointing at `infra/render.yaml`. Fill every `sync: false` value in the dashboard (table below).
 3. Deploy. Render builds the image, runs `prisma migrate deploy` before the new version starts, and routes traffic only after `GET /api/v1/health` returns `{"status":"ok","db":"ok"}`.
@@ -42,7 +45,7 @@ Production-like stack: `docker compose -f infra/docker-compose.yml up --build` r
 | `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` | JWT verification (JWKS, or legacy HS256) |
 | `ENCRYPTION_KEY` | `openssl rand -base64 32`. Encrypts merchant gateway credentials and project env vars. **Back it up; losing it makes that data unreadable.** |
 | `WEB_ORIGIN`, `WEB_APP_URL`, `PUBLIC_API_URL` | Public https URLs (CORS, links, webhook URLs shown to merchants) |
-| `STORAGE_DIR` | Absolute path on a persistent disk (one git repository per project). On Render: `/data/projects` |
+| `STORAGE_DIR` | Absolute path for the local cache of project repositories. A persistent disk is optional: the durable copy is in the database (`ProjectRepo`) |
 | `ANTHROPIC_API_KEY` | AI generation. Without it (and with no other provider key), generation reports "not configured" |
 | `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `TOGETHER_API_KEY`, `CEREBRAS_API_KEY`, `SAMBANOVA_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`, `CUSTOM_AI_NAME` / `CUSTOM_AI_BASE_URL` / `CUSTOM_AI_API_KEY` | Optional extra providers for smart routing. Routes are added in Owner console → AI routing; a route without its key is never used |
 | `AI_ROUTING_STRATEGY` | `margin` (default: cheapest reliable route that meets the tier's quality floor) or `priority` |

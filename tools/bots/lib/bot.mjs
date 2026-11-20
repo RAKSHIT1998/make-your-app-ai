@@ -26,7 +26,7 @@ export function createBot({ name, device, browser, stack, outDir }) {
   const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 
   const bot = {
-    name, device, isPhone: device === 'phone', web: stack.webUrl, phoneApp: stack.phoneUrl, api: `${stack.apiUrl}/api/v1`, ownerEmail: stack.ownerEmail,
+    name, device, isPhone: device === 'phone', web: stack.webUrl, phoneApp: stack.phoneUrl, authUrl: stack.authUrl, api: `${stack.apiUrl}/api/v1`, ownerEmail: stack.ownerEmail,
     steps, problems, shots,
 
     /** A unique, throwaway customer email for this run. */

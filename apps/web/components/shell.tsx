@@ -101,7 +101,7 @@ function UserMenu({ collapsed, align = 'start' }: { collapsed?: boolean; align?:
     <Menu
       align={align}
       trigger={
-        <button className={cx('flex w-full items-center gap-2.5 rounded-[var(--radius-md)] p-1.5 text-left transition-colors hover:bg-surface-muted', collapsed && 'justify-center')} aria-label="Account menu">
+        <button className={cx('flex w-full items-center gap-2.5 rounded-[var(--radius-md)] p-1.5 text-left transition-colors hover:bg-surface-muted', collapsed && 'justify-center')} aria-label={collapsed ? 'Account menu' : undefined}>
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-muted text-xs font-semibold text-fg ring-1 ring-border">{initial}</span>
           {!collapsed && <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium">{me.data?.displayName ?? me.data?.email.split('@')[0] ?? '…'}</span><span className="block truncate text-xs text-subtle">{me.data?.email}</span></span>}
         </button>
@@ -278,7 +278,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link href="/home" aria-label="Make Your App AI home">{isCollapsed ? <LogoMark /> : <Logo />}</Link>
           {!isCollapsed && <Tooltip content={<>Collapse <Kbd>⌘B</Kbd></>}><Button variant="ghost" size="sm" iconOnly onClick={toggle} aria-label="Collapse sidebar"><PanelLeft className="size-4" /></Button></Tooltip>}
         </div>
-        <button onClick={() => setPalette(true)} className={cx('mb-2 flex h-8 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface px-2.5 text-[13px] text-subtle shadow-sm transition-colors hover:border-border-strong', isCollapsed && 'justify-center px-0')} aria-label="Search (⌘K)">
+        <button onClick={() => setPalette(true)} className={cx('mb-2 flex h-8 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface px-2.5 text-[13px] text-subtle shadow-sm transition-colors hover:border-border-strong', isCollapsed && 'justify-center px-0')} aria-label={isCollapsed ? 'Search' : undefined} aria-keyshortcuts="Meta+K">
           <Search className="size-4" />{!isCollapsed && <><span className="flex-1 text-left">Search</span><Kbd>⌘K</Kbd></>}
         </button>
         <WorkspaceSwitcher collapsed={isCollapsed} />

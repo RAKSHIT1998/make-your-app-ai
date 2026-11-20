@@ -134,7 +134,8 @@ Legend: ✅ complete (UI + API + DB + permissions + validation + tests) · 🟡 
 | Owner: business overview, kill switches, audit | ✅ | Plans, prices, AI routes and moderation stay on the web |
 | Account deletion in the app and on the web | ✅ | `DELETE /me`; sign-in removed when `SUPABASE_SERVICE_ROLE_KEY` is set |
 | Store builds and submission | ⛔ | Needs Expo/EAS, Apple Developer and Google Play accounts |
-| Push notifications, password reset, offline | ⬜ | |
+| Password reset (sends a link that opens the website) | ✅ (session 17m) | |
+| Push notifications, offline | ⬜ | |
 
 ## §12 Monetization
 | Item | Status |
@@ -192,6 +193,11 @@ Design system v2 ✅ · AI adapters ✅ · sandbox isolation ✅ (no generated c
 | Mobile store prep (icons, app.json 1.0.0, eas.json) | ✅ | Needs `eas init` + store accounts |
 | Launch checklist, runbook, deployment guide | ✅ | docs/ |
 | Error tracking (Sentry) | ⬜ | post-launch (platform refund sync is done) |
+| Password reset on the web | ✅ (session 17m) | Needs custom SMTP in Supabase for real customers |
+| Customer code durable without a persistent disk (git bundles in Postgres) | ✅ (session 17m) | |
+| Route security sweep (every route: sign-in, owner-only, cross-customer) | ✅ (session 17m) | API e2e |
+| Accessibility (axe WCAG 2 A/AA on 22 pages), internal links, load test | ✅ (session 17m) | Bots `site-quality`, `load` |
+| Launch cost plan and database move | ✅ (session 17m) | docs/LAUNCH_PLAN.md, scripts/move-database.sh |
 
 ## Credentials / infrastructure still needed
 Anthropic key (live AI) · Supabase project · live Razorpay + Stripe keys · Docker host for sandbox · hosting provider (Vercel/Cloudflare/Render) · Cloudflare R2 (uploads/screenshots) · Expo EAS token · Inngest + Upstash Redis · Sentry.

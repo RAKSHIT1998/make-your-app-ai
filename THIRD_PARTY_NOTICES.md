@@ -91,3 +91,8 @@ Second web search (2026-11-15), beyond that list:
 | Scaleway Generative APIs | Not added | First 1M tokens free, then billed automatically; needs a payment method, so it is not a free route |
 | Inference.net | Not added | No published free-tier quota or commercial terms for free use |
 
+## axe-core (Mozilla Public License 2.0) — development tool only
+
+Source: https://github.com/dequelabs/axe-core. Installed unmodified from npm as a development dependency of the
+product bots (`tools/bots`), which inject it into pages under test to check accessibility. It is not part of the
+API, website or apps we ship, and is not modified or redistributed.

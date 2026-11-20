@@ -13,7 +13,7 @@ const light = {
   borderStrong: '#D6D3CE',
   text: '#0C0C0B',
   textMuted: '#5F5E5A',
-  textSubtle: '#86847E',
+  textSubtle: '#6B6964', // 4.8–5.5:1 on light surfaces (WCAG AA for small text)
   primary: '#0C0C0B',
   primaryHover: '#2A2A27',
   primaryFg: '#FFFFFF',
@@ -24,7 +24,7 @@ const light = {
   accentText: '#B83A0B',
   success: '#15803D',
   successSoft: '#E9F6EE',
-  warning: '#A85F06',
+  warning: '#965405', // AA on warningSoft
   warningSoft: '#FCF3E2',
   danger: '#C2271B',
   dangerSoft: '#FCECEA',
@@ -42,7 +42,7 @@ const dark: typeof light = {
   borderStrong: '#363531',
   text: '#F3F2EF',
   textMuted: '#A6A49E',
-  textSubtle: '#7A7872',
+  textSubtle: '#8E8C86', // 4.5–5.9:1 on dark surfaces
   primary: '#F3F2EF',
   primaryHover: '#DCDAD5',
   primaryFg: '#0A0A09',

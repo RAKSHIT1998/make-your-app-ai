@@ -18,11 +18,11 @@ export function WorkspaceSwitcher({ collapsed, compact, align = 'start' }: { col
       align={align}
       trigger={
         <button
-          aria-label={`Workspace: ${name}`}
+          aria-label={collapsed ? `Workspace: ${name}` : undefined}
           className={cx('flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface text-[13px] shadow-sm transition-colors hover:border-border-strong', compact ? 'h-9 max-w-[9rem] px-2.5' : 'mb-2 h-8 w-full px-2.5', collapsed && 'justify-center px-0')}
         >
           <span className="flex size-4 shrink-0 items-center justify-center rounded bg-surface-muted text-[10px] font-semibold ring-1 ring-border" aria-hidden>{name.slice(0, 1).toUpperCase()}</span>
-          {!collapsed && <><span className="min-w-0 flex-1 truncate text-left font-medium">{name}</span><ChevronsUpDown className="size-3.5 shrink-0 text-subtle" aria-hidden /></>}
+          {!collapsed && <><span className="min-w-0 flex-1 truncate text-left font-medium"><span className="sr-only">Workspace: </span>{name}</span><ChevronsUpDown className="size-3.5 shrink-0 text-subtle" aria-hidden /></>}
         </button>
       }
     >

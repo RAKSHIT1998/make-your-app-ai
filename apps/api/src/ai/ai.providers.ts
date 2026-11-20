@@ -1,6 +1,7 @@
 import { AnthropicProvider, DEFAULT_ROUTES, OPENAI_COMPATIBLE_PRESETS, OpenAiCompatibleProvider, ProviderRouter, routeKey, type AiProvider, type ModelRoute, type ModelTier, type RouteWindowStats, type TierRate, cloudflareBaseUrl } from '@mya/ai';
 import { Orchestrator } from '@mya/agents';
 import { GitProjectStore } from '@mya/codegen';
+import { PostgresRepoMirror } from '../generation/repo-mirror.js';
 import { DockerSandbox, LocalProcessSandbox, type SandboxProvider } from '@mya/sandbox';
 import type { PrismaClient } from '@mya/db';
 import path from 'node:path';
@@ -80,8 +81,9 @@ export const aiProviders = [
   },
   {
     provide: PROJECT_STORE,
-    inject: [APP_CONFIG],
-    useFactory: (config: AppConfig) => new GitProjectStore(path.resolve(config.STORAGE_DIR)),
+    inject: [APP_CONFIG, PRISMA],
+    useFactory: (config: AppConfig, prisma: PrismaClient) =>
+      new GitProjectStore(path.resolve(config.STORAGE_DIR), config.PROJECT_REPO_MIRROR === 'postgres' ? new PostgresRepoMirror(prisma) : undefined),
   },
   {
     provide: SANDBOX,

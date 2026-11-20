@@ -214,5 +214,5 @@ export function Stat({ label, value, hint }: { label: string; value: ReactNode; 
 }
 
 export function SoonBadge() {
-  return <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-subtle">Soon</span>;
+  return <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted">Soon</span>;
 }

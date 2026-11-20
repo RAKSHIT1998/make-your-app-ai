@@ -33,6 +33,8 @@ const EnvSchema = z
     AI_ROUTING_STRATEGY: z.enum(['margin', 'priority']).default('margin'),
     /** Persistent directory holding one git repository per project. */
     STORAGE_DIR: z.string().default('./.data/projects'),
+    /** Where the durable copy of each project's code lives. 'postgres' (default) makes STORAGE_DIR a cache, so no persistent disk is needed. */
+    PROJECT_REPO_MIRROR: z.enum(['postgres', 'none']).default('postgres'),
     SANDBOX_PROVIDER: z.enum(['local', 'docker', 'none']).default('local'),
     SANDBOX_DOCKER_IMAGE: z.string().default('node:22-bookworm-slim'),
     SANDBOX_DOCKER_INSTALL_NETWORK: z.string().default('mya-registry-egress'),
@@ -122,7 +124,8 @@ const EnvSchema = z
       for (const k of ['WEB_ORIGIN', 'WEB_APP_URL', 'PUBLIC_API_URL'] as const) {
         if (!e[k].split(',').every((x) => x.startsWith('https://') && !/localhost|127\.0\.0\.1/.test(x))) bad(k, `${k} must be a public https:// URL in production.`);
       }
-      if (!e.STORAGE_DIR.startsWith('/')) bad('STORAGE_DIR', 'STORAGE_DIR must be an absolute path on a persistent disk in production.');
+      if (!e.STORAGE_DIR.startsWith('/')) bad('STORAGE_DIR', 'STORAGE_DIR must be an absolute path in production.');
+      if (e.PROJECT_REPO_MIRROR === 'none') bad('PROJECT_REPO_MIRROR', "PROJECT_REPO_MIRROR=none keeps customer code only on this server's disk; use 'postgres' in production.");
     }
   });
 

@@ -142,8 +142,9 @@ export class HostingService {
 
   async deploy(user: AuthUser, projectId: string, ip: string | null, fromDeploymentId?: string) {
     await this.flags.assert('hosting', 'Hosting');
-    const provider = this.requireProvider();
+    // Access first, so strangers learn nothing about this server's set-up.
     const p = await this.projects.getAuthorized(user, projectId, 'member');
+    const provider = this.requireProvider();
     const ent = await this.entitlements(p.organizationId);
     if (!ent.canDeploy) throw new HttpException({ message: 'Deploying websites needs the Creator plan or higher.', code: 'plan_hosting' }, HttpStatus.PAYMENT_REQUIRED);
     if (p.type !== 'website' && p.type !== 'business_website') throw new BadRequestException('Only websites can be deployed today.');
@@ -252,8 +253,8 @@ export class HostingService {
 
   async addDomain(user: AuthUser, projectId: string, hostname: string, ip: string | null) {
     await this.flags.assert('hosting', 'Hosting');
-    const provider = this.requireProvider();
     const p = await this.projects.getAuthorized(user, projectId, 'admin');
+    const provider = this.requireProvider();
     if (!(await this.entitlements(p.organizationId)).canUseCustomDomains) throw new HttpException({ message: 'Custom domains need the Pro plan or higher.', code: 'plan_custom_domains' }, HttpStatus.PAYMENT_REQUIRED);
     const site = await this.prisma.hostingSite.findUnique({ where: { projectId } });
     if (!site) throw new BadRequestException('Deploy the project once before connecting a domain.');
@@ -271,8 +272,8 @@ export class HostingService {
   }
 
   async checkDomain(user: AuthUser, projectId: string, hostname: string) {
-    const provider = this.requireProvider();
     await this.projects.getAuthorized(user, projectId, 'viewer');
+    const provider = this.requireProvider();
     const dom = await this.prisma.domain.findFirst({ where: { projectId, hostname } });
     const site = await this.prisma.hostingSite.findUnique({ where: { projectId } });
     if (!dom || !site) throw new NotFoundException('Domain not found');

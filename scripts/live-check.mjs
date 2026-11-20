@@ -65,6 +65,14 @@ await check('API public data: plans, templates, explore, flags', async () => {
   expect(ex.status === 200, `explore HTTP ${ex.status}`);
   const f = await req(`${V}/flags`);
   expect(f.status === 200, `flags HTTP ${f.status}`);
+  const ch = await req(`${V}/challenges`);
+  expect(ch.status === 200 || ch.status === 503, `challenges HTTP ${ch.status}`);
+  const lb = await req(`${V}/leaderboards/creators`);
+  expect(lb.status === 200 || lb.status === 503, `leaderboard HTTP ${lb.status}`);
+});
+await check('Account deletion needs sign-in and the right confirmation', async () => {
+  const r = await req(`${V}/me`, { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ confirmEmail: 'x@y.z' }) });
+  expect(r.status === 401, `HTTP ${r.status}`);
 });
 await check('API answers unknown routes with 404, not a crash', async () => {
   const r = await req(`${V}/definitely-not-a-route`);
@@ -117,6 +125,11 @@ const pages = [
   ['/login', 'Sign in'],
   ['/legal/terms', ''],
   ['/legal/privacy', ''],
+  ['/legal/refunds', ''],
+  ['/challenges', ''],
+  ['/leaderboard', ''],
+  ['/credits', ''],
+  ['/reset-password', ''],
 ];
 for (const [path, text] of pages) {
   await check(`Website page ${path} loads`, async () => {

@@ -23,7 +23,7 @@ export async function run(bot) {
     await page.getByText('Build anything.').waitFor({ timeout: 60_000 });
     await bot.shot(page, 'login');
     await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill('password123');
+    await page.getByLabel('Password', { exact: true }).fill('password123');
     await page.getByRole('button', { name: 'Sign in' }).last().click();
     await page.getByText(/^Good (morning|afternoon|evening)/).waitFor({ timeout: 30_000 });
     await page.getByText('Credits', { exact: true }).waitFor();
@@ -145,7 +145,7 @@ export async function run(bot) {
     const owner = await bot.page({ label: 'owner' });
     await owner.goto(`${app}/login`);
     await owner.getByLabel('Email').fill(bot.ownerEmail);
-    await owner.getByLabel('Password').fill('password123');
+    await owner.getByLabel('Password', { exact: true }).fill('password123');
     await owner.getByRole('button', { name: 'Sign in' }).last().click();
     await owner.getByText(/^Good (morning|afternoon|evening)/).waitFor({ timeout: 30_000 });
     await owner.goto(`${app}/owner`);

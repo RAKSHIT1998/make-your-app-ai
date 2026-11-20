@@ -8,6 +8,7 @@ Copy `.env.example` to `.env`. **Never commit `.env`.** Values marked *secret* m
 | `SUPABASE_URL` | api | yes* | JWKS verification of Supabase tokens |
 | `SUPABASE_JWT_SECRET` *secret* | api | legacy projects | HS256 verification |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web | yes | Sign-in |
+| `PROJECT_REPO_MIRROR` | api | no (default `postgres`) | Keeps every project's code in the database so `STORAGE_DIR` is only a cache; production refuses `none` |
 | `SUPABASE_SERVICE_ROLE_KEY` *secret* | api | recommended | Account deletion also deletes the Supabase sign-in. Server only |
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_URL` | mobile | yes | Sign-in, API |
 | `EXPO_PUBLIC_WEB_URL` | mobile | yes for stores | Legal pages, public project links, "Open in the web builder" (hidden when empty) |

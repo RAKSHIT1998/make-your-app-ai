@@ -1623,3 +1623,13 @@ model AppRecord {
   @@index([projectId, env, collection, createdAt])
   @@index([ownerId])
 }
+
+/// Durable copy of each project's git repository (a git bundle). The API's local disk is only a cache of these,
+/// so hosts without a persistent disk, restarts and extra instances never lose customer code.
+model ProjectRepo {
+  projectId String   @id @db.Uuid
+  head      String
+  bundle    Bytes
+  sizeBytes Int
+  updatedAt DateTime @updatedAt
+}

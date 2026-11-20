@@ -53,6 +53,9 @@ step that stopped it, the error, and any page errors or server 5xx seen on the w
 | challenges | Weekly challenges, voting and leaderboards |
 | pay-as-you-go | Saved card, Premium AI, off-session charges |
 | phone-app | The iOS/Android app, built for the browser, on a phone screen only |
+| password-reset | Forgot password on web and phone, the emailed link, new password, expired link |
+| site-quality | axe accessibility (WCAG 2 A/AA) on every page, titles, language, meta and social cards, one h1, internal links, no sideways scroll |
+| load | 40 signed-in people and 60 visitors at once: no 5xx, p95 under 2.5 s (desktop run only) |
 
 **Writing a bot:** add `products/<name>.mjs` exporting `meta` (`name`, `product`, `covers`) and `run(bot)`. Use
 `bot.step()` for each thing a customer does. Wait for what a person would wait for, such as a loaded list or a faded

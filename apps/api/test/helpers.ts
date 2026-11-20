@@ -47,7 +47,7 @@ export function newIdentity(label: string) {
  * Billing tests override plans explicitly.
  */
 export async function resetDb(prisma: PrismaClient, free: { includedCredits?: number; maxProjects?: number; dailyCreditLimit?: number | null; maxCreditsPerRun?: number; projectTypes?: string[] } = {}) {
-  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "CreditPack", "AuditLog", "AiProviderConfig", "PaymentWebhookEvent", "GrowthSettings", "PlatformFlag", "RateLimitHit", "Challenge" CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE "User", "Organization", "Plan", "CreditPack", "AuditLog", "AiProviderConfig", "PaymentWebhookEvent", "GrowthSettings", "PlatformFlag", "RateLimitHit", "Challenge", "ProjectRepo" CASCADE');
   await prisma.plan.create({
     data: {
       code: 'free', name: 'Free', includedCredits: free.includedCredits ?? 200, maxProjects: free.maxProjects ?? 100, dailyCreditLimit: free.dailyCreditLimit ?? null,

@@ -25,7 +25,7 @@ export default function PricingPage() {
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-border bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" aria-label="Home"><Logo /></Link>
+          <Link href="/" aria-label="Make Your App AI home"><Logo /></Link>
           <Link href={session ? '/home' : '/login'}><Button size="sm" variant={session ? 'secondary' : 'primary'}>{session ? 'Open app' : 'Sign in'}</Button></Link>
         </div>
       </header>

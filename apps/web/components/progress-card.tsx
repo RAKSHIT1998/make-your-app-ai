@@ -22,7 +22,7 @@ export function ProgressCard() {
           <div className="text-xs text-muted">{streak.current ? `Longest ${streak.longest} day${streak.longest === 1 ? '' : 's'}` : 'Make an AI change today to start one'}</div>
         </div>
       </div>
-      <div className="flex gap-[3px]" aria-label="AI builds over the last 30 days">
+      <div className="flex gap-[3px]" role="img" aria-label={`AI builds on ${streak.last30.filter(Boolean).length} of the last 30 days`}>
         {streak.last30.map((on, i) => <span key={i} className={cx('h-5 flex-1 rounded-[2px]', on ? 'bg-accent' : 'bg-surface-muted')} title={on ? 'Built that day' : undefined} />)}
       </div>
       <div>
@@ -30,7 +30,7 @@ export function ProgressCard() {
         <div className="grid grid-cols-5 gap-2">
           {badges.map((b) => (
             <Tooltip key={b.key} content={`${b.title} — ${b.description}${b.earnedAt ? ` Earned ${new Date(b.earnedAt).toLocaleDateString()}.` : ''}`}>
-              <span tabIndex={0} aria-label={`${b.title}${b.earnedAt ? ' (earned)' : ' (locked)'}`} className={cx('flex aspect-square items-center justify-center rounded-[var(--radius-md)] border', b.earnedAt ? 'border-accent/30 bg-accent-soft text-accent-text' : 'border-dashed border-border text-subtle')}>
+              <span tabIndex={0} role="img" aria-label={`${b.title}${b.earnedAt ? ' (earned)' : ' (locked)'}`} className={cx('flex aspect-square items-center justify-center rounded-[var(--radius-md)] border', b.earnedAt ? 'border-accent/30 bg-accent-soft text-accent-text' : 'border-dashed border-border text-subtle')}>
                 {b.earnedAt ? <Award className="size-4" /> : <Lock className="size-3.5" />}
               </span>
             </Tooltip>

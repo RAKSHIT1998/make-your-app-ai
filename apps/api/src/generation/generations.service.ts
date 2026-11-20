@@ -104,6 +104,11 @@ export class GenerationsService implements OnApplicationBootstrap, OnApplication
    * fails runs whose lease lapsed (their owner crashed or was killed). Several API instances can therefore share one database.
    */
   async onApplicationBootstrap() {
+    if (this.config.NODE_ENV !== 'test') {
+      void this.store.backfillMirror()
+        .then((n) => { if (n) this.log.log(`copied ${n} project repositories from disk into the durable store`); })
+        .catch((e) => this.log.error(`repository backfill failed: ${e instanceof Error ? e.message : e}`));
+    }
     if (!this.config.RECOVER_INTERRUPTED_RUNS) return;
     await this.recoverAbandoned().catch((e) => this.log.error(`recovery failed: ${e instanceof Error ? e.message : e}`));
     if (this.config.NODE_ENV === 'test') return; // tests drive renewLeases()/recoverAbandoned() directly
